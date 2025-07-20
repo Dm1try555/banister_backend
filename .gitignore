@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Django
+*.log
+*.pot
+*.pyc
+*.pyo
+*.db
+*.sqlite3
+media/
+staticfiles/
+
+# Virtualenv
+venv/
+ENV/
+env/
+
+# VSCode
+.vscode/
+
+# PyCharm
+.idea/
+*.iml
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment variables
+.env
+.env.*
+
+# Docker
+*.pid
+docker-compose.override.yml
+
+# Миграции теперь не игнорируются
+*/migrations/*
+!*/migrations/__init__.py
