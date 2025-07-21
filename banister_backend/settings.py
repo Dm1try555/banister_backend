@@ -41,6 +41,9 @@ INSTALLED_APPS = [
     'dashboard',
     'admin_panel',
     'public_core',
+    'documents',
+
+    'corsheaders',
 ]
 
 MIDDLEWARE = [
@@ -51,7 +54,10 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
 ]
+
+CORS_ALLOW_ALL_ORIGINS = True
 
 ROOT_URLCONF = 'banister_backend.urls'
 
@@ -83,7 +89,8 @@ DATABASES = {
         'NAME': os.getenv('POSTGRES_DB', 'banister_db'),
         'USER': os.getenv('POSTGRES_USER', 'banister_user'),
         'PASSWORD': os.getenv('POSTGRES_PASSWORD', 'banister_pass'),
-        'HOST': os.getenv('DB_HOST', 'db'),
+        'HOST': os.getenv('DB_HOST', 'db'), #for docker
+        # 'HOST': os.getenv('DB_HOST', 'localhost'), #for local
         'PORT': '5432',
     }
 }
@@ -104,16 +111,6 @@ SIMPLE_JWT = {
 
 AUTH_USER_MODEL = 'authentication.User'
 
-SWAGGER_SETTINGS = {
-    'SECURITY_DEFINITIONS': {
-        'Bearer': {
-            'type': 'apiKey',
-            'name': 'Authorization',
-            'in': 'header'
-        }
-    }
-}
-
 FIREBASE_CONFIG = {
     'apiKey': os.getenv('FIREBASE_API_KEY', 'your-firebase-api-key'),
     'authDomain': os.getenv('FIREBASE_AUTH_DOMAIN', 'your-firebase-auth-domain'),
@@ -121,6 +118,18 @@ FIREBASE_CONFIG = {
     'storageBucket': os.getenv('FIREBASE_STORAGE_BUCKET', 'your-firebase-storage-bucket'),
     'messagingSenderId': os.getenv('FIREBASE_MESSAGING_SENDER_ID', 'your-firebase-messaging-sender-id'),
     'appId': os.getenv('FIREBASE_APP_ID', 'your-firebase-app-id')
+}
+
+SWAGGER_SETTINGS = {
+    'SECURITY_DEFINITIONS': {
+        'Bearer': {
+            'type': 'apiKey',
+            'name': 'Authorization',
+            'in': 'header',
+            'description': 'JWT Authorization header using the Bearer scheme. Example: "Authorization: Bearer {token}"',
+        }
+    },
+    'USE_SESSION_AUTH': False,
 }
 
 

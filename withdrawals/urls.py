@@ -1,7 +1,7 @@
 from django.urls import path
-from .views import WithdrawalCreateView, WithdrawalHistoryView
+from .views import WithdrawalHistoryView, WithdrawalCreateView
 
 urlpatterns = [
-    path('', WithdrawalCreateView.as_view(), name='withdrawal-create'),
-    path('', WithdrawalHistoryView.as_view(), name='withdrawal-history'),
+    path('', WithdrawalHistoryView.as_view(), name='withdrawal-history'),  # GET /api/v1/withdrawals/
+    path('', WithdrawalCreateView.as_view(), name='withdrawal-create'),  # POST /api/v1/withdrawals/
 ]

@@ -22,3 +22,8 @@ class MessageCreateView(generics.CreateAPIView):
     
     def perform_create(self, serializer):
         serializer.save(sender=self.request.user)
+
+class MessageDetailView(generics.RetrieveAPIView):
+    queryset = Message.objects.all()
+    serializer_class = MessageSerializer
+    permission_classes = [IsAuthenticated]

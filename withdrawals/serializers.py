@@ -6,4 +6,4 @@ class WithdrawalSerializer(serializers.ModelSerializer):
     provider = UserSerializer(read_only=True)
     class Meta:
         model = Withdrawal
-        fields = ['id', 'provider', 'amount', 'status', 'requested_at']
+        fields = ['id', 'provider', 'amount', 'status', 'created_at']

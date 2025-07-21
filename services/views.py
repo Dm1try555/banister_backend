@@ -1,21 +1,14 @@
 from rest_framework import generics
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.permissions import AllowAny
 from .models import Service
 from .serializers import ServiceSerializer
 
-class ServiceListCreateView(generics.ListCreateAPIView):
+class ServiceListView(generics.ListAPIView):
     queryset = Service.objects.all()
     serializer_class = ServiceSerializer
-    
-    def get_permissions(self):
-        if self.request.method == 'GET':
-            return [AllowAny()]
-        return [IsAuthenticated()]
-    
-    def perform_create(self, serializer):
-        serializer.save(provider=self.request.user)
+    permission_classes = [AllowAny]
 
-class ServiceDetailView(generics.RetrieveUpdateDestroyAPIView):
+class ServiceDetailView(generics.RetrieveAPIView):
     queryset = Service.objects.all()
     serializer_class = ServiceSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]

@@ -7,8 +7,8 @@ class Chat(models.Model):
         ('group', 'Group'),
     )
     type = models.CharField(max_length=10, choices=TYPE_CHOICES)
-    created_at = models.DateTimeField(auto_now_add=True)
     participants = models.ManyToManyField(User, through='ChatUser')
+    created_at = models.DateTimeField(auto_now_add=True)
 
 class ChatUser(models.Model):
     chat = models.ForeignKey(Chat, on_delete=models.CASCADE)

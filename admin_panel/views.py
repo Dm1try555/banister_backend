@@ -22,14 +22,24 @@ class AdminIssueListView(generics.ListAPIView):
     serializer_class = AdminIssueSerializer
     permission_classes = [IsAdminUser]
 
-class AdminIssueResolveView(APIView):
+class AdminIssueCreateView(generics.CreateAPIView):
+    queryset = AdminIssue.objects.all()
+    serializer_class = AdminIssueSerializer
     permission_classes = [IsAdminUser]
-    
-    def post(self, request, pk):
-        try:
-            issue = AdminIssue.objects.get(pk=pk)
-            issue.status = 'resolved'
-            issue.save()
-            return Response(AdminIssueSerializer(issue).data)
-        except AdminIssue.DoesNotExist:
-            return Response({'error': 'Issue not found'}, status=404)
+
+class AdminIssueDetailView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = AdminIssue.objects.all()
+    serializer_class = AdminIssueSerializer
+    permission_classes = [IsAdminUser]
+
+class CustomerListView(generics.ListAPIView):
+    serializer_class = UserSerializer
+    permission_classes = [IsAdminUser]
+    def get_queryset(self):
+        return User.objects.filter(role='customer')
+
+class ProviderListView(generics.ListAPIView):
+    serializer_class = UserSerializer
+    permission_classes = [IsAdminUser]
+    def get_queryset(self):
+        return User.objects.filter(role='provider')
