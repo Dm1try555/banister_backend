@@ -24,7 +24,7 @@ urlpatterns = [
     path('api/v1/auth/', include('authentication.urls')),
 
     # Пользователи и роли
-    path('api/v1/users/', include('admin_panel.urls')),  # users endpoints (можно скорректировать после доработки admin_panel)
+    path('api/v1/users/', include('admin_panel.urls')),
 
     # Бронирования
     path('api/v1/bookings/', include('bookings.urls')),

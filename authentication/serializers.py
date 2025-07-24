@@ -16,6 +16,20 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = ['id', 'email', 'phone', 'role', 'profile']
 
+    def update(self, instance, validated_data):
+        profile_data = validated_data.pop('profile', None)
+        # Обновляем основные поля пользователя
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        # Обновляем профиль, если он есть в запросе
+        if profile_data:
+            profile = instance.profile
+            for attr, value in profile_data.items():
+                setattr(profile, attr, value)
+            profile.save()
+        return instance
+
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
     confirm_password = serializers.CharField(write_only=True)
