@@ -1,5 +1,7 @@
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseUserManager
 from django.db import models
+from django.utils import timezone
+import uuid
 
 class UserManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
@@ -40,6 +42,7 @@ class Profile(models.Model):
     last_name = models.CharField(max_length=50, blank=False, null=False, default='Surname')
     avatar_url = models.URLField(blank=True, null=True)
     bio = models.TextField(blank=True)
+    is_email_confirmed = models.BooleanField(default=False)
 
 class VerificationCode(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
@@ -50,3 +53,12 @@ class VerificationCode(models.Model):
 
     def __str__(self):
         return f"{self.email or self.phone}: {self.code}"
+
+class EmailConfirmationCode(models.Model):
+    email = models.EmailField()
+    code = models.CharField(max_length=64, default=uuid.uuid4, unique=True)
+    created_at = models.DateTimeField(default=timezone.now)
+    is_used = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"{self.email} - {self.code} - {'used' if self.is_used else 'unused'}"

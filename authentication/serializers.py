@@ -1,9 +1,10 @@
 # authentication/serializers.py
 from rest_framework import serializers
-from .models import User, Profile, VerificationCode
+from .models import User, Profile, VerificationCode, EmailConfirmationCode
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from providers.models import Provider
 from rest_framework_simplejwt.exceptions import AuthenticationFailed
+from error_handling.exceptions import InvalidEmailError
 
 class ProfileSerializer(serializers.ModelSerializer):
     class Meta:
@@ -31,6 +32,7 @@ class UserSerializer(serializers.ModelSerializer):
         return instance
 
 class RegisterSerializer(serializers.ModelSerializer):
+    email = serializers.EmailField()  # Явная валидация email
     password = serializers.CharField(write_only=True)
     confirm_password = serializers.CharField(write_only=True)
     first_name = serializers.CharField(write_only=True)
@@ -40,6 +42,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         model = User
         fields = ['email', 'phone', 'role', 'password', 'confirm_password', 'first_name', 'last_name']
     
+
     def validate(self, data):
         if data['password'] != data['confirm_password']:
             raise serializers.ValidationError({'confirm_password': 'Passwords do not match.'})
@@ -49,15 +52,16 @@ class RegisterSerializer(serializers.ModelSerializer):
         first_name = validated_data.pop('first_name')
         last_name = validated_data.pop('last_name')
         validated_data.pop('confirm_password')
+        role = self._kwargs.get('role', validated_data.pop('role'))
         user = User.objects.create_user(
             email=validated_data['email'],
             phone=validated_data.get('phone'),
-            role=validated_data.get('role', 'customer'),
+            role=role,
             password=validated_data['password']
         )
         Profile.objects.create(user=user, first_name=first_name, last_name=last_name)
         if user.role == 'provider':
-            Provider.objects.create(user=user)  # Create Provider instance for providers
+            Provider.objects.create(user=user)
         return user
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
@@ -112,3 +116,9 @@ class QuickRegisterVerifySerializer(serializers.Serializer):
         if not data.get('code'):
             raise serializers.ValidationError('Код обязателен')
         return data
+
+class EmailConfirmationCodeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EmailConfirmationCode
+        fields = ['email', 'code', 'created_at', 'is_used']
+        read_only_fields = ['created_at', 'is_used']

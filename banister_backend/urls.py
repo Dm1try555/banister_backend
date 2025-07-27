@@ -56,4 +56,7 @@ urlpatterns = [
 
     # swagger
     path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
+    
+    # Тестирование обработки ошибок
+    path('api/v1/error-test/', include('error_handling.urls')),
 ]
