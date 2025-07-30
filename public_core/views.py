@@ -7,23 +7,24 @@ from providers.serializers import ProviderSerializer
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 
-# Импорт системы обработки ошибок
+# Import error handling system
 from error_handling.views import BaseAPIView
 from error_handling.exceptions import (
     NotFoundError, ValidationError
 )
 
 class PublicServiceListView(BaseAPIView, generics.ListAPIView):
+    """Public list of all services"""
     queryset = Service.objects.all()
     serializer_class = ServiceSerializer
     permission_classes = [AllowAny]
 
     @swagger_auto_schema(
-        operation_description="Получить публичный список всех услуг",
+        operation_description="Get public list of all services",
         responses={
-            200: openapi.Response('Список публичных услуг', ServiceSerializer(many=True)),
+            200: openapi.Response('Public service list', ServiceSerializer(many=True)),
         },
-        tags=['Публичные данные']
+        tags=['Public data']
     )
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
@@ -31,20 +32,21 @@ class PublicServiceListView(BaseAPIView, generics.ListAPIView):
         
         return self.success_response(
             data=serializer.data,
-            message='Список публичных услуг получен успешно'
+            message='Public service list retrieved successfully'
         )
 
 class PublicProviderListView(BaseAPIView, generics.ListAPIView):
+    """Public list of all providers"""
     queryset = Provider.objects.all()
     serializer_class = ProviderSerializer
     permission_classes = [AllowAny]
 
     @swagger_auto_schema(
-        operation_description="Получить публичный список всех провайдеров",
+        operation_description="Get public list of all providers",
         responses={
-            200: openapi.Response('Список публичных провайдеров', ProviderSerializer(many=True)),
+            200: openapi.Response('Public provider list', ProviderSerializer(many=True)),
         },
-        tags=['Публичные данные']
+        tags=['Public data']
     )
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
@@ -52,21 +54,22 @@ class PublicProviderListView(BaseAPIView, generics.ListAPIView):
         
         return self.success_response(
             data=serializer.data,
-            message='Список публичных поставщиков услуг получен успешно'
+            message='Public provider list retrieved successfully'
         )
 
 class PublicProviderDetailView(BaseAPIView, generics.RetrieveAPIView):
+    """Public detailed provider information"""
     queryset = Provider.objects.all()
     serializer_class = ProviderSerializer
     permission_classes = [AllowAny]
 
     @swagger_auto_schema(
-        operation_description="Получить публичную информацию о провайдере по ID",
+        operation_description="Get public provider information by ID",
         responses={
-            200: openapi.Response('Информация о провайдере', ProviderSerializer),
-            404: 'Провайдер не найден',
+            200: openapi.Response('Provider information', ProviderSerializer),
+            404: 'Provider not found',
         },
-        tags=['Публичные данные']
+        tags=['Public data']
     )
     def retrieve(self, request, *args, **kwargs):
         try:
@@ -75,18 +78,18 @@ class PublicProviderDetailView(BaseAPIView, generics.RetrieveAPIView):
             
             return self.success_response(
                 data=serializer.data,
-                message='Информация о поставщике услуг получена успешно'
+                message='Provider information retrieved successfully'
             )
             
         except Provider.DoesNotExist:
             return self.error_response(
                 error_number='PROVIDER_NOT_FOUND',
-                error_message='Поставщик услуг не найден',
+                error_message='Provider not found',
                 status_code=404
             )
         except Exception as e:
             return self.error_response(
                 error_number='PUBLIC_PROVIDER_RETRIEVE_ERROR',
-                error_message=f'Ошибка получения информации о поставщике услуг: {str(e)}',
+                error_message=f'Error retrieving provider information: {str(e)}',
                 status_code=500
             )

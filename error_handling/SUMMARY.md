@@ -8,7 +8,7 @@
 - **utils.py** - Утилиты для создания ответов и обработки ошибок
 - **views.py** - Базовый BaseAPIView класс
 - **urls.py** - Тестовые endpoints
-- **examples.py** - Примеры использования
+
 - **README.md** - Подробная документация
 - **MIGRATION_GUIDE.md** - Руководство по миграции
 
@@ -119,7 +119,7 @@ raise NotFoundError('Ресурс не найден')
 ## Файлы для изучения
 
 - `error_handling/README.md` - Основная документация
-- `error_handling/examples.py` - Примеры использования
+
 - `error_handling/MIGRATION_GUIDE.md` - Руководство по миграции
 - `authentication/views_updated.py` - Пример миграции
 - `bookings/views_updated.py` - Пример миграции 

@@ -10,14 +10,10 @@ logger = logging.getLogger(__name__)
 
 
 class BaseAPIView(APIView, ErrorResponseMixin):
-    """
-    Базовый класс для всех API view с встроенной обработкой ошибок
-    """
+    """Base class for all API views with built-in error handling"""
     
     def handle_exception(self, exc):
-        """
-        Переопределение обработки исключений для стандартизации ответов
-        """
+        """Override exception handling for standardized responses"""
         if isinstance(exc, BaseCustomException):
             return create_error_response(
                 error_number=exc.error_number,
@@ -25,22 +21,20 @@ class BaseAPIView(APIView, ErrorResponseMixin):
                 status_code=exc.status_code
             )
         
-        # Логирование неожиданных ошибок
+        # Log unexpected errors
         logger.error(f"Unexpected error in {self.__class__.__name__}: {str(exc)}", exc_info=True)
         
         return create_error_response(
             error_number='UNKNOWN_ERROR',
-            error_message='Произошла неизвестная ошибка',
+            error_message='An unknown error occurred',
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 
     def finalize_response(self, request, response, *args, **kwargs):
-        """
-        Финальная обработка ответа для добавления стандартных полей
-        """
+        """Finalize response to add standard fields"""
         response = super().finalize_response(request, response, *args, **kwargs)
         
-        # Добавляем timestamp к успешным ответам, если его нет
+        # Add timestamp to successful responses if not present
         if response.status_code < 400 and hasattr(response, 'data'):
             if isinstance(response.data, dict) and 'timestamp' not in response.data:
                 from django.utils import timezone
@@ -62,39 +56,33 @@ class BaseAPIView(APIView, ErrorResponseMixin):
 
 
 class ErrorTestView(BaseAPIView):
-    """
-    Тестовый view для проверки работы системы обработки ошибок
-    """
+    """Test view for checking error handling system"""
     
     def get(self, request):
-        """
-        Тест успешного ответа
-        """
+        """Test successful response"""
         return self.success_response(
-            data={'message': 'Тест успешного ответа'},
-            message='Тест прошел успешно'
+            data={'message': 'Test successful response'},
+            message='Test passed successfully'
         )
     
     def post(self, request):
-        """
-        Тест различных типов ошибок
-        """
+        """Test different types of errors"""
         error_type = request.data.get('error_type', 'validation')
         
         if error_type == 'validation':
             from .exceptions import ValidationError
-            raise ValidationError('Тестовая ошибка валидации')
+            raise ValidationError('Test validation error')
         elif error_type == 'authentication':
             from .exceptions import AuthenticationError
-            raise AuthenticationError('Тестовая ошибка аутентификации')
+            raise AuthenticationError('Test authentication error')
         elif error_type == 'not_found':
             from .exceptions import NotFoundError
-            raise NotFoundError('Тестовая ошибка - ресурс не найден')
+            raise NotFoundError('Test not found error')
         elif error_type == 'server':
             from .exceptions import ServerError
-            raise ServerError('Тестовая ошибка сервера')
+            raise ServerError('Test server error')
         else:
             return self.success_response(
-                data={'message': 'Тест без ошибок'},
-                message='Тест прошел успешно'
+                data={'message': 'Test without errors'},
+                message='Test passed successfully'
             ) 

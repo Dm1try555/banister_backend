@@ -20,43 +20,42 @@ schema_view = get_schema_view(
 urlpatterns = [
     path('admin/', admin.site.urls),
 
-    # Аутентификация и профиль
+    # Authentication and profile
     path('api/v1/auth/', include('authentication.urls')),
 
-    # Пользователи и роли
-    path('api/v1/users/', include('admin_panel.urls')),
-
-    # Бронирования
+    # Bookings
     path('api/v1/bookings/', include('bookings.urls')),
 
-    # Услуги
+    # Services
     path('api/v1/services/', include('services.urls')),
 
-    # Сообщения
-    path('api/v1/message/', include('message.urls')),
-
-    # Платежи и история
+    # Payments
     path('api/v1/payments/', include('payments.urls')),
+
+    # Withdrawals
     path('api/v1/withdrawals/', include('withdrawals.urls')),
 
-    # Документы
+    # Messages and chats
+    path('api/v1/message/', include('message.urls')),
+
+    # Schedule
+    path('api/v1/schedules/', include('schedules.urls')),
+
+    # Documents
     path('api/v1/documents/', include('documents.urls')),
 
-    # Управление (management)
-    # path('api/v1/management/', include('management.urls')),  # заглушка, если потребуется отдельное приложение
+    # Admin panel
+    path('api/v1/users/', include('admin_panel.urls')),
 
-    # Календарь
-    path('api/v1/schedule/', include('schedules.urls')),
-
-    # Дашборд
+    # Dashboard
     path('api/v1/dashboard/', include('dashboard.urls')),
 
-    # Публичные сервисы
+    # Public services
     path('api/v1/public/', include('public_core.urls')),
+
+    # File storage
+    path('api/v1/files/', include('file_storage.urls')),
 
     # swagger
     path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
-    
-    # Тестирование обработки ошибок
-    path('api/v1/error-test/', include('error_handling.urls')),
 ]

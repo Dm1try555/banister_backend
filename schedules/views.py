@@ -3,7 +3,7 @@ from rest_framework.permissions import IsAuthenticated
 from .models import Schedule
 from .serializers import ScheduleSerializer
 
-# Импорт системы обработки ошибок
+# Import error handling system
 from error_handling.views import BaseAPIView
 from error_handling.exceptions import (
     PermissionError, ValidationError, NotFoundError, ConflictError
@@ -19,18 +19,18 @@ class ScheduleListCreateView(BaseAPIView, generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
     
     def get_queryset(self):
-        # Для генерации схемы swagger или если нет user.role — возвращаем пустой queryset
+        # For swagger schema generation or if no user.role — return empty queryset
         if getattr(self, 'swagger_fake_view', False) or not hasattr(self.request.user, 'role'):
             return Schedule.objects.none()
         return Schedule.objects.filter(provider=self.request.user)
 
     @transaction.atomic
     def perform_create(self, serializer):
-        # Проверка роли пользователя
+        # Check user role
         if self.request.user.role != 'provider':
-            raise PermissionError('Только поставщики услуг могут создавать расписание')
+            raise PermissionError('Only service providers can create schedules')
         
-        # Проверка на конфликт времени
+        # Check for time conflict
         start_time = serializer.validated_data.get('start_time')
         end_time = serializer.validated_data.get('end_time')
         date = serializer.validated_data.get('date')
@@ -43,46 +43,46 @@ class ScheduleListCreateView(BaseAPIView, generics.ListCreateAPIView):
         ).first()
         
         if conflicting_schedule:
-            raise ConflictError('Выбранное время уже занято в расписании')
+            raise ConflictError('Selected time is already booked in the schedule')
         
         serializer.save(provider=self.request.user)
 
     @swagger_auto_schema(
-        operation_description="Получить расписание провайдера (все слоты)",
+        operation_description="Get provider's schedule (all slots)",
         responses={
-            200: openapi.Response('Список расписаний', ScheduleSerializer(many=True)),
+            200: openapi.Response('Schedule list', ScheduleSerializer(many=True)),
         },
-        tags=['Расписание']
+        tags=['Schedule']
     )
     def list(self, request, *args, **kwargs):
         try:
-            # Фильтрация расписания по провайдеру
+            # Filter schedule by provider
             queryset = self.get_queryset()
             serializer = self.get_serializer(queryset, many=True)
             
             return self.success_response(
                 data=serializer.data,
-                message='Расписание получено успешно'
+                message='Schedule retrieved successfully'
             )
             
         except Exception as e:
             return self.error_response(
                 error_number='SCHEDULE_LIST_ERROR',
-                error_message=f'Ошибка получения расписания: {str(e)}',
+                error_message=f'Error retrieving schedule: {str(e)}',
                 status_code=500
             )
 
     @transaction.atomic
     @swagger_auto_schema(
-        operation_description="Создать новый слот в расписании (только для провайдера)",
+        operation_description="Create new schedule slot (providers only)",
         request_body=ScheduleSerializer,
         responses={
-            201: openapi.Response('Расписание создано', ScheduleSerializer),
-            400: 'Ошибка валидации',
-            403: 'Нет прав',
-            409: 'Конфликт времени',
+            201: openapi.Response('Schedule created', ScheduleSerializer),
+            400: 'Validation error',
+            403: 'No permissions',
+            409: 'Time conflict',
         },
-        tags=['Расписание']
+        tags=['Schedule']
     )
     def create(self, request, *args, **kwargs):
         try:
@@ -95,13 +95,13 @@ class ScheduleListCreateView(BaseAPIView, generics.ListCreateAPIView):
             
             return self.success_response(
                 data=serializer.data,
-                message='Расписание создано успешно'
+                message='Schedule created successfully'
             )
             
         except Exception as e:
             return self.error_response(
                 error_number='SCHEDULE_CREATE_ERROR',
-                error_message=f'Ошибка создания расписания: {str(e)}',
+                error_message=f'Error creating schedule: {str(e)}',
                 status_code=500
             )
 
@@ -110,59 +110,59 @@ class ScheduleDetailView(BaseAPIView, generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        # Для генерации схемы swagger или если нет user.role — возвращаем пустой queryset
+        # For swagger schema generation or if no user.role — return empty queryset
         if getattr(self, 'swagger_fake_view', False) or not hasattr(self.request.user, 'role'):
             return Schedule.objects.none()
         return Schedule.objects.filter(provider=self.request.user)
 
     @swagger_auto_schema(
-        operation_description="Получить подробную информацию о слоте расписания по ID",
+        operation_description="Get detailed information about a schedule slot by ID",
         responses={
-            200: openapi.Response('Информация о расписании', ScheduleSerializer),
-            404: 'Расписание не найдено',
+            200: openapi.Response('Schedule information', ScheduleSerializer),
+            404: 'Schedule not found',
         },
-        tags=['Расписание']
+        tags=['Schedule']
     )
     def retrieve(self, request, *args, **kwargs):
         try:
             instance = self.get_object()
             
-            # Проверка прав доступа
+            # Check access rights
             if instance.provider != self.request.user:
-                raise PermissionError('Нет прав для просмотра этого расписания')
+                raise PermissionError('No permissions to view this schedule')
             
             serializer = self.get_serializer(instance)
             
             return self.success_response(
                 data=serializer.data,
-                message='Информация о расписании получена успешно'
+                message='Schedule information retrieved successfully'
             )
             
         except Schedule.DoesNotExist:
             return self.error_response(
                 error_number='SCHEDULE_NOT_FOUND',
-                error_message='Расписание не найдено',
+                error_message='Schedule not found',
                 status_code=404
             )
         except Exception as e:
             return self.error_response(
                 error_number='SCHEDULE_RETRIEVE_ERROR',
-                error_message=f'Ошибка получения информации о расписании: {str(e)}',
+                error_message=f'Error retrieving schedule information: {str(e)}',
                 status_code=500
             )
 
     @transaction.atomic
     @swagger_auto_schema(
-        operation_description="Обновить слот расписания (только для владельца)",
+        operation_description="Update schedule slot (owner only)",
         request_body=ScheduleSerializer,
         responses={
-            200: openapi.Response('Расписание обновлено', ScheduleSerializer),
-            400: 'Ошибка валидации',
-            403: 'Нет прав',
-            404: 'Расписание не найдено',
-            409: 'Конфликт времени',
+            200: openapi.Response('Schedule updated', ScheduleSerializer),
+            400: 'Validation error',
+            403: 'No permissions',
+            404: 'Schedule not found',
+            409: 'Time conflict',
         },
-        tags=['Расписание']
+        tags=['Schedule']
     )
     def update(self, request, *args, **kwargs):
         try:
@@ -175,48 +175,48 @@ class ScheduleDetailView(BaseAPIView, generics.RetrieveUpdateDestroyAPIView):
             
             return self.success_response(
                 data=serializer.data,
-                message='Расписание обновлено успешно'
+                message='Schedule updated successfully'
             )
             
         except Schedule.DoesNotExist:
             return self.error_response(
                 error_number='SCHEDULE_NOT_FOUND',
-                error_message='Расписание не найдено',
+                error_message='Schedule not found',
                 status_code=404
             )
         except Exception as e:
             return self.error_response(
                 error_number='SCHEDULE_UPDATE_ERROR',
-                error_message=f'Ошибка обновления расписания: {str(e)}',
+                error_message=f'Error updating schedule: {str(e)}',
                 status_code=500
             )
 
     @swagger_auto_schema(
-        operation_description="Удалить слот расписания (только для владельца)",
+        operation_description="Delete schedule slot (owner only)",
         responses={
-            200: 'Расписание удалено',
-            403: 'Нет прав',
-            404: 'Расписание не найдено',
+            200: 'Schedule deleted',
+            403: 'No permissions',
+            404: 'Schedule not found',
         },
-        tags=['Расписание']
+        tags=['Schedule']
     )
     def destroy(self, request, *args, **kwargs):
         try:
             self.perform_destroy(self.get_object())
             
             return self.success_response(
-                message='Расписание удалено успешно'
+                message='Schedule deleted successfully'
             )
             
         except Schedule.DoesNotExist:
             return self.error_response(
                 error_number='SCHEDULE_NOT_FOUND',
-                error_message='Расписание не найдено',
+                error_message='Schedule not found',
                 status_code=404
             )
         except Exception as e:
             return self.error_response(
                 error_number='SCHEDULE_DELETE_ERROR',
-                error_message=f'Ошибка удаления расписания: {str(e)}',
+                error_message=f'Error deleting schedule: {str(e)}',
                 status_code=500
             )

@@ -5,17 +5,7 @@ from .exceptions import BaseCustomException
 
 
 def create_error_response(error_number, error_message, status_code=status.HTTP_400_BAD_REQUEST):
-    """
-    Создание стандартизированного ответа с ошибкой
-    
-    Args:
-        error_number (str): Код ошибки
-        error_message (str): Сообщение об ошибке
-        status_code (int): HTTP статус код
-    
-    Returns:
-        Response: Стандартизированный ответ с ошибкой
-    """
+    """Creating a standardized error response"""
     response_data = {
         'success': False,
         'error': {
@@ -28,17 +18,8 @@ def create_error_response(error_number, error_message, status_code=status.HTTP_4
     return Response(response_data, status=status_code)
 
 
-def create_success_response(data=None, message="Операция выполнена успешно"):
-    """
-    Создание стандартизированного успешного ответа
-    
-    Args:
-        data: Данные для ответа
-        message (str): Сообщение об успехе
-    
-    Returns:
-        Response: Стандартизированный успешный ответ
-    """
+def create_success_response(data=None, message="Operation completed successfully"):
+    """Creating a standardized successful response"""
     response_data = {
         'success': True,
         'message': message,
@@ -52,15 +33,7 @@ def create_success_response(data=None, message="Операция выполне�
 
 
 def handle_exception(func):
-    """
-    Декоратор для обработки исключений в view методах
-    
-    Args:
-        func: Функция для декорирования
-    
-    Returns:
-        function: Обернутая функция с обработкой ошибок
-    """
+    """Decorator for handling exceptions in view methods"""
     def wrapper(*args, **kwargs):
         try:
             return func(*args, **kwargs)
@@ -71,14 +44,14 @@ def handle_exception(func):
                 status_code=e.status_code
             )
         except Exception as e:
-            # Логирование неожиданных ошибок
+            # Logging unexpected errors
             import logging
             logger = logging.getLogger(__name__)
             logger.error(f"Unexpected error in {func.__name__}: {str(e)}", exc_info=True)
             
             return create_error_response(
                 error_number='UNKNOWN_ERROR',
-                error_message='Произошла неизвестная ошибка',
+                error_message='An unknown error occurred',
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
     
@@ -86,37 +59,23 @@ def handle_exception(func):
 
 
 class ErrorResponseMixin:
-    """
-    Миксин для добавления методов создания ответов с ошибками в view классы
-    """
+    """Mixin for adding methods for creating error responses to view classes"""
     
     def error_response(self, error_number, error_message, status_code=status.HTTP_400_BAD_REQUEST):
-        """
-        Создание ответа с ошибкой
-        """
+        """Creating an error response"""
         return create_error_response(error_number, error_message, status_code)
     
-    def success_response(self, data=None, message="Операция выполнена успешно"):
-        """
-        Создание успешного ответа
-        """
+    def success_response(self, data=None, message="Operation completed successfully"):
+        """Creating a successful response"""
         return create_success_response(data, message)
     
     def validation_error_response(self, field_errors):
-        """
-        Создание ответа с ошибками валидации
-        
-        Args:
-            field_errors (dict): Словарь с ошибками по полям
-        
-        Returns:
-            Response: Ответ с ошибками валидации
-        """
+        """Creating a response with validation errors"""
         response_data = {
             'success': False,
             'error': {
                 'error_number': 'VALIDATION_ERROR',
-                'error_message': 'Ошибка валидации данных',
+                'error_message': 'Data validation error',
                 'field_errors': field_errors,
                 'timestamp': timezone.now().isoformat()
             }
@@ -126,20 +85,12 @@ class ErrorResponseMixin:
 
 
 def format_validation_errors(serializer_errors):
-    """
-    Форматирование ошибок валидации сериализатора
-    
-    Args:
-        serializer_errors: Ошибки из serializer.errors
-    
-    Returns:
-        dict: Отформатированные ошибки
-    """
+    """Formatting validation errors of the serializer"""
     formatted_errors = {}
     
     for field, errors in serializer_errors.items():
         if isinstance(errors, list):
-            formatted_errors[field] = errors[0] if errors else "Ошибка валидации"
+            formatted_errors[field] = errors[0] if errors else "Validation error"
         else:
             formatted_errors[field] = str(errors)
     

@@ -3,7 +3,7 @@ from rest_framework import generics, permissions
 from .models import Document
 from .serializers import DocumentSerializer
 
-# Импорт системы обработки ошибок
+# Import error handling system
 from error_handling.views import BaseAPIView
 from error_handling.exceptions import (
     PermissionError, ValidationError, NotFoundError
@@ -29,15 +29,15 @@ class DocumentListCreateView(BaseAPIView, generics.ListCreateAPIView):
     def perform_create(self, serializer):
         file = self.request.FILES.get('file')
         if file and file.size > 10 * 1024 * 1024:
-            raise ValidationError('Размер файла превышает 10MB')
+            raise ValidationError('File size exceeds 10MB')
         serializer.save(user=self.request.user)
 
     @swagger_auto_schema(
-        operation_description="Получить список всех документов пользователя",
+        operation_description="Get list of all user documents",
         responses={
-            200: openapi.Response('Список документов', DocumentSerializer(many=True)),
+            200: openapi.Response('Document list', DocumentSerializer(many=True)),
         },
-        tags=['Документы']
+        tags=['Documents']
     )
     def list(self, request, *args, **kwargs):
         try:
@@ -46,26 +46,26 @@ class DocumentListCreateView(BaseAPIView, generics.ListCreateAPIView):
             
             return self.success_response(
                 data=serializer.data,
-                message='Список документов получен успешно'
+                message='Document list retrieved successfully'
             )
             
         except Exception as e:
             return self.error_response(
                 error_number='DOCUMENT_LIST_ERROR',
-                error_message=f'Ошибка получения списка документов: {str(e)}',
+                error_message=f'Error retrieving document list: {str(e)}',
                 status_code=500
             )
 
     @transaction.atomic
     @swagger_auto_schema(
-        operation_description="Загрузить новый документ пользователя",
+        operation_description="Upload new user document",
         request_body=DocumentSerializer,
         responses={
-            201: openapi.Response('Документ загружен', DocumentSerializer),
-            400: 'Ошибка валидации',
-            403: 'Нет прав',
+            201: openapi.Response('Document uploaded', DocumentSerializer),
+            400: 'Validation error',
+            403: 'No permissions',
         },
-        tags=['Документы']
+        tags=['Documents']
     )
     def create(self, request, *args, **kwargs):
         try:
@@ -78,13 +78,13 @@ class DocumentListCreateView(BaseAPIView, generics.ListCreateAPIView):
             
             return self.success_response(
                 data=serializer.data,
-                message='Документ загружен успешно'
+                message='Document uploaded successfully'
             )
             
         except Exception as e:
             return self.error_response(
                 error_number='DOCUMENT_CREATE_ERROR',
-                error_message=f'Ошибка загрузки документа: {str(e)}',
+                error_message=f'Error uploading document: {str(e)}',
                 status_code=500
             )
 
@@ -98,38 +98,36 @@ class DocumentDeleteView(BaseAPIView, generics.DestroyAPIView):
         return Document.objects.filter(user=self.request.user)
 
     def perform_destroy(self, instance):
-        if instance.user != self.request.user:
-            raise PermissionError('Нет прав для удаления этого документа')
+        # Delete the file from storage if needed
         instance.delete()
 
     @swagger_auto_schema(
-        operation_description="Удалить документ пользователя по ID",
+        operation_description="Delete user document by ID",
         responses={
-            200: 'Документ удален',
-            403: 'Нет прав',
-            404: 'Документ не найден',
+            200: 'Document deleted',
+            403: 'No permissions',
+            404: 'Document not found',
         },
-        tags=['Документы']
+        tags=['Documents']
     )
     def destroy(self, request, *args, **kwargs):
         try:
             instance = self.get_object()
-            
             self.perform_destroy(instance)
             
             return self.success_response(
-                message='Документ удален успешно'
+                message='Document deleted successfully'
             )
             
         except Document.DoesNotExist:
             return self.error_response(
                 error_number='DOCUMENT_NOT_FOUND',
-                error_message='Документ не найден',
+                error_message='Document not found',
                 status_code=404
             )
         except Exception as e:
             return self.error_response(
                 error_number='DOCUMENT_DELETE_ERROR',
-                error_message=f'Ошибка удаления документа: {str(e)}',
+                error_message=f'Error deleting document: {str(e)}',
                 status_code=500
             )

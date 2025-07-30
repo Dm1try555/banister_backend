@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 class ErrorHandlingMiddleware:
     """
-    Middleware для обработки ошибок и формирования стандартизированных ответов
+    Middleware for error handling and forming standardized responses
     """
     
     def __init__(self, get_response):
@@ -25,7 +25,7 @@ class ErrorHandlingMiddleware:
 
     def process_exception(self, request, exception):
         """
-        Обработка исключений и формирование стандартизированного ответа
+        Handle exceptions and form a standardized response
         """
         error_response = self.format_error_response(exception)
         
@@ -38,27 +38,27 @@ class ErrorHandlingMiddleware:
         else:
             status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
         
-        # Логирование ошибки
+        # Log the error
         logger.error(f"Error occurred: {exception}", exc_info=True)
         
         return JsonResponse(error_response, status=status_code)
 
     def format_error_response(self, exception):
         """
-        Форматирование ответа с ошибкой в стандартном виде
+        Format the error response in a standard way
         """
         if isinstance(exception, BaseCustomException):
             error_number = exception.error_number
             error_message = str(exception.detail) if exception.detail else exception.default_detail
         elif isinstance(exception, DjangoValidationError):
             error_number = 'VALIDATION_ERROR'
-            error_message = 'Ошибка валидации данных'
+            error_message = 'Data validation error'
         elif isinstance(exception, IntegrityError):
             error_number = 'DATABASE_ERROR'
-            error_message = 'Ошибка базы данных'
+            error_message = 'Database error'
         else:
             error_number = 'UNKNOWN_ERROR'
-            error_message = 'Произошла неизвестная ошибка'
+            error_message = 'An unknown error occurred'
 
         return {
             'success': False,
@@ -71,7 +71,7 @@ class ErrorHandlingMiddleware:
 
     def get_timestamp(self):
         """
-        Получение текущего времени в ISO формате
+        Get current time in ISO format
         """
         from django.utils import timezone
         return timezone.now().isoformat()
@@ -79,13 +79,13 @@ class ErrorHandlingMiddleware:
 
 def custom_exception_handler(exc, context):
     """
-    Кастомный обработчик исключений для DRF
+    Custom exception handler for DRF
     """
-    # Сначала используем стандартный обработчик DRF
+    # Use DRF's default handler first
     response = exception_handler(exc, context)
     
     if response is not None:
-        # Форматируем ответ в стандартном виде
+        # Format the response in a standard way
         if isinstance(exc, BaseCustomException):
             error_number = exc.error_number
             error_message = str(exc.detail) if exc.detail else exc.default_detail
@@ -109,7 +109,7 @@ def custom_exception_handler(exc, context):
 
 def get_timestamp():
     """
-    Получение текущего времени в ISO формате
+    Get current time in ISO format
     """
     from django.utils import timezone
     return timezone.now().isoformat() 

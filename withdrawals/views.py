@@ -3,7 +3,7 @@ from rest_framework.permissions import IsAuthenticated
 from .models import Withdrawal
 from .serializers import WithdrawalSerializer
 
-# Импорт системы обработки ошибок
+# Import error handling system
 from error_handling.views import BaseAPIView
 from error_handling.exceptions import (
     PermissionError, ValidationError, WithdrawalError
@@ -15,6 +15,7 @@ from drf_yasg import openapi
 from django.db import transaction
 
 class WithdrawalCreateView(BaseAPIView, generics.CreateAPIView):
+    """Create withdrawal request"""
     queryset = Withdrawal.objects.all()
     serializer_class = WithdrawalSerializer
     permission_classes = [IsAuthenticated]
@@ -24,23 +25,23 @@ class WithdrawalCreateView(BaseAPIView, generics.CreateAPIView):
         serializer.save(provider=self.request.user)
 
     @swagger_auto_schema(
-        operation_description="Создать заявку на вывод средств (только для провайдера)",
+        operation_description="Create withdrawal request (providers only)",
         request_body=WithdrawalSerializer,
         responses={
-            201: openapi.Response('Заявка создана', WithdrawalSerializer),
-            400: 'Ошибка валидации',
-            403: 'Нет прав',
+            201: openapi.Response('Request created', WithdrawalSerializer),
+            400: 'Validation error',
+            403: 'No permissions',
         },
-        tags=['Вывод средств']
+        tags=['Withdrawals']
     )
     @transaction.atomic
     def create(self, request, *args, **kwargs):
         try:
-            # Проверка роли пользователя
+            # Check user role
             if self.request.user.role != 'provider':
                 return self.error_response(
                     error_number='PERMISSION_ERROR',
-                    error_message='Только поставщики услуг могут создавать заявки на вывод средств',
+                    error_message='Only service providers can create withdrawal requests',
                     status_code=403
                 )
             
@@ -49,20 +50,20 @@ class WithdrawalCreateView(BaseAPIView, generics.CreateAPIView):
                 field_errors = format_validation_errors(serializer.errors)
                 return self.validation_error_response(field_errors)
             
-            # Проверка минимальной суммы вывода
+            # Check minimum withdrawal amount
             amount = serializer.validated_data.get('amount', 0)
             if amount <= 0:
                 return self.error_response(
                     error_number='INVALID_AMOUNT',
-                    error_message='Сумма вывода должна быть больше нуля',
+                    error_message='Withdrawal amount must be greater than zero',
                     status_code=400
                 )
             
-            # Проверка баланса пользователя (здесь должна быть логика проверки баланса)
+            # Check user balance (balance checking logic should be here)
             # if self.request.user.balance < amount:
             #     return self.error_response(
             #         error_number='INSUFFICIENT_BALANCE',
-            #         error_message='Недостаточно средств для вывода',
+            #         error_message='Insufficient funds for withdrawal',
             #         status_code=400
             #     )
             
@@ -70,41 +71,42 @@ class WithdrawalCreateView(BaseAPIView, generics.CreateAPIView):
             
             return self.success_response(
                 data=serializer.data,
-                message='Заявка на вывод средств создана успешно'
+                message='Withdrawal request created successfully'
             )
             
         except Exception as e:
             return self.error_response(
                 error_number='WITHDRAWAL_CREATE_ERROR',
-                error_message=f'Ошибка создания заявки на вывод: {str(e)}',
+                error_message=f'Error creating withdrawal request: {str(e)}',
                 status_code=500
             )
 
 class WithdrawalHistoryView(BaseAPIView, generics.ListAPIView):
+    """Withdrawal history"""
     serializer_class = WithdrawalSerializer
     permission_classes = [IsAuthenticated]
     
     def get_queryset(self):
-        # Для генерации схемы swagger или если нет user.role — возвращаем пустой queryset
+        # For swagger schema generation or if no user.role — return empty queryset
         if getattr(self, 'swagger_fake_view', False) or not hasattr(self.request.user, 'role'):
             return Withdrawal.objects.none()
         return Withdrawal.objects.filter(provider=self.request.user)
 
     @swagger_auto_schema(
-        operation_description="Получить историю всех заявок на вывод средств (только для провайдера)",
+        operation_description="Get history of all withdrawal requests (providers only)",
         responses={
-            200: openapi.Response('История выводов', WithdrawalSerializer(many=True)),
-            403: 'Нет прав',
+            200: openapi.Response('Withdrawal history', WithdrawalSerializer(many=True)),
+            403: 'No permissions',
         },
-        tags=['Вывод средств']
+        tags=['Withdrawals']
     )
     def list(self, request, *args, **kwargs):
         try:
-            # Проверка роли пользователя
+            # Check user role
             if self.request.user.role != 'provider':
                 return self.error_response(
                     error_number='PERMISSION_ERROR',
-                    error_message='Только поставщики услуг могут просматривать историю выводов',
+                    error_message='Only service providers can view withdrawal history',
                     status_code=403
                 )
             
@@ -113,17 +115,18 @@ class WithdrawalHistoryView(BaseAPIView, generics.ListAPIView):
             
             return self.success_response(
                 data=serializer.data,
-                message='История выводов получена успешно'
+                message='Withdrawal history retrieved successfully'
             )
             
         except Exception as e:
             return self.error_response(
                 error_number='WITHDRAWAL_HISTORY_ERROR',
-                error_message=f'Ошибка получения истории выводов: {str(e)}',
+                error_message=f'Error retrieving withdrawal history: {str(e)}',
                 status_code=500
             )
 
 class WithdrawalListCreateView(BaseAPIView, generics.ListCreateAPIView):
+    """List and create withdrawal requests"""
     serializer_class = WithdrawalSerializer
     permission_classes = [IsAuthenticated]
 
@@ -135,50 +138,50 @@ class WithdrawalListCreateView(BaseAPIView, generics.ListCreateAPIView):
     @transaction.atomic
     def perform_create(self, serializer):
         if self.request.user.role != 'provider':
-            raise PermissionError('Только поставщики услуг могут создавать заявки на вывод средств')
+            raise PermissionError('Only service providers can create withdrawal requests')
         amount = serializer.validated_data.get('amount', 0)
         if amount <= 0:
-            raise ValidationError('Сумма вывода должна быть больше нуля')
+            raise ValidationError('Withdrawal amount must be greater than zero')
         serializer.save(provider=self.request.user)
 
     @swagger_auto_schema(
-        operation_description="Получить историю всех заявок на вывод средств (только для провайдера)",
+        operation_description="Get history of all withdrawal requests (providers only)",
         responses={
-            200: openapi.Response('История выводов', WithdrawalSerializer(many=True)),
-            403: 'Нет прав',
+            200: openapi.Response('Withdrawal history', WithdrawalSerializer(many=True)),
+            403: 'No permissions',
         },
-        tags=['Вывод средств']
+        tags=['Withdrawals']
     )
     def list(self, request, *args, **kwargs):
         try:
             if self.request.user.role != 'provider':
                 return self.error_response(
                     error_number='PERMISSION_ERROR',
-                    error_message='Только поставщики услуг могут просматривать историю выводов',
+                    error_message='Only service providers can view withdrawal history',
                     status_code=403
                 )
             queryset = self.get_queryset()
             serializer = self.get_serializer(queryset, many=True)
             return self.success_response(
                 data=serializer.data,
-                message='История выводов получена успешно'
+                message='Withdrawal history retrieved successfully'
             )
         except Exception as e:
             return self.error_response(
                 error_number='WITHDRAWAL_HISTORY_ERROR',
-                error_message=f'Ошибка получения истории выводов: {str(e)}',
+                error_message=f'Error retrieving withdrawal history: {str(e)}',
                 status_code=500
             )
 
     @swagger_auto_schema(
-        operation_description="Создать заявку на вывод средств (только для провайдера)",
+        operation_description="Create withdrawal request (providers only)",
         request_body=WithdrawalSerializer,
         responses={
-            201: openapi.Response('Заявка создана', WithdrawalSerializer),
-            400: 'Ошибка валидации',
-            403: 'Нет прав',
+            201: openapi.Response('Request created', WithdrawalSerializer),
+            400: 'Validation error',
+            403: 'No permissions',
         },
-        tags=['Вывод средств']
+        tags=['Withdrawals']
     )
     @transaction.atomic
     def create(self, request, *args, **kwargs):
@@ -186,7 +189,7 @@ class WithdrawalListCreateView(BaseAPIView, generics.ListCreateAPIView):
             if self.request.user.role != 'provider':
                 return self.error_response(
                     error_number='PERMISSION_ERROR',
-                    error_message='Только поставщики услуг могут создавать заявки на вывод средств',
+                    error_message='Only service providers can create withdrawal requests',
                     status_code=403
                 )
             serializer = self.get_serializer(data=request.data)
@@ -197,17 +200,17 @@ class WithdrawalListCreateView(BaseAPIView, generics.ListCreateAPIView):
             if amount <= 0:
                 return self.error_response(
                     error_number='INVALID_AMOUNT',
-                    error_message='Сумма вывода должна быть больше нуля',
+                    error_message='Withdrawal amount must be greater than zero',
                     status_code=400
                 )
             serializer.save(provider=self.request.user)
             return self.success_response(
                 data=serializer.data,
-                message='Заявка на вывод средств создана успешно'
+                message='Withdrawal request created successfully'
             )
         except Exception as e:
             return self.error_response(
                 error_number='WITHDRAWAL_CREATE_ERROR',
-                error_message=f'Ошибка создания заявки на вывод: {str(e)}',
+                error_message=f'Error creating withdrawal request: {str(e)}',
                 status_code=500
             )

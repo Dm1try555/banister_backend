@@ -3,7 +3,7 @@ from rest_framework.permissions import IsAuthenticated
 from .models import Booking
 from .serializers import BookingSerializer
 
-# Импорт системы обработки ошибок
+# Import error handling system
 from error_handling.views import BaseAPIView
 from error_handling.exceptions import (
     PermissionError, NotFoundError, BookingNotFoundError,
@@ -16,14 +16,15 @@ from drf_yasg import openapi
 from django.db import transaction
 
 class BookingListCreateView(BaseAPIView, generics.ListCreateAPIView):
+    """List and create bookings"""
     serializer_class = BookingSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        # Для генерации схемы swagger или если нет user.role — возвращаем пустой queryset
+        # For swagger schema generation or if no user.role — return empty queryset
         if getattr(self, 'swagger_fake_view', False) or not hasattr(self.request.user, 'role'):
             return Booking.objects.none()
-        # customer видит свои заказы, provider видит заказы на свои услуги
+        # customer sees their orders, provider sees orders for their services
         if self.request.user.role == 'customer':
             return Booking.objects.filter(customer=self.request.user)
         elif self.request.user.role == 'provider':
@@ -32,16 +33,16 @@ class BookingListCreateView(BaseAPIView, generics.ListCreateAPIView):
 
     @transaction.atomic
     def perform_create(self, serializer):
-        # Проверка прав доступа
+        # Check access rights
         if self.request.user.role != 'customer':
-            raise PermissionError('Только клиенты могут создавать бронирования')
+            raise PermissionError('Only customers can create bookings')
         
-        # Проверка доступности времени
+        # Check time availability
         service = serializer.validated_data.get('service')
         booking_date = serializer.validated_data.get('booking_date')
         booking_time = serializer.validated_data.get('booking_time')
         
-        # Проверка на конфликт времени
+        # Check for time conflict
         conflicting_booking = Booking.objects.filter(
             service=service,
             booking_date=booking_date,
@@ -50,21 +51,21 @@ class BookingListCreateView(BaseAPIView, generics.ListCreateAPIView):
         ).first()
         
         if conflicting_booking:
-            raise ConflictError('Выбранное время уже занято')
+            raise ConflictError('Selected time is already booked')
         
         booking = serializer.save(customer=self.request.user)
 
     @swagger_auto_schema(
-        operation_description="Получить список всех бронирований пользователя (клиент видит свои, провайдер — свои)",
+        operation_description="Get list of all user bookings (customer sees their own, provider sees their own)",
         responses={
-            200: openapi.Response('Список бронирований', BookingSerializer(many=True)),
-            403: 'Нет прав доступа',
+            200: openapi.Response('Booking list', BookingSerializer(many=True)),
+            403: 'No access rights',
         },
-        tags=['Бронирования']
+        tags=['Bookings']
     )
     def list(self, request, *args, **kwargs):
         """
-        Получение списка бронирований
+        Get booking list
         """
         try:
             queryset = self.get_queryset()
@@ -72,47 +73,47 @@ class BookingListCreateView(BaseAPIView, generics.ListCreateAPIView):
             
             return self.success_response(
                 data=serializer.data,
-                message='Список бронирований получен успешно'
+                message='Booking list retrieved successfully'
             )
         except Exception as e:
             return self.error_response(
                 error_number='BOOKING_LIST_ERROR',
-                error_message=f'Ошибка получения списка бронирований: {str(e)}',
+                error_message=f'Error retrieving booking list: {str(e)}',
                 status_code=500
             )
 
     @swagger_auto_schema(
-        operation_description="Создать новое бронирование (только для клиентов)",
+        operation_description="Create new booking (customers only)",
         request_body=BookingSerializer,
         responses={
-            201: openapi.Response('Бронирование создано', BookingSerializer),
-            400: 'Ошибка валидации',
-            403: 'Нет прав доступа',
-            409: 'Конфликт времени',
+            201: openapi.Response('Booking created', BookingSerializer),
+            400: 'Validation error',
+            403: 'No access rights',
+            409: 'Time conflict',
         },
-        tags=['Бронирования']
+        tags=['Bookings']
     )
     @transaction.atomic
     def create(self, request, *args, **kwargs):
         """
-        Создание нового бронирования
+        Create new booking
         """
         try:
-            # Проверка прав доступа
+            # Check access rights
             if self.request.user.role != 'customer':
-                raise PermissionError('Только клиенты могут создавать бронирования')
+                raise PermissionError('Only customers can create bookings')
             
             serializer = self.get_serializer(data=request.data)
             if not serializer.is_valid():
                 field_errors = format_validation_errors(serializer.errors)
                 return self.validation_error_response(field_errors)
             
-            # Проверка доступности времени
+            # Check time availability
             service = serializer.validated_data.get('service')
             booking_date = serializer.validated_data.get('booking_date')
             booking_time = serializer.validated_data.get('booking_time')
             
-            # Проверка на конфликт времени
+            # Check for time conflict
             conflicting_booking = Booking.objects.filter(
                 service=service,
                 booking_date=booking_date,
@@ -121,13 +122,13 @@ class BookingListCreateView(BaseAPIView, generics.ListCreateAPIView):
             ).first()
             
             if conflicting_booking:
-                raise ConflictError('Выбранное время уже занято')
+                raise ConflictError('Selected time is already booked')
             
             booking = serializer.save(customer=self.request.user)
             
             return self.success_response(
                 data=serializer.data,
-                message='Бронирование создано успешно'
+                message='Booking created successfully'
             )
             
         except PermissionError:
@@ -137,19 +138,20 @@ class BookingListCreateView(BaseAPIView, generics.ListCreateAPIView):
         except Exception as e:
             return self.error_response(
                 error_number='BOOKING_CREATE_ERROR',
-                error_message=f'Ошибка создания бронирования: {str(e)}',
+                error_message=f'Error creating booking: {str(e)}',
                 status_code=500
             )
 
 class BookingDetailView(BaseAPIView, generics.RetrieveUpdateDestroyAPIView):
+    """Detailed booking information"""
     serializer_class = BookingSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        # Для генерации схемы swagger или если нет user.role — возвращаем пустой queryset
+        # For swagger schema generation or if no user.role — return empty queryset
         if getattr(self, 'swagger_fake_view', False) or not hasattr(self.request.user, 'role'):
             return Booking.objects.none()
-        # customer видит свои заказы, provider видит заказы на свои услуги
+        # customer sees their orders, provider sees orders for their services
         if self.request.user.role == 'customer':
             return Booking.objects.filter(customer=self.request.user)
         elif self.request.user.role == 'provider':
@@ -157,16 +159,16 @@ class BookingDetailView(BaseAPIView, generics.RetrieveUpdateDestroyAPIView):
         return Booking.objects.none()
 
     @swagger_auto_schema(
-        operation_description="Получить подробную информацию о бронировании по ID (только для владельца)",
+        operation_description="Get detailed booking information by ID (owner only)",
         responses={
-            200: openapi.Response('Информация о бронировании', BookingSerializer),
-            404: 'Бронирование не найдено',
+            200: openapi.Response('Booking information', BookingSerializer),
+            404: 'Booking not found',
         },
-        tags=['Бронирования']
+        tags=['Bookings']
     )
     def retrieve(self, request, *args, **kwargs):
         """
-        Получение детальной информации о бронировании
+        Get detailed booking information
         """
         try:
             instance = self.get_object()
@@ -174,59 +176,59 @@ class BookingDetailView(BaseAPIView, generics.RetrieveUpdateDestroyAPIView):
             
             return self.success_response(
                 data=serializer.data,
-                message='Информация о бронировании получена успешно'
+                message='Booking information retrieved successfully'
             )
             
         except Booking.DoesNotExist:
-            raise BookingNotFoundError('Бронирование не найдено')
+            raise BookingNotFoundError('Booking not found')
         except Exception as e:
             return self.error_response(
                 error_number='BOOKING_RETRIEVE_ERROR',
-                error_message=f'Ошибка получения информации о бронировании: {str(e)}',
+                error_message=f'Error retrieving booking information: {str(e)}',
                 status_code=500
             )
 
     @swagger_auto_schema(
-        operation_description="Обновить данные бронирования (только для владельца)",
+        operation_description="Update booking data (owner only)",
         request_body=BookingSerializer,
         responses={
-            200: openapi.Response('Бронирование обновлено', BookingSerializer),
-            400: 'Ошибка валидации',
-            403: 'Нет прав',
-            404: 'Бронирование не найдено',
+            200: openapi.Response('Booking updated', BookingSerializer),
+            400: 'Validation error',
+            403: 'No permissions',
+            404: 'Booking not found',
         },
-        tags=['Бронирования']
+        tags=['Bookings']
     )
     @transaction.atomic
     def update(self, request, *args, **kwargs):
         """
-        Обновление бронирования
+        Update booking
         """
         try:
             instance = self.get_object()
             
-            # Проверка прав на обновление
+            # Check update permissions
             if self.request.user.role == 'customer' and instance.customer != self.request.user:
-                raise PermissionError('Нет прав для обновления этого бронирования')
+                raise PermissionError('No permissions to update this booking')
             
             serializer = self.get_serializer(instance, data=request.data, partial=True)
             if not serializer.is_valid():
                 field_errors = format_validation_errors(serializer.errors)
                 return self.validation_error_response(field_errors)
             
-            # Проверка статуса бронирования
+            # Check booking status
             if instance.status in ['cancelled', 'completed']:
-                raise ValidationError('Нельзя изменить завершенное или отмененное бронирование')
+                raise ValidationError('Cannot modify completed or cancelled booking')
             
             booking = serializer.save()
             
             return self.success_response(
                 data=serializer.data,
-                message='Бронирование обновлено успешно'
+                message='Booking updated successfully'
             )
             
         except Booking.DoesNotExist:
-            raise BookingNotFoundError('Бронирование не найдено')
+            raise BookingNotFoundError('Booking not found')
         except PermissionError:
             raise
         except ValidationError:
@@ -234,112 +236,106 @@ class BookingDetailView(BaseAPIView, generics.RetrieveUpdateDestroyAPIView):
         except Exception as e:
             return self.error_response(
                 error_number='BOOKING_UPDATE_ERROR',
-                error_message=f'Ошибка обновления бронирования: {str(e)}',
+                error_message=f'Error updating booking: {str(e)}',
                 status_code=500
             )
 
     @swagger_auto_schema(
-        operation_description="Удалить бронирование (только для владельца)",
+        operation_description="Delete booking (owner only)",
         responses={
-            200: 'Бронирование удалено',
-            403: 'Нет прав',
-            404: 'Бронирование не найдено',
+            200: 'Booking deleted',
+            403: 'No permissions',
+            404: 'Booking not found',
         },
-        tags=['Бронирования']
+        tags=['Bookings']
     )
     def destroy(self, request, *args, **kwargs):
         """
-        Удаление бронирования
+        Delete booking
         """
         try:
             instance = self.get_object()
             
-            # Проверка прав на удаление
+            # Check delete permissions
             if self.request.user.role == 'customer' and instance.customer != self.request.user:
-                raise PermissionError('Нет прав для удаления этого бронирования')
-            
-            # Проверка возможности отмены
-            if instance.status in ['completed', 'cancelled']:
-                raise ValidationError('Нельзя удалить завершенное или отмененное бронирование')
+                raise PermissionError('No permissions to delete this booking')
             
             instance.delete()
             
             return self.success_response(
-                message='Бронирование удалено успешно'
+                message='Booking deleted successfully'
             )
             
         except Booking.DoesNotExist:
-            raise BookingNotFoundError('Бронирование не найдено')
+            raise BookingNotFoundError('Booking not found')
         except PermissionError:
-            raise
-        except ValidationError:
             raise
         except Exception as e:
             return self.error_response(
                 error_number='BOOKING_DELETE_ERROR',
-                error_message=f'Ошибка удаления бронирования: {str(e)}',
+                error_message=f'Error deleting booking: {str(e)}',
                 status_code=500
             )
 
 class BookingStatusUpdateView(BaseAPIView):
-    """
-    Обновление статуса бронирования (для провайдеров)
-    """
+    """Update booking status (for providers)"""
     permission_classes = [IsAuthenticated]
-    
+
     @swagger_auto_schema(
-        operation_description="Изменить статус бронирования (только для провайдера)",
+        operation_description="Change booking status (providers only)",
         request_body=openapi.Schema(
             type=openapi.TYPE_OBJECT,
             properties={
-                'status': openapi.Schema(type=openapi.TYPE_STRING, description='Новый статус'),
+                'status': openapi.Schema(type=openapi.TYPE_STRING, description='New status'),
             },
             required=['status'],
         ),
         responses={
-            200: 'Статус обновлен',
-            400: 'Ошибка запроса',
-            403: 'Нет прав',
-            404: 'Бронирование не найдено',
+            200: 'Status updated',
+            400: 'Request error',
+            403: 'No permissions',
+            404: 'Booking not found',
         },
-        tags=['Бронирования']
+        tags=['Bookings']
     )
     def post(self, request, booking_id):
+        """
+        Update booking status
+        """
         try:
-            # Проверка роли пользователя
+            # Check user role
             if self.request.user.role != 'provider':
-                raise PermissionError('Только поставщики услуг могут изменять статус бронирования')
+                raise PermissionError('Only providers can update booking status')
             
-            # Получение бронирования
+            # Get booking
             try:
                 booking = Booking.objects.get(id=booking_id, provider=self.request.user)
             except Booking.DoesNotExist:
-                raise BookingNotFoundError('Бронирование не найдено')
+                raise BookingNotFoundError('Booking not found')
             
             new_status = request.data.get('status')
             if not new_status:
                 return self.error_response(
                     error_number='MISSING_STATUS',
-                    error_message='Статус не указан',
+                    error_message='Status not specified',
                     status_code=400
                 )
             
-            # Проверка валидности статуса
+            # Validate status
             valid_statuses = ['pending', 'confirmed', 'cancelled', 'completed']
             if new_status not in valid_statuses:
                 return self.error_response(
                     error_number='INVALID_STATUS',
-                    error_message=f'Неверный статус. Допустимые значения: {", ".join(valid_statuses)}',
+                    error_message=f'Invalid status. Allowed values: {", ".join(valid_statuses)}',
                     status_code=400
                 )
             
-            # Обновление статуса
             booking.status = new_status
             booking.save()
             
             return self.success_response(
                 data={'status': new_status},
-                message='Статус бронирования обновлен успешно'
+                message='Booking status updated successfully'
             )
             
         except PermissionError:
@@ -349,6 +345,6 @@ class BookingStatusUpdateView(BaseAPIView):
         except Exception as e:
             return self.error_response(
                 error_number='STATUS_UPDATE_ERROR',
-                error_message=f'Ошибка обновления статуса: {str(e)}',
+                error_message=f'Error updating status: {str(e)}',
                 status_code=500
             )

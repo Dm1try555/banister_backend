@@ -18,10 +18,11 @@ urlpatterns = [
     path('logout/', logout_view, name='logout'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('profile/', ProfileView.as_view(), name='profile'),
-    # path('password-reset/', PasswordResetView.as_view(), name='password-reset'),  # опционально
+    # path('password-reset/', PasswordResetView.as_view(), name='password-reset'),  # optional
 ]
 
 urlpatterns += [
-    path('email-confirm/request', email_confirm_request, name='email_confirm_request'),
-    path('email-confirm/verify', email_confirm_verify, name='email_confirm_verify'),
+    # Email confirmation
+    path('email-confirm/request/', email_confirm_request, name='email_confirm_request'),
+    path('email-confirm/verify/', email_confirm_verify, name='email_confirm_verify'),
 ]

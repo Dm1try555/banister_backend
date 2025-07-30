@@ -3,7 +3,7 @@ from rest_framework.permissions import IsAuthenticated
 from .models import Payment
 from .serializers import PaymentSerializer
 
-# Импорт системы обработки ошибок
+# Import error handling system
 from error_handling.views import BaseAPIView
 from error_handling.exceptions import PermissionError, ValidationError
 from error_handling.utils import format_validation_errors
@@ -13,17 +13,18 @@ from drf_yasg import openapi
 from django.db import transaction
 
 class PaymentInitiateView(BaseAPIView):
+    """Initialize new payment"""
     permission_classes = [IsAuthenticated]
     
     @swagger_auto_schema(
-        operation_description="Инициализировать новый платеж (создать заявку на оплату)",
+        operation_description="Initialize new payment (create payment request)",
         request_body=PaymentSerializer,
         responses={
-            201: openapi.Response('Платеж инициализирован', PaymentSerializer),
-            400: 'Ошибка валидации',
-            403: 'Нет прав',
+            201: openapi.Response('Payment initialized', PaymentSerializer),
+            400: 'Validation error',
+            403: 'No permissions',
         },
-        tags=['Платежи']
+        tags=['Payments']
     )
     @transaction.atomic
     def post(self, request):
@@ -33,55 +34,56 @@ class PaymentInitiateView(BaseAPIView):
                 field_errors = format_validation_errors(serializer.errors)
                 return self.validation_error_response(field_errors)
             
-            # Проверка минимальной суммы платежа
+            # Check minimum payment amount
             amount = serializer.validated_data.get('amount', 0)
             if amount <= 0:
                 return self.error_response(
                     error_number='INVALID_AMOUNT',
-                    error_message='Сумма платежа должна быть больше нуля',
+                    error_message='Payment amount must be greater than zero',
                     status_code=400
                 )
             
             payment = serializer.save(user=self.request.user)
             
-            # Здесь должна быть логика инициализации платежа через платежную систему
+            # Here should be payment initialization logic through payment system
             # payment.initialize_payment()
             
             return self.success_response(
                 data=serializer.data,
-                message='Платеж инициализирован успешно'
+                message='Payment initialized successfully'
             )
             
         except Exception as e:
             return self.error_response(
                 error_number='PAYMENT_INIT_ERROR',
-                error_message=f'Ошибка инициализации платежа: {str(e)}',
+                error_message=f'Error initializing payment: {str(e)}',
                 status_code=500
             )
 
 class PaymentStatusView(BaseAPIView, generics.RetrieveAPIView):
+    """Payment status"""
     queryset = Payment.objects.all()
     serializer_class = PaymentSerializer
     permission_classes = [IsAuthenticated]
 
     @swagger_auto_schema(
-        operation_description="Получить статус платежа по ID (только для владельца)",
+        operation_description="Get payment status by ID (owner only)",
         responses={
-            200: openapi.Response('Статус платежа', PaymentSerializer),
-            403: 'Нет прав',
-            404: 'Платеж не найден',
+            200: openapi.Response('Payment status', PaymentSerializer),
+            403: 'No permissions',
+            404: 'Payment not found',
         },
-        tags=['Платежи']
+        tags=['Payments']
     )
     def retrieve(self, request, *args, **kwargs):
         try:
             instance = self.get_object()
             
-            # Проверка прав доступа
+            # Check access rights
             if instance.user != self.request.user:
                 return self.error_response(
                     error_number='PERMISSION_ERROR',
-                    error_message='Нет прав для просмотра этого платежа',
+                    error_message='No permissions to view this payment',
                     status_code=403
                 )
             
@@ -89,32 +91,33 @@ class PaymentStatusView(BaseAPIView, generics.RetrieveAPIView):
             
             return self.success_response(
                 data=serializer.data,
-                message='Статус платежа получен успешно'
+                message='Payment status retrieved successfully'
             )
             
         except Payment.DoesNotExist:
             return self.error_response(
                 error_number='PAYMENT_NOT_FOUND',
-                error_message='Платеж не найден',
+                error_message='Payment not found',
                 status_code=404
             )
         except Exception as e:
             return self.error_response(
                 error_number='PAYMENT_STATUS_ERROR',
-                error_message=f'Ошибка получения статуса платежа: {str(e)}',
+                error_message=f'Error retrieving payment status: {str(e)}',
                 status_code=500
             )
 
 class PaymentHistoryView(BaseAPIView, generics.ListAPIView):
+    """User payment history"""
     serializer_class = PaymentSerializer
     permission_classes = [IsAuthenticated]
     
     @swagger_auto_schema(
-        operation_description="Получить историю всех платежей пользователя",
+        operation_description="Get user's payment history",
         responses={
-            200: openapi.Response('История платежей', PaymentSerializer(many=True)),
+            200: openapi.Response('Payment history', PaymentSerializer(many=True)),
         },
-        tags=['Платежи']
+        tags=['Payments']
     )
     def get_queryset(self):
         return Payment.objects.filter(user=self.request.user)
@@ -126,26 +129,27 @@ class PaymentHistoryView(BaseAPIView, generics.ListAPIView):
             
             return self.success_response(
                 data=serializer.data,
-                message='История платежей получена успешно'
+                message='Payment history retrieved successfully'
             )
             
         except Exception as e:
             return self.error_response(
                 error_number='PAYMENT_HISTORY_ERROR',
-                error_message=f'Ошибка получения истории платежей: {str(e)}',
+                error_message=f'Error retrieving payment history: {str(e)}',
                 status_code=500
             )
 
 class PaymentListCreateView(BaseAPIView, generics.ListCreateAPIView):
+    """List and create payments"""
     serializer_class = PaymentSerializer
     permission_classes = [IsAuthenticated]
 
     @swagger_auto_schema(
-        operation_description="Получить историю всех платежей пользователя",
+        operation_description="Get user's payment history",
         responses={
-            200: openapi.Response('История платежей', PaymentSerializer(many=True)),
+            200: openapi.Response('Payment history', PaymentSerializer(many=True)),
         },
-        tags=['Платежи']
+        tags=['Payments']
     )
     def list(self, request, *args, **kwargs):
         try:
@@ -153,24 +157,24 @@ class PaymentListCreateView(BaseAPIView, generics.ListCreateAPIView):
             serializer = self.get_serializer(queryset, many=True)
             return self.success_response(
                 data=serializer.data,
-                message='История платежей получена успешно'
+                message='Payment history retrieved successfully'
             )
         except Exception as e:
             return self.error_response(
                 error_number='PAYMENT_HISTORY_ERROR',
-                error_message=f'Ошибка получения истории платежей: {str(e)}',
+                error_message=f'Error retrieving payment history: {str(e)}',
                 status_code=500
             )
 
     @swagger_auto_schema(
-        operation_description="Инициализировать новый платеж (создать заявку на оплату)",
+        operation_description="Initialize new payment (create payment request)",
         request_body=PaymentSerializer,
         responses={
-            201: openapi.Response('Платеж инициализирован', PaymentSerializer),
-            400: 'Ошибка валидации',
-            403: 'Нет прав',
+            201: openapi.Response('Payment initialized', PaymentSerializer),
+            400: 'Validation error',
+            403: 'No permissions',
         },
-        tags=['Платежи']
+        tags=['Payments']
     )
     @transaction.atomic
     def create(self, request, *args, **kwargs):
@@ -183,18 +187,18 @@ class PaymentListCreateView(BaseAPIView, generics.ListCreateAPIView):
             if amount <= 0:
                 return self.error_response(
                     error_number='INVALID_AMOUNT',
-                    error_message='Сумма платежа должна быть больше нуля',
+                    error_message='Payment amount must be greater than zero',
                     status_code=400
                 )
             payment = serializer.save(user=self.request.user)
-            # Здесь может быть логика инициализации платежа через платежную систему
+            # Here can be payment initialization logic through payment system
             return self.success_response(
                 data=serializer.data,
-                message='Платеж инициализирован успешно'
+                message='Payment initialized successfully'
             )
         except Exception as e:
             return self.error_response(
                 error_number='PAYMENT_INIT_ERROR',
-                error_message=f'Ошибка инициализации платежа: {str(e)}',
+                error_message=f'Error initializing payment: {str(e)}',
                 status_code=500
             )

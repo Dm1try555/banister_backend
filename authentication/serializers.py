@@ -19,11 +19,11 @@ class UserSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         profile_data = validated_data.pop('profile', None)
-        # Обновляем основные поля пользователя
+        # Update main user fields
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
-        # Обновляем профиль, если он есть в запросе
+        # Update profile if it's in the request
         if profile_data:
             profile = instance.profile
             for attr, value in profile_data.items():
@@ -32,7 +32,7 @@ class UserSerializer(serializers.ModelSerializer):
         return instance
 
 class RegisterSerializer(serializers.ModelSerializer):
-    email = serializers.EmailField()  # Явная валидация email
+    email = serializers.EmailField()  # Explicit email validation
     password = serializers.CharField(write_only=True)
     confirm_password = serializers.CharField(write_only=True)
     first_name = serializers.CharField(write_only=True)
@@ -72,9 +72,9 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         return token
 
     def validate(self, attrs):
-        # Получаем роль из запроса
+        # Get role from request
         requested_role = self.initial_data.get('role')
-        # Получаем пользователя по email (или username)
+        # Get user by email (or username)
         user = None
         username_field = self.fields.get(self.username_field)
         if username_field:
@@ -88,33 +88,12 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             data = super().validate(attrs)
         except AuthenticationFailed:
             raise AuthenticationFailed({'error': 'Invalid email or password'})
-        # Проверка роли
+        # Check role
         if user and requested_role and user.role != requested_role:
-            raise AuthenticationFailed({'error': f'Пользователь с email {user.email} зарегистрирован с ролью {user.role}. Вход с ролью {requested_role} невозможен.'})
-        # Добавляем роль в ответ
+            raise AuthenticationFailed({'error': f'User with email {user.email} is registered with role {user.role}. Login with role {requested_role} is not possible.'})
+        # Add role to response
         if user:
             data['role'] = user.role
-        return data
-
-class QuickRegisterRequestSerializer(serializers.Serializer):
-    email = serializers.EmailField(required=False)
-    phone = serializers.CharField(required=False)
-
-    def validate(self, data):
-        if not data.get('email') and not data.get('phone'):
-            raise serializers.ValidationError('Email или телефон обязательны')
-        return data
-
-class QuickRegisterVerifySerializer(serializers.Serializer):
-    email = serializers.EmailField(required=False)
-    phone = serializers.CharField(required=False)
-    code = serializers.CharField()
-
-    def validate(self, data):
-        if not data.get('email') and not data.get('phone'):
-            raise serializers.ValidationError('Email или телефон обязательны')
-        if not data.get('code'):
-            raise serializers.ValidationError('Код обязателен')
         return data
 
 class EmailConfirmationCodeSerializer(serializers.ModelSerializer):

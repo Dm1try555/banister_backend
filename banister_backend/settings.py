@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 load_dotenv()
 import environ
 
-# Инициализация django-environ
+# Initialize django-environ
 env = environ.Env()
 environ.Env.read_env()
 
@@ -24,6 +24,17 @@ DEBUG = os.getenv('DJANGO_DEBUG', 'True') == 'True'
 
 ALLOWED_HOSTS = ['localhost', '127.0.0.1']
 
+# Frontend URL for email confirmation links
+FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:3000')
+
+# Email settings
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT = int(os.getenv('EMAIL_PORT', 587))
+EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True') == 'True'
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', 'your-email@gmail.com')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', 'your-app-password')
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@banister.com')
 
 # Application definition
 
@@ -42,14 +53,15 @@ INSTALLED_APPS = [
     'providers',
     'bookings',
     'services',
-    'schedules',
-    'message',
     'payments',
     'withdrawals',
-    'dashboard',
-    'admin_panel',
-    'public_core',
+    'message',
+    'schedules',
     'documents',
+    'admin_panel',
+    'dashboard',
+    'public_core',
+    'file_storage',
 
     'corsheaders',
 ]
@@ -73,7 +85,7 @@ ROOT_URLCONF = 'banister_backend.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -184,11 +196,5 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = env('EMAIL_HOST', default='smtp.gmail.com')
-EMAIL_PORT = env.int('EMAIL_PORT', default=587)
-EMAIL_HOST_USER = env('EMAIL_HOST_USER')
-EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD')
-EMAIL_USE_TLS = env.bool('EMAIL_USE_TLS', default=True)
-EMAIL_USE_SSL = env.bool('EMAIL_USE_SSL', default=False)
-DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+# Disable automatic slash addition for API
+APPEND_SLASH = False

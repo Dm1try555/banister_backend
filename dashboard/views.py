@@ -6,7 +6,7 @@ from bookings.models import Booking
 from payments.models import Payment
 from django.db import transaction
 
-# Импорт системы обработки ошибок
+# Import error handling system
 from error_handling.views import BaseAPIView
 from error_handling.exceptions import (
     PermissionError, ValidationError, NotFoundError
@@ -16,6 +16,7 @@ from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 
 class DashboardOverviewView(BaseAPIView, generics.RetrieveAPIView):
+    """User dashboard overview"""
     serializer_class = DashboardStatsSerializer
     permission_classes = [IsAuthenticated]
 
@@ -25,6 +26,7 @@ class DashboardOverviewView(BaseAPIView, generics.RetrieveAPIView):
         return stats
 
 class DashboardStatisticsView(BaseAPIView, generics.RetrieveAPIView):
+    """Dashboard statistics with booking and earnings calculation"""
     serializer_class = DashboardStatsSerializer
     permission_classes = [IsAuthenticated]
 
@@ -37,7 +39,7 @@ class DashboardStatisticsView(BaseAPIView, generics.RetrieveAPIView):
             bookings = Booking.objects.filter(provider=self.request.user).count()
             earnings = sum(p.amount for p in Payment.objects.filter(user=self.request.user, status='completed'))
         else:
-            raise PermissionError('Неизвестная роль пользователя')
+            raise PermissionError('Unknown user role')
         stats, _ = DashboardStats.objects.get_or_create(user=self.request.user)
         stats.total_bookings = bookings
         stats.total_earnings = earnings
