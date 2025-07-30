@@ -16,12 +16,12 @@ def get_minio_client():
     )
 
 def create_bucket_if_not_exists(bucket_name):
-    """Create bucket in MinIO if it doesn't exist"""
     try:
         client = get_minio_client()
         if not client.bucket_exists(bucket_name):
             client.make_bucket(bucket_name)
-            print(f"Bucket '{bucket_name}' created successfully")
+            set_bucket_public_policy(bucket_name)
+            print(f"Bucket '{bucket_name}' created successfully and set public")
         return True
     except Exception as e:
         print(f"Error creating bucket '{bucket_name}': {e}")
@@ -118,3 +118,22 @@ def get_file_size_mb(file_obj):
     size = file_obj.tell()
     file_obj.seek(0)  # Return to beginning
     return size / (1024 * 1024)  # Convert to MB 
+
+def set_bucket_public_policy(bucket_name):
+    client = get_minio_client()
+    policy_json = """
+    {
+        "Version":"2012-10-17",
+        "Statement":[
+            {
+                "Effect":"Allow",
+                "Principal":{"AWS":["*"]},
+                "Action":["s3:GetObject"],
+                "Resource":["arn:aws:s3:::%s/*"]
+            }
+        ]
+    }
+    """ % bucket_name
+
+    client.set_bucket_policy(bucket_name, policy_json)
+

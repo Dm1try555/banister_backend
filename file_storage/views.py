@@ -110,16 +110,19 @@ class ProfilePhotoUploadView(BaseAPIView):
                 is_public=True
             )
             
-            # Deactivate previous profile photo
-            ProfilePhoto.objects.filter(user=request.user, is_active=True).update(is_active=False)
+            # # Deactivate previous profile photo
+            # ProfilePhoto.objects.filter(user=request.user).delete()  # удаляем старую запись
+
             
             # Create new profile photo record
-            profile_photo = ProfilePhoto.objects.create(
+            profile_photo, created = ProfilePhoto.objects.update_or_create(
                 user=request.user,
-                file_storage=file_storage,
-                is_active=True
+                defaults={
+                    'file_storage': file_storage,
+                    'is_active': True
+                }
             )
-            
+                        
             return self.success_response(
                 data=ProfilePhotoSerializer(profile_photo).data,
                 message='Profile photo uploaded successfully'
@@ -154,13 +157,13 @@ class ProfilePhotoDetailView(BaseAPIView, generics.RetrieveAPIView):
         try:
             instance = self.get_object()
             serializer = self.get_serializer(instance)
-            
+
             return self.success_response(
                 data=serializer.data,
                 message='Profile photo retrieved successfully'
             )
-            
-        except ProfilePhoto.DoesNotExist:
+
+        except Http404:
             return self.error_response(
                 error_number='PROFILE_PHOTO_NOT_FOUND',
                 error_message='Profile photo not found',
@@ -172,6 +175,7 @@ class ProfilePhotoDetailView(BaseAPIView, generics.RetrieveAPIView):
                 error_message=f'Error retrieving profile photo: {str(e)}',
                 status_code=500
             )
+            
 
 class ProfilePhotoDeleteView(BaseAPIView, generics.DestroyAPIView):
     """Delete profile photo"""

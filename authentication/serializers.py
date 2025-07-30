@@ -1,8 +1,7 @@
-# authentication/serializers.py
 from rest_framework import serializers
 from .models import User, Profile, VerificationCode, EmailConfirmationCode
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-from providers.models import Provider
+from providers.models import Provider # Ensure this import is correct and Provider model exists
 from rest_framework_simplejwt.exceptions import AuthenticationFailed
 from django.db import IntegrityError
 from error_handling.exceptions import InvalidEmailError, AuthenticationError, EmailAlreadyExistsError
@@ -12,39 +11,52 @@ class ProfileSerializer(serializers.ModelSerializer):
         model = Profile
         fields = ['first_name', 'last_name', 'avatar_url', 'bio']
 
+class ProviderProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Provider
+        fields = ['experience_years', 'hourly_rate'] # Assuming these fields are on the Provider model
+
 class UserSerializer(serializers.ModelSerializer):
     profile = ProfileSerializer()
+    provider_profile = ProviderProfileSerializer(required=False, allow_null=True)
+    email = serializers.EmailField(required=False)
     profile_photo_url = serializers.SerializerMethodField()
-    has_required_profile_photo = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = User
-        fields = ['id', 'email', 'phone', 'role', 'profile', 'profile_photo_url', 'has_required_profile_photo']
+        fields = ['id', 'email', 'phone', 'role', 'profile', 'provider_profile', 'profile_photo_url']
 
     def get_profile_photo_url(self, obj):
-        """Get profile photo URL"""
         return obj.get_profile_photo_url()
-    
-    def get_has_required_profile_photo(self, obj):
-        """Check if user has required profile photo"""
-        return obj.has_required_profile_photo()
 
     def update(self, instance, validated_data):
         profile_data = validated_data.pop('profile', None)
-        # Update main user fields
+        provider_profile_data = validated_data.pop('provider_profile', None) # Extract provider_profile data
+
+        # Update main user fields (email, phone, etc.)
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
-        # Update profile if it's in the request
+
+        # Update profile if data is provided
         if profile_data:
             profile = instance.profile
             for attr, value in profile_data.items():
                 setattr(profile, attr, value)
             profile.save()
+
+        # Update provider profile if user is a provider and data is provided
+        if instance.role == 'provider' and provider_profile_data:
+            # Get or create the Provider instance for the user
+            provider_instance, created = Provider.objects.get_or_create(user=instance)
+            for attr, value in provider_profile_data.items():
+                setattr(provider_instance, attr, value)
+            provider_instance.save()
+
         return instance
 
 class RegisterSerializer(serializers.ModelSerializer):
-    email = serializers.EmailField()  # Explicit email validation
+    email = serializers.EmailField() # Explicit email validation
     password = serializers.CharField(write_only=True)
     confirm_password = serializers.CharField(write_only=True)
     first_name = serializers.CharField(write_only=True)
@@ -53,7 +65,6 @@ class RegisterSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['email', 'phone', 'role', 'password', 'confirm_password', 'first_name', 'last_name']
-    
 
     def validate(self, data):
         if data['password'] != data['confirm_password']:

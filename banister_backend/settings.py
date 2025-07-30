@@ -62,6 +62,7 @@ INSTALLED_APPS = [
     'dashboard',
     'public_core',
     'file_storage',
+    
 
     'corsheaders',
 ]
