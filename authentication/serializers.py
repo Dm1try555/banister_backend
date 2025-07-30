@@ -52,7 +52,8 @@ class RegisterSerializer(serializers.ModelSerializer):
         first_name = validated_data.pop('first_name')
         last_name = validated_data.pop('last_name')
         validated_data.pop('confirm_password')
-        role = self._kwargs.get('role', validated_data.pop('role'))
+        # Get role from context (passed from view) or from validated_data
+        role = self.context.get('role', validated_data.pop('role', 'customer'))
         user = User.objects.create_user(
             email=validated_data['email'],
             phone=validated_data.get('phone'),
