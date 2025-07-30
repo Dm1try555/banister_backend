@@ -101,6 +101,7 @@ class DocumentDeleteView(BaseAPIView, generics.DestroyAPIView):
         # Delete the file from storage if needed
         instance.delete()
 
+    @transaction.atomic
     @swagger_auto_schema(
         operation_description="Delete user document by ID",
         responses={

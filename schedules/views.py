@@ -191,6 +191,7 @@ class ScheduleDetailView(BaseAPIView, generics.RetrieveUpdateDestroyAPIView):
                 status_code=500
             )
 
+    @transaction.atomic
     @swagger_auto_schema(
         operation_description="Delete schedule slot (owner only)",
         responses={

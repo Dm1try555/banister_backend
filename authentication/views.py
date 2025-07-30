@@ -14,7 +14,7 @@ from error_handling.views import BaseAPIView
 from error_handling.exceptions import (
     UserNotFoundError, InvalidCredentialsError, EmailAlreadyExistsError,
     InvalidVerificationCodeError, ExpiredVerificationCodeError, BaseCustomException,
-    InvalidEmailError, ValidationError
+    InvalidEmailError, ValidationError, ServerError
 )
 from error_handling.utils import ErrorResponseMixin, format_validation_errors
 
@@ -28,6 +28,7 @@ from django.conf import settings
 from django.utils import timezone
 from datetime import timedelta
 import uuid
+from django.db import IntegrityError
 
 
 def handle_registration_errors(exc):
@@ -51,12 +52,17 @@ def handle_registration_errors(exc):
                     raise EmailAlreadyExistsError('User with this email already exists')
         
         raise ValidationError('Data validation error')
-    raise exc
+    
+    # Если это IntegrityError (дублирование email)
+    if isinstance(exc, IntegrityError):
+        raise EmailAlreadyExistsError('User with this email already exists')
+    
+    # Для всех остальных ошибок
+    raise ServerError('Registration failed')
 
 
 # --- Registration ---
 @swagger_auto_schema(
-    method='post',
     operation_description="Customer registration (customer)",
     request_body=RegisterSerializer,
     responses={
@@ -65,20 +71,24 @@ def handle_registration_errors(exc):
     },
     tags=['Registration']
 )
-@transaction.atomic
-@api_view(['POST'])
-@permission_classes([AllowAny])
-def register_customer(request):
-    serializer = RegisterSerializer(data=request.data)
-    try:
-        serializer.is_valid(raise_exception=True)
-        serializer.save(role='customer')
-        return Response(serializer.data, status=201)
-    except Exception as exc:
-        handle_registration_errors(exc)
+class CustomerRegistrationView(BaseAPIView):
+    """Customer registration"""
+    permission_classes = [AllowAny]
+    
+    @transaction.atomic
+    def post(self, request):
+        serializer = RegisterSerializer(data=request.data)
+        try:
+            serializer.is_valid(raise_exception=True)
+            serializer.save(role='customer')
+            return self.success_response(
+                data=serializer.data,
+                message='Customer registered successfully'
+            )
+        except Exception as exc:
+            handle_registration_errors(exc)
 
 @swagger_auto_schema(
-    method='post',
     operation_description="Provider registration (provider)",
     request_body=RegisterSerializer,
     responses={
@@ -87,20 +97,24 @@ def register_customer(request):
     },
     tags=['Registration']
 )
-@transaction.atomic
-@api_view(['POST'])
-@permission_classes([AllowAny])
-def register_provider(request):
-    serializer = RegisterSerializer(data=request.data)
-    try:
-        serializer.is_valid(raise_exception=True)
-        serializer.save(role='provider')
-        return Response(serializer.data, status=201)
-    except Exception as exc:
-        handle_registration_errors(exc)
+class ProviderRegistrationView(BaseAPIView):
+    """Provider registration"""
+    permission_classes = [AllowAny]
+    
+    @transaction.atomic
+    def post(self, request):
+        serializer = RegisterSerializer(data=request.data)
+        try:
+            serializer.is_valid(raise_exception=True)
+            serializer.save(role='provider')
+            return self.success_response(
+                data=serializer.data,
+                message='Provider registered successfully'
+            )
+        except Exception as exc:
+            handle_registration_errors(exc)
 
 @swagger_auto_schema(
-    method='post',
     operation_description="Manager registration (management)",
     request_body=RegisterSerializer,
     responses={
@@ -109,17 +123,22 @@ def register_provider(request):
     },
     tags=['Registration']
 )
-@transaction.atomic
-@api_view(['POST'])
-@permission_classes([AllowAny])
-def register_management(request):
-    serializer = RegisterSerializer(data=request.data)
-    try:
-        serializer.is_valid(raise_exception=True)
-        serializer.save(role='management')
-        return Response(serializer.data, status=201)
-    except Exception as exc:
-        handle_registration_errors(exc)
+class ManagementRegistrationView(BaseAPIView):
+    """Manager registration"""
+    permission_classes = [AllowAny]
+    
+    @transaction.atomic
+    def post(self, request):
+        serializer = RegisterSerializer(data=request.data)
+        try:
+            serializer.is_valid(raise_exception=True)
+            serializer.save(role='management')
+            return self.success_response(
+                data=serializer.data,
+                message='Manager registered successfully'
+            )
+        except Exception as exc:
+            handle_registration_errors(exc)
 
 class FirebaseAuthView(BaseAPIView):
     """Firebase authentication"""
@@ -193,13 +212,37 @@ class ProfileView(BaseAPIView,
     def get(self, request, *args, **kwargs):
         return self.retrieve(request, *args, **kwargs)
 
+    @transaction.atomic
     def put(self, request, *args, **kwargs):
+        # Check if admin/provider has required profile photo
+        if not request.user.has_required_profile_photo():
+            return self.error_response(
+                error_number='PROFILE_PHOTO_REQUIRED',
+                error_message='Profile photo is required for admins and providers',
+                status_code=400
+            )
         return self.update(request, *args, **kwargs)
 
+    @transaction.atomic
     def patch(self, request, *args, **kwargs):
+        # Check if admin/provider has required profile photo
+        if not request.user.has_required_profile_photo():
+            return self.error_response(
+                error_number='PROFILE_PHOTO_REQUIRED',
+                error_message='Profile photo is required for admins and providers',
+                status_code=400
+            )
         return self.partial_update(request, *args, **kwargs)
 
+    @transaction.atomic
     def delete(self, request, *args, **kwargs):
+        # Check if admin/provider has required profile photo
+        if not request.user.has_required_profile_photo():
+            return self.error_response(
+                error_number='PROFILE_PHOTO_REQUIRED',
+                error_message='Profile photo is required for admins and providers',
+                status_code=400
+            )
         return self.destroy(request, *args, **kwargs)
 
 # --- Password ---
@@ -239,6 +282,7 @@ class VerificationCodeSenderMixin:
         # Here should be email/SMS sending
         return code
 
+    @transaction.atomic
     def post(self, request):
         try:
             serializer = self.serializer_class(data=request.data)
@@ -298,6 +342,7 @@ class VerificationCodeVerifyMixin:
         except VerificationCode.DoesNotExist:
             raise InvalidVerificationCodeError('Invalid confirmation code')
 
+    @transaction.atomic
     def post(self, request):
         try:
             serializer = self.serializer_class(data=request.data)

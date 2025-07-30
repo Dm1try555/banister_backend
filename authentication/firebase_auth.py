@@ -1,7 +1,7 @@
 import firebase_admin
 from firebase_admin import credentials, auth
 from django.conf import settings
-from rest_framework.exceptions import AuthenticationFailed
+from error_handling.exceptions import AuthenticationError
 
 
 
@@ -16,4 +16,4 @@ def verify_firebase_token(id_token):
         decoded_token = auth.verify_id_token(id_token)
         return decoded_token
     except Exception as e:
-        raise AuthenticationFailed(str(e))
+        raise AuthenticationError(str(e))

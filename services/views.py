@@ -124,6 +124,7 @@ class ServiceViewSet(BaseAPIView, viewsets.ModelViewSet):
         },
         tags=['Services']
     )
+    @transaction.atomic
     def destroy(self, request, *args, **kwargs):
         """Delete service"""
         try:

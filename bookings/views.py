@@ -298,6 +298,7 @@ class BookingStatusUpdateView(BaseAPIView):
         },
         tags=['Bookings']
     )
+    @transaction.atomic
     def post(self, request, booking_id):
         """
         Update booking status

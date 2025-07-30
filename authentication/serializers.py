@@ -4,7 +4,8 @@ from .models import User, Profile, VerificationCode, EmailConfirmationCode
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from providers.models import Provider
 from rest_framework_simplejwt.exceptions import AuthenticationFailed
-from error_handling.exceptions import InvalidEmailError
+from django.db import IntegrityError
+from error_handling.exceptions import InvalidEmailError, AuthenticationError, EmailAlreadyExistsError
 
 class ProfileSerializer(serializers.ModelSerializer):
     class Meta:
@@ -13,9 +14,20 @@ class ProfileSerializer(serializers.ModelSerializer):
 
 class UserSerializer(serializers.ModelSerializer):
     profile = ProfileSerializer()
+    profile_photo_url = serializers.SerializerMethodField()
+    has_required_profile_photo = serializers.SerializerMethodField()
+    
     class Meta:
         model = User
-        fields = ['id', 'email', 'phone', 'role', 'profile']
+        fields = ['id', 'email', 'phone', 'role', 'profile', 'profile_photo_url', 'has_required_profile_photo']
+
+    def get_profile_photo_url(self, obj):
+        """Get profile photo URL"""
+        return obj.get_profile_photo_url()
+    
+    def get_has_required_profile_photo(self, obj):
+        """Check if user has required profile photo"""
+        return obj.has_required_profile_photo()
 
     def update(self, instance, validated_data):
         profile_data = validated_data.pop('profile', None)
@@ -86,11 +98,11 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
                     pass
         try:
             data = super().validate(attrs)
-        except AuthenticationFailed:
-            raise AuthenticationFailed({'error': 'Invalid email or password'})
+        except Exception:
+            raise AuthenticationError('Invalid email or password')
         # Check role
         if user and requested_role and user.role != requested_role:
-            raise AuthenticationFailed({'error': f'User with email {user.email} is registered with role {user.role}. Login with role {requested_role} is not possible.'})
+            raise AuthenticationError(f'User with email {user.email} is registered with role {user.role}. Login with role {requested_role} is not possible.')
         # Add role to response
         if user:
             data['role'] = user.role

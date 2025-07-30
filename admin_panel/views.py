@@ -77,6 +77,7 @@ class AdminUserDetailView(BaseAPIView, generics.RetrieveDestroyAPIView):
         },
         tags=['Users']
     )
+    @transaction.atomic
     def destroy(self, request, *args, **kwargs):
         try:
             instance = self.get_object()
@@ -239,6 +240,7 @@ class AdminIssueDetailView(BaseAPIView, generics.RetrieveUpdateDestroyAPIView):
         },
         tags=['Admin']
     )
+    @transaction.atomic
     def destroy(self, request, *args, **kwargs):
         try:
             instance = self.get_object()

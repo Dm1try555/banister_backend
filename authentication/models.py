@@ -27,7 +27,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(unique=True)
     phone = models.CharField(max_length=25, blank=True, null=True)
     role = models.CharField(max_length=25, choices=ROLE_CHOICES, default='customer')
-    password_hash = models.CharField(max_length=128, blank=True)  # For Firebase compatibility
+    password_hash = models.CharField(max_length=128, blank=True, null=True)  # For Firebase compatibility
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
 
@@ -35,6 +35,18 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = []
+
+    def has_required_profile_photo(self):
+        """Check if user has required profile photo (admin and provider)"""
+        if self.role in ['admin', 'provider']:
+            return hasattr(self, 'profile_photo') and self.profile_photo.is_active
+        return True  # Customers can have optional profile photo
+    
+    def get_profile_photo_url(self):
+        """Get profile photo URL if exists"""
+        if hasattr(self, 'profile_photo') and self.profile_photo.is_active:
+            return self.profile_photo.photo_url
+        return None
 
 class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
