@@ -33,7 +33,17 @@ import uuid
 def handle_registration_errors(exc):
     """Handle registration errors"""
     from rest_framework.exceptions import ValidationError as DRFValidationError
+    from django.db import IntegrityError
     
+    # Handle database integrity errors (duplicate email)
+    if isinstance(exc, IntegrityError):
+        error_str = str(exc).lower()
+        if 'unique constraint' in error_str or 'duplicate' in error_str:
+            if 'email' in error_str:
+                raise EmailAlreadyExistsError('User with this email already exists')
+        raise ValidationError('Database constraint violation')
+    
+    # Handle DRF validation errors
     if isinstance(exc, DRFValidationError) or hasattr(exc, 'detail'):
         errors = exc.detail if hasattr(exc, 'detail') else exc.args[0]
         if isinstance(errors, dict) and 'email' in errors:
@@ -69,10 +79,10 @@ def handle_registration_errors(exc):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def register_customer(request):
-    serializer = RegisterSerializer(data=request.data)
+    serializer = RegisterSerializer(data=request.data, context={'role': 'customer'})
     try:
         serializer.is_valid(raise_exception=True)
-        serializer.save(role='customer')
+        serializer.save()
         return Response(serializer.data, status=201)
     except Exception as exc:
         handle_registration_errors(exc)
@@ -91,10 +101,10 @@ def register_customer(request):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def register_provider(request):
-    serializer = RegisterSerializer(data=request.data)
+    serializer = RegisterSerializer(data=request.data, context={'role': 'provider'})
     try:
         serializer.is_valid(raise_exception=True)
-        serializer.save(role='provider')
+        serializer.save()
         return Response(serializer.data, status=201)
     except Exception as exc:
         handle_registration_errors(exc)
@@ -113,10 +123,10 @@ def register_provider(request):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def register_management(request):
-    serializer = RegisterSerializer(data=request.data)
+    serializer = RegisterSerializer(data=request.data, context={'role': 'management'})
     try:
         serializer.is_valid(raise_exception=True)
-        serializer.save(role='management')
+        serializer.save()
         return Response(serializer.data, status=201)
     except Exception as exc:
         handle_registration_errors(exc)

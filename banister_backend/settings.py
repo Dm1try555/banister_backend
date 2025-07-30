@@ -106,15 +106,23 @@ WSGI_APPLICATION = 'banister_backend.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('POSTGRES_DB', 'banister_db'),
-        'USER': os.getenv('POSTGRES_USER', 'banister_user'),
-        'PASSWORD': os.getenv('POSTGRES_PASSWORD', 'banister_pass'),
-        'HOST': os.getenv('DB_HOST', 'db'), #for docker
-        # 'HOST': os.getenv('DB_HOST', 'localhost'), #for local
-        'PORT': '5432',
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
+
+# Uncomment below for PostgreSQL
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql',
+#         'NAME': os.getenv('POSTGRES_DB', 'banister_db'),
+#         'USER': os.getenv('POSTGRES_USER', 'banister_user'),
+#         'PASSWORD': os.getenv('POSTGRES_PASSWORD', 'banister_pass'),
+#         'HOST': os.getenv('DB_HOST', 'db'), #for docker
+#         # 'HOST': os.getenv('DB_HOST', 'localhost'), #for local
+#         'PORT': '5432',
+#     }
+# }
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
