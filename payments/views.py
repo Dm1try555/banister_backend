@@ -5,7 +5,7 @@ from .serializers import PaymentSerializer
 
 # Import error handling system
 from error_handling.views import BaseAPIView
-from error_handling.exceptions import PermissionError, ValidationError
+from error_handling.exceptions import CustomPermissionError, ValidationError
 from error_handling.utils import format_validation_errors
 
 from drf_yasg.utils import swagger_auto_schema

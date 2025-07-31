@@ -54,35 +54,45 @@ class BaseAPIView(APIView, ErrorResponseMixin):
     def delete(self, request, *args, **kwargs):
         raise MethodNotAllowed('DELETE')
 
+    def handle_registration_errors(self, exc):
+        """Handle registration errors"""
+        from rest_framework.exceptions import ValidationError as DRFValidationError
+        from .exceptions import InvalidEmailError, EmailAlreadyExistsError, ValidationError, ServerError
+        from django.db import IntegrityError
 
-class ErrorTestView(BaseAPIView):
-    """Test view for checking error handling system"""
-    
-    def get(self, request):
-        """Test successful response"""
-        return self.success_response(
-            data={'message': 'Test successful response'},
-            message='Test passed successfully'
+        if isinstance(exc, DRFValidationError) or hasattr(exc, 'detail'):
+            errors = exc.detail if hasattr(exc, 'detail') else exc.args[0]
+            if isinstance(errors, dict) and 'email' in errors:
+                email_errors = errors['email']
+                if isinstance(email_errors, list):
+                    email_errors = email_errors
+                else:
+                    email_errors = [email_errors]
+
+                for error in email_errors:
+                    error_str = str(error).lower()
+                    if 'valid email address' in error_str or 'invalid email' in error_str:
+                        return self.error_response(
+                            error_number='INVALID_EMAIL',
+                            error_message='Invalid email format',
+                            status_code=status.HTTP_400_BAD_REQUEST
+                        )
+                    if 'already exists' in error_str:
+                        return self.error_response(
+                            error_number='EMAIL_ALREADY_EXISTS',
+                            error_message='User with this email already exists',
+                            status_code=status.HTTP_400_BAD_REQUEST
+                        )
+                return self.validation_error_response(errors)
+            return self.validation_error_response(errors)
+        if isinstance(exc, IntegrityError):
+            return self.error_response(
+                error_number='EMAIL_ALREADY_EXISTS',
+                error_message='User with this email already exists',
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+        return self.error_response(
+            error_number='REGISTRATION_ERROR',
+            error_message='Registration failed',
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
-    
-    def post(self, request):
-        """Test different types of errors"""
-        error_type = request.data.get('error_type', 'validation')
-        
-        if error_type == 'validation':
-            from .exceptions import ValidationError
-            raise ValidationError('Test validation error')
-        elif error_type == 'authentication':
-            from .exceptions import AuthenticationError
-            raise AuthenticationError('Test authentication error')
-        elif error_type == 'not_found':
-            from .exceptions import NotFoundError
-            raise NotFoundError('Test not found error')
-        elif error_type == 'server':
-            from .exceptions import ServerError
-            raise ServerError('Test server error')
-        else:
-            return self.success_response(
-                data={'message': 'Test without errors'},
-                message='Test passed successfully'
-            ) 

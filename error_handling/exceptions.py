@@ -27,7 +27,7 @@ class AuthenticationError(BaseCustomException):
     default_code = 'AUTHENTICATION_ERROR'
 
 
-class PermissionError(BaseCustomException):
+class CustomPermissionError(BaseCustomException):
     """Permission error"""
     status_code = status.HTTP_403_FORBIDDEN
     default_detail = 'Insufficient permissions to perform the operation'

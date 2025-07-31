@@ -21,6 +21,10 @@ class ErrorHandlingMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
+        # Log request info for debugging
+        logger.info(f"Request: {request.method} {request.path}")
+        logger.info(f"Headers: {dict(request.headers)}")
+        
         response = self.get_response(request)
         return response
 

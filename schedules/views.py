@@ -6,7 +6,7 @@ from .serializers import ScheduleSerializer
 # Import error handling system
 from error_handling.views import BaseAPIView
 from error_handling.exceptions import (
-    PermissionError, ValidationError, NotFoundError, ConflictError
+    CustomPermissionError, ValidationError, NotFoundError, ConflictError
 )
 from error_handling.utils import format_validation_errors
 
@@ -28,7 +28,7 @@ class ScheduleListCreateView(BaseAPIView, generics.ListCreateAPIView):
     def perform_create(self, serializer):
         # Check user role
         if self.request.user.role != 'provider':
-            raise PermissionError('Only service providers can create schedules')
+            raise CustomPermissionError('Only service providers can create schedules')
         
         # Check for time conflict
         start_time = serializer.validated_data.get('start_time')
@@ -129,7 +129,7 @@ class ScheduleDetailView(BaseAPIView, generics.RetrieveUpdateDestroyAPIView):
             
             # Check access rights
             if instance.provider != self.request.user:
-                raise PermissionError('No permissions to view this schedule')
+                raise CustomPermissionError('No permissions to view this schedule')
             
             serializer = self.get_serializer(instance)
             

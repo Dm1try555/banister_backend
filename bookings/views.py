@@ -6,7 +6,7 @@ from .serializers import BookingSerializer
 # Import error handling system
 from error_handling.views import BaseAPIView
 from error_handling.exceptions import (
-    PermissionError, NotFoundError, BookingNotFoundError,
+    CustomPermissionError, NotFoundError, BookingNotFoundError,
     ValidationError, ConflictError
 )
 from error_handling.utils import ErrorResponseMixin, format_validation_errors
@@ -35,7 +35,7 @@ class BookingListCreateView(BaseAPIView, generics.ListCreateAPIView):
     def perform_create(self, serializer):
         # Check access rights
         if self.request.user.role != 'customer':
-            raise PermissionError('Only customers can create bookings')
+            raise CustomPermissionError('Only customers can create bookings')
         
         # Check time availability
         service = serializer.validated_data.get('service')
@@ -101,7 +101,7 @@ class BookingListCreateView(BaseAPIView, generics.ListCreateAPIView):
         try:
             # Check access rights
             if self.request.user.role != 'customer':
-                raise PermissionError('Only customers can create bookings')
+                raise CustomPermissionError('Only customers can create bookings')
             
             serializer = self.get_serializer(data=request.data)
             if not serializer.is_valid():
@@ -131,7 +131,7 @@ class BookingListCreateView(BaseAPIView, generics.ListCreateAPIView):
                 message='Booking created successfully'
             )
             
-        except PermissionError:
+        except CustomPermissionError:
             raise
         except ConflictError:
             raise
@@ -209,7 +209,7 @@ class BookingDetailView(BaseAPIView, generics.RetrieveUpdateDestroyAPIView):
             
             # Check update permissions
             if self.request.user.role == 'customer' and instance.customer != self.request.user:
-                raise PermissionError('No permissions to update this booking')
+                raise CustomPermissionError('No permissions to update this booking')
             
             serializer = self.get_serializer(instance, data=request.data, partial=True)
             if not serializer.is_valid():
@@ -229,7 +229,7 @@ class BookingDetailView(BaseAPIView, generics.RetrieveUpdateDestroyAPIView):
             
         except Booking.DoesNotExist:
             raise BookingNotFoundError('Booking not found')
-        except PermissionError:
+        except CustomPermissionError:
             raise
         except ValidationError:
             raise
@@ -258,7 +258,7 @@ class BookingDetailView(BaseAPIView, generics.RetrieveUpdateDestroyAPIView):
             
             # Check delete permissions
             if self.request.user.role == 'customer' and instance.customer != self.request.user:
-                raise PermissionError('No permissions to delete this booking')
+                raise CustomPermissionError('No permissions to delete this booking')
             
             instance.delete()
             
@@ -268,7 +268,7 @@ class BookingDetailView(BaseAPIView, generics.RetrieveUpdateDestroyAPIView):
             
         except Booking.DoesNotExist:
             raise BookingNotFoundError('Booking not found')
-        except PermissionError:
+        except CustomPermissionError:
             raise
         except Exception as e:
             return self.error_response(
@@ -306,7 +306,7 @@ class BookingStatusUpdateView(BaseAPIView):
         try:
             # Check user role
             if self.request.user.role != 'provider':
-                raise PermissionError('Only providers can update booking status')
+                raise CustomPermissionError('Only providers can update booking status')
             
             # Get booking
             try:
@@ -339,7 +339,7 @@ class BookingStatusUpdateView(BaseAPIView):
                 message='Booking status updated successfully'
             )
             
-        except PermissionError:
+        except CustomPermissionError:
             raise
         except BookingNotFoundError:
             raise

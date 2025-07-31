@@ -3,11 +3,12 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.db import transaction
 from django.shortcuts import get_object_or_404
+from django.http import Http404
 
 # Import error handling system
 from error_handling.views import BaseAPIView
 from error_handling.exceptions import (
-    PermissionError, ValidationError, NotFoundError
+    CustomPermissionError, ValidationError, NotFoundError
 )
 from error_handling.utils import format_validation_errors
 
@@ -27,6 +28,7 @@ from .utils import (
 class ProfilePhotoUploadView(BaseAPIView):
     """Profile photo upload"""
     permission_classes = [IsAuthenticated]
+    http_method_names = ['post']
     
     @swagger_auto_schema(
         operation_description="Upload profile photo",
@@ -139,6 +141,7 @@ class ProfilePhotoDetailView(BaseAPIView, generics.RetrieveAPIView):
     """Get profile photo"""
     serializer_class = ProfilePhotoSerializer
     permission_classes = [IsAuthenticated]
+    http_method_names = ['get']
     
     def get_object(self):
         """Get active profile photo for user"""
@@ -181,6 +184,7 @@ class ProfilePhotoDeleteView(BaseAPIView, generics.DestroyAPIView):
     """Delete profile photo"""
     serializer_class = ProfilePhotoSerializer
     permission_classes = [IsAuthenticated]
+    http_method_names = ['delete']
     
     def get_object(self):
         """Get active profile photo for user"""
@@ -235,6 +239,7 @@ class ProfilePhotoDeleteView(BaseAPIView, generics.DestroyAPIView):
 class QuickProfilePhotoChangeView(BaseAPIView):
     """Quick profile photo change with preview"""
     permission_classes = [IsAuthenticated]
+    http_method_names = ['post']
     
     @swagger_auto_schema(
         operation_description="Quick change profile photo with preview",

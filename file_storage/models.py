@@ -1,6 +1,4 @@
 from django.db import models
-from django.conf import settings
-from authentication.models import User
 import uuid
 import os
 from datetime import datetime
@@ -16,7 +14,7 @@ class FileStorage(models.Model):
     )
     
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='files')
+    user = models.ForeignKey('authentication.User', on_delete=models.CASCADE, related_name='files')
     file_name = models.CharField(max_length=255)
     original_name = models.CharField(max_length=255)
     file_type = models.CharField(max_length=20, choices=FILE_TYPES, default='other')
@@ -62,7 +60,7 @@ class ProfilePhoto(models.Model):
     """Model for user profile photos"""
     
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile_photo')
+    user = models.OneToOneField('authentication.User', on_delete=models.CASCADE, related_name='profile_photo')
     file_storage = models.OneToOneField(FileStorage, on_delete=models.CASCADE, related_name='profile_photo')
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)

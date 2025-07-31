@@ -2,6 +2,8 @@ from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseU
 from django.db import models
 from django.utils import timezone
 import uuid
+# ProfilePhoto импортируется по требованию для избежания циклических импортов
+
 
 class UserManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
@@ -16,6 +18,7 @@ class UserManager(BaseUserManager):
     def create_superuser(self, email, password=None, **extra_fields):
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
+        extra_fields.setdefault('role', 'management')  # По умолчанию для суперюзеров
         return self.create_user(email, password, **extra_fields)
 
 class User(AbstractBaseUser, PermissionsMixin):
@@ -25,7 +28,7 @@ class User(AbstractBaseUser, PermissionsMixin):
         ('management', 'Management'),
     )
     email = models.EmailField(unique=True)
-    phone = models.CharField(max_length=25, blank=True, null=True)
+    phone = models.CharField(max_length=20, blank=True, null=True, help_text="US phone number format: (XXX) XXX-XXXX")
     role = models.CharField(max_length=25, choices=ROLE_CHOICES, default='customer')
     password_hash = models.CharField(max_length=128, blank=True, null=True)  # For Firebase compatibility
     is_active = models.BooleanField(default=True)
@@ -37,24 +40,29 @@ class User(AbstractBaseUser, PermissionsMixin):
     REQUIRED_FIELDS = []
 
     def has_required_profile_photo(self):
-        """Check if user has required profile photo (admin and provider)"""
-        if self.role in ['admin', 'provider']:
-            return hasattr(self, 'profile_photo') and self.profile_photo.is_active
+        """Check if user has required profile photo (management and provider)"""
+        if self.role in ['provider', 'management']:
+            return hasattr(self, 'profile_photo') and getattr(self.profile_photo, 'is_active', False)
         return True  # Customers can have optional profile photo
-    
+
     def get_profile_photo_url(self):
         """Get profile photo URL if exists"""
-        if hasattr(self, 'profile_photo') and self.profile_photo.is_active:
-            return self.profile_photo.photo_url
+        if hasattr(self, 'profile_photo') and getattr(self.profile_photo, 'is_active', False):
+            return getattr(self.profile_photo, 'photo_url', None)
         return None
+
+    def __str__(self):
+        return self.email
 
 class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
-    first_name = models.CharField(max_length=50, blank=False, null=False, default='Name')
-    last_name = models.CharField(max_length=50, blank=False, null=False, default='Surname')
-    avatar_url = models.URLField(blank=True, null=True)
-    bio = models.TextField(blank=True)
+    first_name = models.CharField(max_length=128, blank=False, null=False, default='Name')
+    last_name = models.CharField(max_length=128, blank=False, null=False, default='Surname')
+    bio = models.TextField(blank=True, max_length=500)  # Limit bio length for US standards
     is_email_confirmed = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"{self.first_name} {self.last_name}"
 
 class VerificationCode(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
@@ -77,6 +85,21 @@ class EmailConfirmationCode(models.Model):
 
 class EmailConfirmationToken(models.Model):
     """Token for email confirmation via link"""
+    email = models.EmailField()
+    token = models.CharField(max_length=64, unique=True, default=uuid.uuid4)
+    created_at = models.DateTimeField(default=timezone.now)
+    is_used = models.BooleanField(default=False)
+    expires_at = models.DateTimeField()
+
+    def __str__(self):
+        return f"{self.email} - {'used' if self.is_used else 'unused'}"
+
+    def is_expired(self):
+        return timezone.now() > self.expires_at
+
+
+class PasswordResetToken(models.Model):
+    """Token for password reset via email"""
     email = models.EmailField()
     token = models.CharField(max_length=64, unique=True, default=uuid.uuid4)
     created_at = models.DateTimeField(default=timezone.now)

@@ -6,7 +6,7 @@ from .serializers import DocumentSerializer
 # Import error handling system
 from error_handling.views import BaseAPIView
 from error_handling.exceptions import (
-    PermissionError, ValidationError, NotFoundError
+    CustomPermissionError, ValidationError, NotFoundError
 )
 from error_handling.utils import format_validation_errors
 

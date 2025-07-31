@@ -5,7 +5,7 @@ from .serializers import AdminIssueSerializer
 from authentication.models import User
 from authentication.serializers import UserSerializer
 from error_handling.views import BaseAPIView
-from error_handling.exceptions import PermissionError
+from error_handling.exceptions import CustomPermissionError
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from django.db import transaction

@@ -5,7 +5,7 @@ from authentication.models import User
 
 # Import error handling system
 from error_handling.views import BaseAPIView
-from error_handling.exceptions import PermissionError
+from error_handling.exceptions import CustomPermissionError
 from error_handling.utils import format_validation_errors
 
 from drf_yasg.utils import swagger_auto_schema
@@ -37,7 +37,7 @@ class ServiceViewSet(BaseAPIView, viewsets.ModelViewSet):
     def perform_create(self, serializer):
         """Create service with provider binding"""
         if self.request.user.role != 'provider':
-            raise PermissionError('Only service providers can create services')
+            raise CustomPermissionError('Only service providers can create services')
         serializer.save(provider=self.request.user)
 
     @swagger_auto_schema(
@@ -66,7 +66,7 @@ class ServiceViewSet(BaseAPIView, viewsets.ModelViewSet):
                 message='Service created successfully'
             )
             
-        except PermissionError:
+        except CustomPermissionError:
             raise
         except Exception as e:
             return self.error_response(
@@ -94,7 +94,7 @@ class ServiceViewSet(BaseAPIView, viewsets.ModelViewSet):
             
             # Check update permissions
             if instance.provider != self.request.user:
-                raise PermissionError('No permissions to update this service')
+                raise CustomPermissionError('No permissions to update this service')
             
             serializer = self.get_serializer(instance, data=request.data, partial=True)
             if not serializer.is_valid():
@@ -132,7 +132,7 @@ class ServiceViewSet(BaseAPIView, viewsets.ModelViewSet):
             
             # Check delete permissions
             if instance.provider != self.request.user:
-                raise PermissionError('No permissions to delete this service')
+                raise CustomPermissionError('No permissions to delete this service')
             
             instance.delete()
             

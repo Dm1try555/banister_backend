@@ -5,7 +5,7 @@ from .serializers import ChatSerializer, MessageSerializer
 
 # Import error handling system
 from error_handling.views import BaseAPIView
-from error_handling.exceptions import PermissionError
+from error_handling.exceptions import CustomPermissionError
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from django.db import transaction
@@ -51,7 +51,7 @@ class ChatDetailView(BaseAPIView, generics.RetrieveAPIView):
     def get_object(self):
         obj = super().get_object()
         if self.request.user not in obj.participants.all():
-            raise PermissionError('No permissions to view this chat')
+            raise CustomPermissionError('No permissions to view this chat')
         return obj
 
     @swagger_auto_schema(
@@ -155,7 +155,7 @@ class MessageDetailView(BaseAPIView, generics.RetrieveAPIView):
     def get_object(self):
         obj = super().get_object()
         if self.request.user not in obj.chat.participants.all():
-            raise PermissionError('No permissions to view this message')
+            raise CustomPermissionError('No permissions to view this message')
         return obj
 
     @swagger_auto_schema(
@@ -204,7 +204,7 @@ class MessageListCreateView(BaseAPIView, generics.ListCreateAPIView):
         chat_id = serializer.validated_data.get('chat')
         chat = Chat.objects.get(id=chat_id)
         if self.request.user not in chat.participants.all():
-            raise PermissionError('No permissions to send messages to this chat')
+            raise CustomPermissionError('No permissions to send messages to this chat')
         serializer.save(sender=self.request.user)
 
     @swagger_auto_schema(

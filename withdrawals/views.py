@@ -6,7 +6,7 @@ from .serializers import WithdrawalSerializer
 # Import error handling system
 from error_handling.views import BaseAPIView
 from error_handling.exceptions import (
-    PermissionError, ValidationError, WithdrawalError
+    CustomPermissionError, ValidationError, WithdrawalError
 )
 from error_handling.utils import format_validation_errors
 
@@ -138,7 +138,7 @@ class WithdrawalListCreateView(BaseAPIView, generics.ListCreateAPIView):
     @transaction.atomic
     def perform_create(self, serializer):
         if self.request.user.role != 'provider':
-            raise PermissionError('Only service providers can create withdrawal requests')
+            raise CustomPermissionError('Only service providers can create withdrawal requests')
         amount = serializer.validated_data.get('amount', 0)
         if amount <= 0:
             raise ValidationError('Withdrawal amount must be greater than zero')

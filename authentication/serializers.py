@@ -9,29 +9,58 @@ from error_handling.exceptions import InvalidEmailError, AuthenticationError, Em
 class ProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = Profile
-        fields = ['first_name', 'last_name', 'avatar_url', 'bio']
+        fields = ['first_name', 'last_name', 'bio']
+
+    def validate_first_name(self, value):
+        """Validate US first name format"""
+        if value:
+            cleaned = ' '.join(value.split())
+            if not cleaned.replace("'", "").replace("-", "").replace(" ", "").isalpha():
+                raise serializers.ValidationError(
+                    'First name can only contain letters, spaces, hyphens, and apostrophes.'
+                )
+        return value
+
+    def validate_last_name(self, value):
+        """Validate US last name format"""
+        if value:
+            cleaned = ' '.join(value.split())
+            if not cleaned.replace("'", "").replace("-", "").replace(" ", "").isalpha():
+                raise serializers.ValidationError(
+                    'Last name can only contain letters, spaces, hyphens, and apostrophes.'
+                )
+        return value
+
+    def validate_bio(self, value):
+        """Validate bio length for US standards"""
+        if value and len(value) > 500:
+            raise serializers.ValidationError('Bio cannot exceed 500 characters.')
+        return value
 
 class ProviderProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = Provider
         fields = ['experience_years', 'hourly_rate'] # Assuming these fields are on the Provider model
 
-class UserSerializer(serializers.ModelSerializer):
+class BaseUserSerializer(serializers.ModelSerializer):
     profile = ProfileSerializer()
-    provider_profile = ProviderProfileSerializer(required=False, allow_null=True)
-    email = serializers.EmailField(required=False)
     profile_photo_url = serializers.SerializerMethodField()
+    has_required_profile_photo = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ['id', 'email', 'phone', 'role', 'profile', 'provider_profile', 'profile_photo_url']
+        fields = ['id', 'email', 'phone', 'role', 'profile', 'profile_photo_url', 'has_required_profile_photo']
 
     def get_profile_photo_url(self, obj):
+        """Get profile photo URL"""
         return obj.get_profile_photo_url()
+
+    def get_has_required_profile_photo(self, obj):
+        """Check if user has required profile photo"""
+        return obj.has_required_profile_photo()
 
     def update(self, instance, validated_data):
         profile_data = validated_data.pop('profile', None)
-        provider_profile_data = validated_data.pop('provider_profile', None) # Extract provider_profile data
 
         # Update main user fields (email, phone, etc.)
         for attr, value in validated_data.items():
@@ -45,9 +74,91 @@ class UserSerializer(serializers.ModelSerializer):
                 setattr(profile, attr, value)
             profile.save()
 
-        # Update provider profile if user is a provider and data is provided
+        return instance
+
+
+class CustomerUserSerializer(BaseUserSerializer):
+    """Serializer for customer users - no provider profile fields"""
+    class Meta(BaseUserSerializer.Meta):
+        fields = ['id', 'email', 'phone', 'role', 'profile', 'profile_photo_url', 'has_required_profile_photo']
+
+
+class ProviderUserSerializer(BaseUserSerializer):
+    """Serializer for provider users - includes provider profile fields"""
+    provider_profile = ProviderProfileSerializer(required=False, allow_null=True)
+
+    class Meta(BaseUserSerializer.Meta):
+        fields = ['id', 'email', 'phone', 'role', 'profile', 'provider_profile', 'profile_photo_url', 'has_required_profile_photo']
+
+    def update(self, instance, validated_data):
+        profile_data = validated_data.pop('profile', None)
+        provider_profile_data = validated_data.pop('provider_profile', None)
+
+        # Update main user fields (email, phone, etc.)
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        # Update profile if data is provided
+        if profile_data:
+            profile = instance.profile
+            for attr, value in profile_data.items():
+                setattr(profile, attr, value)
+            profile.save()
+
+        # Update provider profile if data is provided
+        if provider_profile_data:
+            provider_instance, created = Provider.objects.get_or_create(user=instance)
+            for attr, value in provider_profile_data.items():
+                setattr(provider_instance, attr, value)
+            provider_instance.save()
+
+        return instance
+
+
+class ManagementUserSerializer(BaseUserSerializer):
+    """Serializer for management users - no provider profile fields"""
+    class Meta(BaseUserSerializer.Meta):
+        fields = ['id', 'email', 'phone', 'role', 'profile', 'profile_photo_url', 'has_required_profile_photo']
+
+
+# Keep the original UserSerializer for backward compatibility, but make it role-aware
+class UserSerializer(BaseUserSerializer):
+    """Role-aware user serializer that includes provider_profile only for providers"""
+    provider_profile = serializers.SerializerMethodField()
+
+    class Meta(BaseUserSerializer.Meta):
+        fields = ['id', 'email', 'phone', 'role', 'profile', 'provider_profile', 'profile_photo_url', 'has_required_profile_photo']
+
+    def get_provider_profile(self, obj):
+        """Only include provider_profile for provider users"""
+        if obj.role == 'provider':
+            try:
+                from providers.models import Provider
+                provider = Provider.objects.get(user=obj)
+                return ProviderProfileSerializer(provider).data
+            except Provider.DoesNotExist:
+                return None
+        return None
+
+    def update(self, instance, validated_data):
+        profile_data = validated_data.pop('profile', None)
+        provider_profile_data = validated_data.pop('provider_profile', None)
+
+        # Update main user fields (email, phone, etc.)
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        # Update profile if data is provided
+        if profile_data:
+            profile = instance.profile
+            for attr, value in profile_data.items():
+                setattr(profile, attr, value)
+            profile.save()
+
+        # Update provider profile only if user is a provider and data is provided
         if instance.role == 'provider' and provider_profile_data:
-            # Get or create the Provider instance for the user
             provider_instance, created = Provider.objects.get_or_create(user=instance)
             for attr, value in provider_profile_data.items():
                 setattr(provider_instance, attr, value)
@@ -57,14 +168,99 @@ class UserSerializer(serializers.ModelSerializer):
 
 class RegisterSerializer(serializers.ModelSerializer):
     email = serializers.EmailField() # Explicit email validation
-    password = serializers.CharField(write_only=True)
+    password = serializers.CharField(write_only=True, min_length=8)
     confirm_password = serializers.CharField(write_only=True)
-    first_name = serializers.CharField(write_only=True)
-    last_name = serializers.CharField(write_only=True)
+    first_name = serializers.CharField(write_only=True, min_length=1, max_length=50)
+    last_name = serializers.CharField(write_only=True, min_length=1, max_length=50)
 
     class Meta:
         model = User
         fields = ['email', 'phone', 'role', 'password', 'confirm_password', 'first_name', 'last_name']
+
+    def validate_password(self, value):
+        """Validate password strength"""
+        if len(value) < 8:
+            raise serializers.ValidationError('Password must be at least 8 characters long.')
+        
+        # Check for at least one letter and one number
+        if not any(c.isalpha() for c in value):
+            raise serializers.ValidationError('Password must contain at least one letter.')
+        
+        if not any(c.isdigit() for c in value):
+            raise serializers.ValidationError('Password must contain at least one number.')
+        
+        return value
+
+    def validate_email(self, value):
+        """Validate email uniqueness and US format"""
+        if User.objects.filter(email=value).exists():
+            raise serializers.ValidationError('User with this email already exists.')
+        
+        # Basic email format validation for US standards
+        if value:
+            email_parts = value.split('@')
+            if len(email_parts) != 2:
+                raise serializers.ValidationError('Please enter a valid email address.')
+            
+            local_part, domain = email_parts
+            if len(local_part) < 1 or len(domain) < 3:
+                raise serializers.ValidationError('Please enter a valid email address.')
+            
+            # Check for common US email providers
+            common_domains = ['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'aol.com']
+            if domain.lower() not in common_domains and '.' not in domain:
+                raise serializers.ValidationError('Please enter a valid email address.')
+        
+        return value
+
+    def validate_phone(self, value):
+        """Validate US phone number format"""
+        if value:
+            # Remove all non-digit characters
+            digits_only = ''.join(filter(str.isdigit, value))
+            
+            # US phone number validation
+            if len(digits_only) == 10:
+                # Standard US format: (XXX) XXX-XXXX
+                return value
+            elif len(digits_only) == 11 and digits_only.startswith('1'):
+                # US with country code: +1 (XXX) XXX-XXXX
+                return value
+            elif len(digits_only) == 7:
+                # Local number without area code (not recommended)
+                return value
+            else:
+                raise serializers.ValidationError(
+                    'Please enter a valid US phone number. '
+                    'Format: (XXX) XXX-XXXX or +1 (XXX) XXX-XXXX'
+                )
+        return value
+
+    def validate_first_name(self, value):
+        """Validate US first name format"""
+        if value:
+            # Remove extra spaces and check for valid characters
+            cleaned = ' '.join(value.split())
+            if not cleaned.replace("'", "").replace("-", "").replace(" ", "").isalpha():
+                raise serializers.ValidationError(
+                    'First name can only contain letters, spaces, hyphens, and apostrophes.'
+                )
+            if len(cleaned) < 1:
+                raise serializers.ValidationError('First name cannot be empty.')
+        return value
+
+    def validate_last_name(self, value):
+        """Validate US last name format"""
+        if value:
+            # Remove extra spaces and check for valid characters
+            cleaned = ' '.join(value.split())
+            if not cleaned.replace("'", "").replace("-", "").replace(" ", "").isalpha():
+                raise serializers.ValidationError(
+                    'Last name can only contain letters, spaces, hyphens, and apostrophes.'
+                )
+            if len(cleaned) < 1:
+                raise serializers.ValidationError('Last name cannot be empty.')
+        return value
 
     def validate(self, data):
         if data['password'] != data['confirm_password']:
@@ -75,7 +271,10 @@ class RegisterSerializer(serializers.ModelSerializer):
         first_name = validated_data.pop('first_name')
         last_name = validated_data.pop('last_name')
         validated_data.pop('confirm_password')
-        role = self._kwargs.get('role', validated_data.pop('role'))
+        
+        # Get role from context or validated_data
+        role = self.context.get('role', validated_data.get('role', 'customer'))
+        
         user = User.objects.create_user(
             email=validated_data['email'],
             phone=validated_data.get('phone'),
