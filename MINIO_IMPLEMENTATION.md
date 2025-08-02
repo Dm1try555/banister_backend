@@ -8,17 +8,16 @@
 - Консоль управления доступна на порту 9001
 
 ### ✅ **2. Эндпоинты для профильных фотографий созданы**
-- `/api/file-storage/profile-photo/upload/` - загрузка новой фотографии
-- `/api/file-storage/profile-photo/quick-change/` - быстрая смена фотографии
-- `/api/file-storage/profile-photo/` - получение текущей фотографии
-- `/api/file-storage/profile-photo/delete/` - удаление фотографии
+- `/api/v1/files/profile-photo/upload/` - универсальная загрузка/смена фотографии
+- `/api/v1/files/profile-photo/` - получение текущей фотографии
+- `/api/v1/files/profile-photo/delete/` - удаление фотографии
 
 ### ✅ **3. Автоматическое создание бакетов**
 - Бакеты создаются автоматически при первой загрузке файла
 - Поддержка разных типов файлов (profile-photos, documents, images, misc)
 
-### ✅ **4. Валидация обязательности для админов и провайдеров**
-- Профильная фотография обязательна для ролей `admin` и `provider`
+### ✅ **4. Валидация обязательности для провайдеров и менеджеров**
+- Профильная фотография обязательна для ролей `provider` и `management`
 - Проверка при обновлении профиля
 - Уведомления в UI о необходимости загрузки
 
@@ -74,9 +73,13 @@ def upload_file_to_minio(file_obj, bucket_name, object_key, content_type):
 ```python
 # authentication/models.py
 def has_required_profile_photo(self):
-    """Проверка обязательности фото для админов и провайдеров"""
-    if self.role in ['admin', 'provider']:
-        return hasattr(self, 'profile_photo') and self.profile_photo.is_active
+    """Проверка обязательности фото для провайдеров и менеджеров"""
+    if self.role in ['provider', 'management']:
+        try:
+            from file_storage.models import ProfilePhoto
+            return ProfilePhoto.objects.filter(user=self, is_active=True).exists()
+        except Exception:
+            return False
     return True  # Клиенты могут не иметь фото
 ```
 
@@ -146,9 +149,9 @@ def has_required_profile_photo(self):
 
 ## 🔧 **API Endpoints**
 
-### **Загрузка профильной фотографии**
+### **Загрузка/смена профильной фотографии**
 ```http
-POST /api/file-storage/profile-photo/upload/
+POST /api/v1/files/profile-photo/upload/
 Content-Type: multipart/form-data
 Authorization: Bearer <token>
 
@@ -157,44 +160,81 @@ Authorization: Bearer <token>
 }
 ```
 
-**Ответ:**
+**Ответ (первая загрузка):**
 ```json
 {
   "success": true,
+  "message": "Profile photo uploaded successfully",
+  "timestamp": "2025-01-31T19:36:59.900765+00:00",
   "data": {
-    "id": "uuid",
-    "user": {...},
-    "file_storage": {
-      "file_url": "https://minio:9000/profile-photos/...",
-      "public_url": "/media/profile-photos/..."
+    "id": "1df4cf9b-ef49-42b5-8bb9-5bc03052600c",
+    "user": {
+      "id": 112,
+      "email": "provider@example.com",
+      "phone": "1234567890",
+      "role": "provider",
+      "profile": {
+        "first_name": "John",
+        "last_name": "Doe",
+        "bio": ""
+      },
+      "provider_profile": {
+        "experience_years": 0,
+        "hourly_rate": "0.00"
+      },
+      "profile_photo_url": "http://localhost:9000/profile-photos/112/profile_photo/20250131_193659_e1f2b717.jpg",
+      "has_required_profile_photo": true
     },
-    "photo_url": "https://minio:9000/profile-photos/...",
-    "is_active": true
-  },
-  "message": "Profile photo uploaded successfully"
+    "file_storage": {
+      "id": "300917b4-91dd-4abc-bb9e-504fadd38461",
+      "file_name": "profile_photo_112",
+      "original_name": "profile.jpg",
+      "file_type": "profile_photo",
+      "bucket_name": "profile-photos",
+      "object_key": "112/profile_photo/20250131_193659_e1f2b717.jpg",
+      "file_size": 107236,
+      "content_type": "image/jpeg",
+      "is_public": true,
+      "created_at": "2025-01-31T19:36:59.444490Z",
+      "updated_at": "2025-01-31T19:36:59.444508Z",
+      "file_url": "http://localhost:9000/profile-photos/112/profile_photo/20250131_193659_e1f2b717.jpg",
+      "public_url": "http://localhost:9000/profile-photos/112/profile_photo/20250131_193659_e1f2b717.jpg"
+    },
+    "is_active": true,
+    "created_at": "2025-01-31T19:36:59.453362Z",
+    "updated_at": "2025-01-31T19:36:59.453418Z",
+    "photo_url": "http://localhost:9000/profile-photos/112/profile_photo/20250131_193659_e1f2b717.jpg"
+  }
 }
 ```
 
-### **Быстрая смена фотографии**
-```http
-POST /api/file-storage/profile-photo/quick-change/
-Content-Type: multipart/form-data
-Authorization: Bearer <token>
-
+**Ответ (смена фото):**
+```json
 {
-  "photo": <file>
+  "success": true,
+  "message": "Profile photo changed successfully",
+  "timestamp": "2025-01-31T19:36:59.900765+00:00",
+  "data": {
+    // Same structure as above
+  }
 }
 ```
+
+**Особенности:**
+- ✅ **Универсальный эндпоинт** - работает для первой загрузки и замены
+- ✅ **Автоматическое удаление** старых файлов при замене
+- ✅ **Валидация файлов** - формат, размер, тип
+- ✅ **Обработка ошибок** - подробные сообщения об ошибках
 
 ### **Получение профильной фотографии**
 ```http
-GET /api/file-storage/profile-photo/
+GET /api/v1/files/profile-photo/
 Authorization: Bearer <token>
 ```
 
 ### **Удаление профильной фотографии**
 ```http
-DELETE /api/file-storage/profile-photo/delete/
+DELETE /api/v1/files/profile-photo/delete/
 Authorization: Bearer <token>
 ```
 
@@ -293,12 +333,12 @@ MINIO_ENDPOINT=minio:9000
 
 ### **Для разработчиков:**
 
-1. **Загрузка фотографии:**
+1. **Загрузка/смена фотографии:**
 ```javascript
 const formData = new FormData()
 formData.append('photo', file)
 
-const response = await $fetch('/api/file-storage/profile-photo/quick-change/', {
+const response = await $fetch('/api/v1/files/profile-photo/upload/', {
   method: 'POST',
   body: formData,
   headers: {
@@ -309,8 +349,8 @@ const response = await $fetch('/api/file-storage/profile-photo/quick-change/', {
 
 2. **Получение URL фотографии:**
 ```javascript
-const profile = await $fetch('/api/authentication/profile/')
-const photoUrl = profile.data.profile_photo_url
+const profile = await $fetch('/api/v1/auth/profile/')
+const photoUrl = profile.profile_photo_url
 ```
 
 ### **Для пользователей:**
@@ -328,10 +368,12 @@ const photoUrl = profile.data.profile_photo_url
 
 Все требования заказчика выполнены:
 - ✅ MinIO подключен в docker-compose
-- ✅ Эндпоинты для загрузки фотографий созданы
+- ✅ Универсальный эндпоинт для загрузки/смены фотографий
 - ✅ Автоматическое создание бакетов
-- ✅ UI для быстрой смены фотографии
-- ✅ Обязательность для админов и провайдеров
+- ✅ UI для загрузки фотографий
+- ✅ Обязательность для провайдеров и менеджеров
 - ✅ Поддержка всех ролей пользователей
 - ✅ Современный и удобный интерфейс
-- ✅ Полная валидация и обработка ошибок 
+- ✅ Полная валидация и обработка ошибок
+- ✅ Автоматическое удаление старых файлов при замене
+- ✅ Безопасность: запрет изменения ролей через профиль 

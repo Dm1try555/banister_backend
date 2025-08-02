@@ -3,7 +3,7 @@ from django.urls import path
 from .views import (
     CustomerRegistrationView, ProviderRegistrationView, ManagementRegistrationView,
     CustomTokenObtainPairView, ProfileView,
-    PasswordResetView, PasswordResetConfirmView, logout_view,
+    PasswordResetView, PasswordResetConfirmView, logout_view, clear_token_view,
     CustomerLoginView, ProviderLoginView, ManagementLoginView,
     CustomTokenRefreshView, email_confirm_request, email_confirm_verify
 )
@@ -16,6 +16,7 @@ urlpatterns = [
     path('login/provider/', ProviderLoginView.as_view(), name='login-provider'),
     path('login/management/', ManagementLoginView.as_view(), name='login-management'),
     path('logout/', logout_view, name='logout'),
+    path('clear-token/', clear_token_view, name='clear-token'),
     path('token/refresh/', CustomTokenRefreshView.as_view(), name='token_refresh'),
     path('profile/', ProfileView.as_view(), name='profile'),
     path('password-reset/', PasswordResetView.as_view(), name='password-reset'),

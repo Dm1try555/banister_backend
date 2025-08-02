@@ -51,6 +51,69 @@ class BaseUserSerializer(serializers.ModelSerializer):
         model = User
         fields = ['id', 'email', 'phone', 'role', 'profile', 'profile_photo_url', 'has_required_profile_photo']
 
+    def validate_email(self, value):
+        """Validate email format and uniqueness (except for current user)"""
+        if value:
+            email_parts = value.split('@')
+            if len(email_parts) != 2:
+                raise serializers.ValidationError('Please enter a valid email address.')
+            
+            local_part, domain = email_parts
+            if len(local_part) < 1 or len(domain) < 3:
+                raise serializers.ValidationError('Please enter a valid email address.')
+            
+            common_domains = ['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'aol.com']
+            if domain.lower() not in common_domains and '.' not in domain:
+                raise serializers.ValidationError('Please enter a valid email address.')
+            
+            # Check uniqueness (excluding current user)
+            user = self.context.get('request').user if self.context.get('request') else None
+            if user and User.objects.filter(email=value).exclude(id=user.id).exists():
+                raise serializers.ValidationError('User with this email already exists.')
+            elif not user and User.objects.filter(email=value).exists():
+                raise serializers.ValidationError('User with this email already exists.')
+        return value
+
+    def validate_phone(self, value):
+        """Validate US phone number format - supports all common formats"""
+        if not value:
+            return value
+            
+        # Remove all non-digit characters for validation
+        digits_only = ''.join(filter(str.isdigit, value))
+        
+        # Check for valid US phone number patterns
+        if len(digits_only) == 10:
+            # Standard US format: (555) 123-4567
+            return value
+        elif len(digits_only) == 11 and digits_only.startswith('1'):
+            # US with country code: +1 (555) 123-4567
+            return value
+        elif len(digits_only) == 7:
+            # Local number without area code (less common but supported)
+            return value
+        elif len(digits_only) == 12 and digits_only.startswith('11'):
+            # International format with double country code (rare but possible)
+            return value
+        elif len(digits_only) == 13 and digits_only.startswith('111'):
+            # Extended international format (very rare but possible)
+            return value
+        else:
+            raise serializers.ValidationError(
+                'Please enter a valid US phone number. '
+                'Supported formats:\n'
+                '• (555) 123-4567\n'
+                '• 555-123-4567\n'
+                '• 555.123.4567\n'
+                '• 555 123 4567\n'
+                '• +1 (555) 123-4567\n'
+                '• +1-555-123-4567\n'
+                '• 1-555-123-4567\n'
+                '• 123-4567 (local number)\n'
+                '• 5551234567 (no formatting)'
+            )
+        return value
+
     def get_profile_photo_url(self, obj):
         """Get profile photo URL"""
         return obj.get_profile_photo_url()
@@ -85,10 +148,21 @@ class CustomerUserSerializer(BaseUserSerializer):
 
 class ProviderUserSerializer(BaseUserSerializer):
     """Serializer for provider users - includes provider profile fields"""
-    provider_profile = ProviderProfileSerializer(required=False, allow_null=True)
+    provider_profile = serializers.SerializerMethodField()
 
     class Meta(BaseUserSerializer.Meta):
         fields = ['id', 'email', 'phone', 'role', 'profile', 'provider_profile', 'profile_photo_url', 'has_required_profile_photo']
+
+    def get_provider_profile(self, obj):
+        """Get provider profile if exists"""
+        if obj.role == 'provider':
+            try:
+                from providers.models import Provider
+                provider = Provider.objects.get(user=obj)
+                return ProviderProfileSerializer(provider).data
+            except Provider.DoesNotExist:
+                return None
+        return None
 
     def update(self, instance, validated_data):
         profile_data = validated_data.pop('profile', None)
@@ -214,26 +288,43 @@ class RegisterSerializer(serializers.ModelSerializer):
         return value
 
     def validate_phone(self, value):
-        """Validate US phone number format"""
-        if value:
-            # Remove all non-digit characters
-            digits_only = ''.join(filter(str.isdigit, value))
+        """Validate US phone number format - supports all common formats"""
+        if not value:
+            return value
             
-            # US phone number validation
-            if len(digits_only) == 10:
-                # Standard US format: (XXX) XXX-XXXX
-                return value
-            elif len(digits_only) == 11 and digits_only.startswith('1'):
-                # US with country code: +1 (XXX) XXX-XXXX
-                return value
-            elif len(digits_only) == 7:
-                # Local number without area code (not recommended)
-                return value
-            else:
-                raise serializers.ValidationError(
-                    'Please enter a valid US phone number. '
-                    'Format: (XXX) XXX-XXXX or +1 (XXX) XXX-XXXX'
-                )
+        # Remove all non-digit characters for validation
+        digits_only = ''.join(filter(str.isdigit, value))
+        
+        # Check for valid US phone number patterns
+        if len(digits_only) == 10:
+            # Standard US format: (555) 123-4567
+            return value
+        elif len(digits_only) == 11 and digits_only.startswith('1'):
+            # US with country code: +1 (555) 123-4567
+            return value
+        elif len(digits_only) == 7:
+            # Local number without area code (less common but supported)
+            return value
+        elif len(digits_only) == 12 and digits_only.startswith('11'):
+            # International format with double country code (rare but possible)
+            return value
+        elif len(digits_only) == 13 and digits_only.startswith('111'):
+            # Extended international format (very rare but possible)
+            return value
+        else:
+            raise serializers.ValidationError(
+                'Please enter a valid US phone number. '
+                'Supported formats:\n'
+                '• (555) 123-4567\n'
+                '• 555-123-4567\n'
+                '• 555.123.4567\n'
+                '• 555 123 4567\n'
+                '• +1 (555) 123-4567\n'
+                '• +1-555-123-4567\n'
+                '• 1-555-123-4567\n'
+                '• 123-4567 (local number)\n'
+                '• 5551234567 (no formatting)'
+            )
         return value
 
     def validate_first_name(self, value):

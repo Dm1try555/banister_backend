@@ -54,7 +54,7 @@ class CustomerRegistrationView(BaseAPIView):
                 'confirm_password': openapi.Schema(type=openapi.TYPE_STRING, description='Password confirmation'),
                 'first_name': openapi.Schema(type=openapi.TYPE_STRING, description='First name'),
                 'last_name': openapi.Schema(type=openapi.TYPE_STRING, description='Last name'),
-                                         'phone': openapi.Schema(type=openapi.TYPE_STRING, description='US phone number (optional) - Format: (XXX) XXX-XXXX'),
+                                         'phone': openapi.Schema(type=openapi.TYPE_STRING, description='US phone number (optional) - Supports: (555) 123-4567, +1 (555) 123-4567, 555-123-4567, 555.123.4567, 555 123 4567, 123-4567, 5551234567'),
                      },
                      example={
                          'email': 'customer@example.com',
@@ -148,7 +148,7 @@ class ManagementRegistrationView(BaseAPIView):
                 'confirm_password': openapi.Schema(type=openapi.TYPE_STRING, description='Password confirmation'),
                 'first_name': openapi.Schema(type=openapi.TYPE_STRING, description='First name'),
                 'last_name': openapi.Schema(type=openapi.TYPE_STRING, description='Last name'),
-                'phone': openapi.Schema(type=openapi.TYPE_STRING, description='US phone number (optional) - Format: (XXX) XXX-XXXX'),
+                'phone': openapi.Schema(type=openapi.TYPE_STRING, description='US phone number (optional) - Supports: (555) 123-4567, +1 (555) 123-4567, 555-123-4567, 555.123.4567, 555 123 4567, 123-4567, 5551234567'),
         },
             example={
                 'email': 'manager@example.com',
@@ -288,7 +288,7 @@ class ProfileView(BaseAPIView, mixins.RetrieveModelMixin, mixins.UpdateModelMixi
         tags=['Profile'])
     def get(self, request):
         try:
-            serializer = self.get_serializer(request.user)
+            serializer = self.get_serializer(request.user, context={'request': request})
             return Response(serializer.data)
         except Exception as e:
             return self.error_response(
@@ -298,13 +298,13 @@ class ProfileView(BaseAPIView, mixins.RetrieveModelMixin, mixins.UpdateModelMixi
             )
 
     @swagger_auto_schema(
-        operation_description="Update user profile (full update) - Role-specific fields",
+        operation_description="Update user profile (full update) - Role-specific fields. Note: Role cannot be changed.",
         request_body=openapi.Schema(
             type=openapi.TYPE_OBJECT,
             properties={
                 'email': openapi.Schema(type=openapi.TYPE_STRING, format='email'),
                 'phone': openapi.Schema(type=openapi.TYPE_STRING),
-                'role': openapi.Schema(type=openapi.TYPE_STRING),
+                'role': openapi.Schema(type=openapi.TYPE_STRING, description='Role cannot be changed'),
                 'profile': openapi.Schema(
                     type=openapi.TYPE_OBJECT,
                     properties={
@@ -325,7 +325,7 @@ class ProfileView(BaseAPIView, mixins.RetrieveModelMixin, mixins.UpdateModelMixi
         ),
         responses={
             200: openapi.Response('Profile updated successfully', UserSerializer),
-            400: 'Validation error or profile photo required for providers/managers',
+            400: 'Validation error, role change not allowed, or profile photo required for providers/managers',
             401: 'Authentication required',
             500: 'Server error'
         },
@@ -333,13 +333,31 @@ class ProfileView(BaseAPIView, mixins.RetrieveModelMixin, mixins.UpdateModelMixi
     @transaction.atomic
     def put(self, request, *args, **kwargs):
         try:
+            # Prevent role change
+            if 'role' in request.data and request.data['role'] != request.user.role:
+                return self.error_response(
+                    error_number='ROLE_CHANGE_NOT_ALLOWED',
+                    error_message='Changing user role is not allowed',
+                    status_code=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Get serializer with context for validation
+            serializer = self.get_serializer(request.user, data=request.data, context={'request': request})
+            if not serializer.is_valid():
+                return self.validation_error_response(serializer.errors)
+            
+            # Check profile photo requirement after validation
             if request.user.role in ['provider', 'management'] and not request.user.has_required_profile_photo():
                 return self.error_response(
                     error_number='PROFILE_PHOTO_REQUIRED',
                     error_message='Profile photo is required for providers and managers',
                     status_code=status.HTTP_400_BAD_REQUEST
                 )
-            return self.update(request, *args, **kwargs)
+            
+            # Update the user
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+            
         except Exception as e:
             return self.error_response(
                 error_number='SERVER_ERROR',
@@ -348,13 +366,13 @@ class ProfileView(BaseAPIView, mixins.RetrieveModelMixin, mixins.UpdateModelMixi
             )
 
     @swagger_auto_schema(
-        operation_description="Update user profile (partial update) - Role-specific fields",
+        operation_description="Update user profile (partial update) - Role-specific fields. Note: Role cannot be changed.",
         request_body=openapi.Schema(
             type=openapi.TYPE_OBJECT,
             properties={
                 'email': openapi.Schema(type=openapi.TYPE_STRING, format='email'),
                 'phone': openapi.Schema(type=openapi.TYPE_STRING),
-                'role': openapi.Schema(type=openapi.TYPE_STRING),
+                'role': openapi.Schema(type=openapi.TYPE_STRING, description='Role cannot be changed'),
                 'profile': openapi.Schema(
                     type=openapi.TYPE_OBJECT,
                     properties={
@@ -375,7 +393,7 @@ class ProfileView(BaseAPIView, mixins.RetrieveModelMixin, mixins.UpdateModelMixi
         ),
         responses={
             200: openapi.Response('Profile updated successfully', UserSerializer),
-            400: 'Validation error or profile photo required for providers/managers',
+            400: 'Validation error, role change not allowed, or profile photo required for providers/managers',
             401: 'Authentication required',
             500: 'Server error'
         },
@@ -383,13 +401,31 @@ class ProfileView(BaseAPIView, mixins.RetrieveModelMixin, mixins.UpdateModelMixi
     @transaction.atomic
     def patch(self, request, *args, **kwargs):
         try:
+            # Prevent role change
+            if 'role' in request.data and request.data['role'] != request.user.role:
+                return self.error_response(
+                    error_number='ROLE_CHANGE_NOT_ALLOWED',
+                    error_message='Changing user role is not allowed',
+                    status_code=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Get serializer with context for validation
+            serializer = self.get_serializer(request.user, data=request.data, context={'request': request}, partial=True)
+            if not serializer.is_valid():
+                return self.validation_error_response(serializer.errors)
+            
+            # Check profile photo requirement after validation
             if request.user.role in ['provider', 'management'] and not request.user.has_required_profile_photo():
                 return self.error_response(
                     error_number='PROFILE_PHOTO_REQUIRED',
                     error_message='Profile photo is required for providers and managers',
                     status_code=status.HTTP_400_BAD_REQUEST
                 )
-            return self.partial_update(request, *args, **kwargs)
+            
+            # Update the user
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+            
         except Exception as e:
             return self.error_response(
                 error_number='SERVER_ERROR',
@@ -668,13 +704,32 @@ class PasswordResetConfirmView(BaseAPIView):
 
 @swagger_auto_schema(
     method='post',
-    operation_description="User logout",
-    responses={200: 'Logout successful'},
+    operation_description="User logout - Clears authentication token from Swagger UI",
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        properties={},
+        description="No body required - just click Execute to logout"
+    ),
+    responses={
+        200: openapi.Response('Logout successful', openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'success': openapi.Schema(type=openapi.TYPE_BOOLEAN),
+                'message': openapi.Schema(type=openapi.TYPE_STRING),
+                'instructions': openapi.Schema(type=openapi.TYPE_STRING, description='Instructions for clearing token in Swagger UI')
+            }
+        )),
+        401: 'Authentication required'
+    },
     tags=['Authentication'])
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def logout_view(request):
-    return Response({'success': True, 'message': 'Logout successful'})
+    return Response({
+        'success': True, 
+        'message': 'Logout successful',
+        'instructions': 'To complete logout, please clear the Authorization field in Swagger UI by clicking the "Authorize" button and then "Logout" or manually clear the Bearer token.'
+    })
 
 class VerificationCodeSenderMixin:
     """Mixin for sending confirmation code by email or phone"""
@@ -1052,3 +1107,40 @@ def email_confirm_verify(request):
     return Response({'success': True, 'message': 'Email confirmed successfully'}, status=200)
 
 # Удаляем устаревший ProfilePhotoView, так как теперь используется система из file_storage
+
+@swagger_auto_schema(
+    method='post',
+    operation_description="Clear authentication token from Swagger UI",
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        properties={},
+        description="No body required - just click Execute to clear token"
+    ),
+    responses={
+        200: openapi.Response('Token cleared', openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'success': openapi.Schema(type=openapi.TYPE_BOOLEAN),
+                'message': openapi.Schema(type=openapi.TYPE_STRING),
+                'javascript_code': openapi.Schema(type=openapi.TYPE_STRING, description='JavaScript code to clear token')
+            }
+        )),
+        401: 'Authentication required'
+    },
+    tags=['Authentication'])
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def clear_token_view(request):
+    """Clear authentication token from Swagger UI"""
+    return Response({
+        'success': True,
+        'message': 'Token cleared successfully',
+        'javascript_code': '''
+        // Copy and paste this code in browser console to clear token:
+        localStorage.removeItem('swagger-ui');
+        sessionStorage.removeItem('swagger-ui');
+        // Or manually clear the Authorization field in Swagger UI
+        console.log('Token cleared! Please refresh the page.');
+        ''',
+        'manual_instructions': '1. Click the "Authorize" button at the top of Swagger UI\n2. Click "Logout" or manually clear the Bearer token field\n3. Click "Authorize" to save changes'
+    })

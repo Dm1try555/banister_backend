@@ -42,13 +42,22 @@ class User(AbstractBaseUser, PermissionsMixin):
     def has_required_profile_photo(self):
         """Check if user has required profile photo (management and provider)"""
         if self.role in ['provider', 'management']:
-            return hasattr(self, 'profile_photo') and getattr(self.profile_photo, 'is_active', False)
+            try:
+                from file_storage.models import ProfilePhoto
+                return ProfilePhoto.objects.filter(user=self, is_active=True).exists()
+            except Exception:
+                return False
         return True  # Customers can have optional profile photo
 
     def get_profile_photo_url(self):
         """Get profile photo URL if exists"""
-        if hasattr(self, 'profile_photo') and getattr(self.profile_photo, 'is_active', False):
-            return getattr(self.profile_photo, 'photo_url', None)
+        try:
+            from file_storage.models import ProfilePhoto
+            profile_photo = ProfilePhoto.objects.filter(user=self, is_active=True).first()
+            if profile_photo and profile_photo.file_storage:
+                return f"http://localhost:9000/{profile_photo.file_storage.bucket_name}/{profile_photo.file_storage.object_key}"
+        except Exception:
+            pass
         return None
 
     def __str__(self):

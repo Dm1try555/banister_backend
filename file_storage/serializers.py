@@ -2,8 +2,38 @@ from rest_framework import serializers
 from .models import FileStorage, ProfilePhoto
 from authentication.serializers import UserSerializer
 
+class SimpleUserSerializer(serializers.ModelSerializer):
+    """Simplified user serializer for nested objects to avoid circular dependency"""
+    profile_photo_url = serializers.SerializerMethodField()
+    has_required_profile_photo = serializers.SerializerMethodField()
+
+    class Meta:
+        from authentication.models import User
+        model = User
+        fields = ['id', 'email', 'phone', 'role', 'profile_photo_url', 'has_required_profile_photo']
+
+    def get_profile_photo_url(self, obj):
+        """Get profile photo URL if exists"""
+        try:
+            profile_photo = ProfilePhoto.objects.filter(user=obj, is_active=True).first()
+            if profile_photo:
+                return profile_photo.photo_url
+        except Exception:
+            pass
+        return None
+
+    def get_has_required_profile_photo(self, obj):
+        """Check if user has required profile photo"""
+        if obj.role in ['provider', 'management']:
+            try:
+                profile_photo = ProfilePhoto.objects.filter(user=obj, is_active=True).first()
+                return profile_photo is not None
+            except Exception:
+                return False
+        return True
+
 class FileStorageSerializer(serializers.ModelSerializer):
-    user = UserSerializer(read_only=True)
+    user = SimpleUserSerializer(read_only=True)
     file_url = serializers.SerializerMethodField()
     public_url = serializers.SerializerMethodField()
 
@@ -33,7 +63,7 @@ class FileStorageSerializer(serializers.ModelSerializer):
         return self.get_public_url(obj)
 
 class ProfilePhotoSerializer(serializers.ModelSerializer):
-    user = UserSerializer(read_only=True)
+    user = SimpleUserSerializer(read_only=True)
     file_storage = FileStorageSerializer(read_only=True)
     photo_url = serializers.SerializerMethodField()
 
