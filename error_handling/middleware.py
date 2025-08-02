@@ -6,7 +6,9 @@ from django.db import IntegrityError
 from rest_framework import status
 from rest_framework.views import exception_handler
 from rest_framework.response import Response
-from .exceptions import BaseCustomException
+from rest_framework.exceptions import NotAuthenticated
+from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
+from .exceptions import BaseCustomException, InvalidTokenError, TokenExpiredError, TokenMissingError
 
 
 logger = logging.getLogger(__name__)
@@ -36,6 +38,12 @@ class ErrorHandlingMiddleware:
         
         if isinstance(exception, BaseCustomException):
             status_code = exception.status_code
+        elif isinstance(exception, (InvalidToken, TokenError)):
+            status_code = status.HTTP_401_UNAUTHORIZED
+        elif isinstance(exception, NotAuthenticated):
+            status_code = status.HTTP_401_UNAUTHORIZED
+        elif 'authentication credentials were not provided' in str(exception).lower():
+            status_code = status.HTTP_401_UNAUTHORIZED
         elif isinstance(exception, DjangoValidationError):
             status_code = status.HTTP_400_BAD_REQUEST
         elif isinstance(exception, IntegrityError):
@@ -55,6 +63,23 @@ class ErrorHandlingMiddleware:
         if isinstance(exception, BaseCustomException):
             error_number = exception.error_number
             error_message = str(exception.detail) if exception.detail else exception.default_detail
+        elif isinstance(exception, (InvalidToken, TokenError)):
+            # Handle JWT token errors
+            if 'expired' in str(exception).lower():
+                error_number = 'TOKEN_EXPIRED'
+                error_message = 'Token has expired'
+            elif 'invalid' in str(exception).lower():
+                error_number = 'INVALID_TOKEN'
+                error_message = 'Invalid or expired token'
+            else:
+                error_number = 'INVALID_TOKEN'
+                error_message = 'Invalid or expired token'
+        elif isinstance(exception, NotAuthenticated):
+            error_number = 'TOKEN_MISSING'
+            error_message = 'Authentication token is required'
+        elif 'authentication credentials were not provided' in str(exception).lower():
+            error_number = 'TOKEN_MISSING'
+            error_message = 'Authentication token is required'
         elif isinstance(exception, DjangoValidationError):
             error_number = 'VALIDATION_ERROR'
             error_message = 'Data validation error'
@@ -94,6 +119,23 @@ def custom_exception_handler(exc, context):
         if isinstance(exc, BaseCustomException):
             error_number = exc.error_number
             error_message = str(exc.detail) if exc.detail else exc.default_detail
+        elif isinstance(exc, (InvalidToken, TokenError)):
+            # Handle JWT token errors
+            if 'expired' in str(exc).lower():
+                error_number = 'TOKEN_EXPIRED'
+                error_message = 'Token has expired'
+            elif 'invalid' in str(exc).lower():
+                error_number = 'INVALID_TOKEN'
+                error_message = 'Invalid or expired token'
+            else:
+                error_number = 'INVALID_TOKEN'
+                error_message = 'Invalid or expired token'
+        elif isinstance(exc, NotAuthenticated):
+            error_number = 'TOKEN_MISSING'
+            error_message = 'Authentication token is required'
+        elif 'authentication credentials were not provided' in str(exc).lower():
+            error_number = 'TOKEN_MISSING'
+            error_message = 'Authentication token is required'
         else:
             error_number = 'API_ERROR'
             error_message = str(exc.detail) if hasattr(exc, 'detail') else str(exc)

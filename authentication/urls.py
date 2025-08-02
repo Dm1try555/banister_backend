@@ -3,11 +3,11 @@ from django.urls import path
 from .views import (
     CustomerRegistrationView, ProviderRegistrationView, ManagementRegistrationView,
     CustomTokenObtainPairView, ProfileView,
-    PasswordResetView, PasswordResetConfirmView, logout_view, clear_token_view,
+    password_reset_request, password_reset_confirm, logout_view,
     CustomerLoginView, ProviderLoginView, ManagementLoginView,
     CustomTokenRefreshView, email_confirm_request, email_confirm_verify
 )
-from rest_framework_simplejwt.views import TokenRefreshView
+
 urlpatterns = [
     path('register/customer/', CustomerRegistrationView.as_view(), name='register-customer'),
     path('register/provider/', ProviderRegistrationView.as_view(), name='register-provider'),
@@ -16,11 +16,10 @@ urlpatterns = [
     path('login/provider/', ProviderLoginView.as_view(), name='login-provider'),
     path('login/management/', ManagementLoginView.as_view(), name='login-management'),
     path('logout/', logout_view, name='logout'),
-    path('clear-token/', clear_token_view, name='clear-token'),
     path('token/refresh/', CustomTokenRefreshView.as_view(), name='token_refresh'),
     path('profile/', ProfileView.as_view(), name='profile'),
-    path('password-reset/', PasswordResetView.as_view(), name='password-reset'),
-    path('password-reset/confirm/', PasswordResetConfirmView.as_view(), name='password-reset-confirm'),
+    path('password-reset/request/', password_reset_request, name='password-reset-request'),
+    path('password-reset/confirm/', password_reset_confirm, name='password-reset-confirm'),
 ]
 
 urlpatterns += [

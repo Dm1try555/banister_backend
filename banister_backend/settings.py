@@ -76,6 +76,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'authentication.middleware.SwaggerAuthMiddleware',
     'error_handling.middleware.ErrorHandlingMiddleware',
 ]
 
@@ -123,8 +124,8 @@ DATABASES = {
         'NAME': os.getenv('POSTGRES_DB', 'banister_db'),
         'USER': os.getenv('POSTGRES_USER', 'banister_user'),
         'PASSWORD': os.getenv('POSTGRES_PASSWORD', 'banister_pass'),
-        'HOST': os.getenv('DB_HOST', 'db'), #for docker
         # 'HOST': os.getenv('DB_HOST', 'localhost'), #for local
+        'HOST': os.getenv('DB_HOST', 'db'), #for docker
         'PORT': '5432',
     }
 }
@@ -169,10 +170,29 @@ SWAGGER_SETTINGS = {
             'type': 'apiKey',
             'name': 'Authorization',
             'in': 'header',
-            'description': 'JWT Authorization header using the Bearer scheme. Example: "Authorization: Bearer {token}"',
+            'description': 'Enter your JWT token here (without "Bearer" prefix). The system will automatically add "Bearer " to your token.',
         }
     },
     'USE_SESSION_AUTH': False,
+    'SECURITY': [
+        {
+            'Bearer': []
+        }
+    ],
+    'OPERATIONS_SORTER': 'alpha',
+    'TAGS_SORTER': 'alpha',
+    'DOC_EXPANSION': 'list',
+    'DEFAULT_MODELS_EXPAND_DEPTH': 1,
+    'DEFAULT_INFO': 'Banister API',
+    'SUPPORTED_SUBMIT_METHODS': [
+        'get',
+        'post',
+        'put',
+        'delete',
+        'patch'
+    ],
+    'SHOW_REQUEST_HEADERS': True,
+    'VALIDATOR_URL': None,
 }
 
 

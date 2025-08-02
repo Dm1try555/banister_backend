@@ -1,6 +1,7 @@
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseUserManager
 from django.db import models
 from django.utils import timezone
+from datetime import timedelta
 import uuid
 # ProfilePhoto импортируется по требованию для избежания циклических импортов
 
@@ -107,16 +108,16 @@ class EmailConfirmationToken(models.Model):
         return timezone.now() > self.expires_at
 
 
-class PasswordResetToken(models.Model):
-    """Token for password reset via email"""
+class PasswordResetCode(models.Model):
+    """Simple password reset code via email"""
     email = models.EmailField()
-    token = models.CharField(max_length=64, unique=True, default=uuid.uuid4)
+    code = models.CharField(max_length=6)  # 6-digit code
     created_at = models.DateTimeField(default=timezone.now)
     is_used = models.BooleanField(default=False)
-    expires_at = models.DateTimeField()
 
     def __str__(self):
-        return f"{self.email} - {'used' if self.is_used else 'unused'}"
+        return f"{self.email} - {self.code} - {'used' if self.is_used else 'unused'}"
 
     def is_expired(self):
-        return timezone.now() > self.expires_at
+        # Code expires after 10 minutes
+        return timezone.now() > self.created_at + timedelta(minutes=10)

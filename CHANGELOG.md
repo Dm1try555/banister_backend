@@ -107,6 +107,11 @@ GET /api/v1/auth/clear-token/
 - ✅ Added proper parser classes for multipart data
 - ✅ Enhanced documentation for file upload endpoints
 
+#### **Authentication Issues**
+- ✅ Added custom JWT token error handling
+- ✅ Improved error messages for invalid/expired tokens
+- ✅ Better error responses for authentication failures
+
 ### 📦 **Dependencies**
 - ✅ Added `Pillow==11.0.0` for image processing
 - ✅ Enhanced MinIO integration
@@ -117,6 +122,7 @@ GET /api/v1/auth/clear-token/
 - ✅ Enhanced file validation and processing
 - ✅ Improved token management
 - ✅ Better error handling and logging
+- ✅ Custom JWT token error handling
 
 ---
 
@@ -170,6 +176,9 @@ GET /api/v1/auth/clear-token/
 - [ ] Invalid file uploads
 - [ ] Missing required photos
 - [ ] Network errors
+- [ ] Invalid token errors
+- [ ] Expired token errors
+- [ ] Missing token errors
 
 ---
 

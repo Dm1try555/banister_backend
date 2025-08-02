@@ -5,7 +5,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from .serializers import RegisterSerializer, UserSerializer, CustomTokenObtainPairSerializer
 from .firebase_auth import verify_firebase_token
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
-from .models import User, VerificationCode, Profile, EmailConfirmationCode, EmailConfirmationToken
+from .models import User, VerificationCode, Profile, EmailConfirmationCode, EmailConfirmationToken, PasswordResetCode
 from file_storage.models import ProfilePhoto, FileStorage  
 import random
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -15,7 +15,7 @@ from error_handling.exceptions import (
     UserNotFoundError, InvalidCredentialsError, EmailAlreadyExistsError,
     InvalidVerificationCodeError, ExpiredVerificationCodeError, BaseCustomException,
     InvalidEmailError, ValidationError, ServerError)
-from error_handling.utils import ErrorResponseMixin, format_validation_errors
+from error_handling.utils import ErrorResponseMixin, format_validation_errors, create_error_response, create_success_response
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from rest_framework.exceptions import MethodNotAllowed
@@ -54,16 +54,16 @@ class CustomerRegistrationView(BaseAPIView):
                 'confirm_password': openapi.Schema(type=openapi.TYPE_STRING, description='Password confirmation'),
                 'first_name': openapi.Schema(type=openapi.TYPE_STRING, description='First name'),
                 'last_name': openapi.Schema(type=openapi.TYPE_STRING, description='Last name'),
-                                         'phone': openapi.Schema(type=openapi.TYPE_STRING, description='US phone number (optional) - Supports: (555) 123-4567, +1 (555) 123-4567, 555-123-4567, 555.123.4567, 555 123 4567, 123-4567, 5551234567'),
-                     },
-                     example={
-                         'email': 'customer@example.com',
-                         'password': 'password123',
-                         'confirm_password': 'password123',
-                         'first_name': 'John',
-                         'last_name': 'Doe',
-                         'phone': '(555) 123-4567'
-                     }
+                'phone': openapi.Schema(type=openapi.TYPE_STRING, description='US phone number (optional) - Supports: (555) 123-4567, +1 (555) 123-4567, 555-123-4567, 555.123.4567, 555 123 4567, 123-4567, 5551234567'),
+            },
+            example={
+                'email': 'shilovscky@i.ua',
+                'password': 'shilovscky',
+                'confirm_password': 'shilovscky',
+                'first_name': 'John',
+                'last_name': 'Doe',
+                'phone': '(555) 123-4567'
+            }
         ),
         responses={
             201: openapi.Response('Successful registration', UserSerializer),
@@ -105,9 +105,9 @@ class ProviderRegistrationView(BaseAPIView):
                 'phone': openapi.Schema(type=openapi.TYPE_STRING, description='US phone number (optional) - Format: (XXX) XXX-XXXX'),
             },
             example={
-                'email': 'provider@example.com',
-                'password': 'password123',
-                'confirm_password': 'password123',
+                'email': 'shilovscky2020@gmail.com',
+                'password': 'shilovscky2020',
+                'confirm_password': 'shilovscky2020',
                 'first_name': 'Jane',
                 'last_name': 'Smith',
                 'phone': '(555) 123-4567'
@@ -228,31 +228,34 @@ class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
 
 
-@swagger_auto_schema(
-    operation_description="Refresh access token using refresh token",
-    request_body=openapi.Schema(
-        type=openapi.TYPE_OBJECT,
-        required=['refresh'],
-        properties={
-            'refresh': openapi.Schema(type=openapi.TYPE_STRING, description='Refresh token')
-        },
-        example={
-            'refresh': 'your-refresh-token-here'
-        }
-    ),
-    responses={
-        200: openapi.Response('Token refreshed successfully', openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            properties={
-                'access': openapi.Schema(type=openapi.TYPE_STRING, description='New access token'),
-            }
-        )),
-        401: 'Invalid refresh token'
-    },
-    tags=['Authentication'])
 class CustomTokenRefreshView(TokenRefreshView):
     """Custom token refresh"""
     serializer_class = CustomTokenObtainPairSerializer
+
+    @swagger_auto_schema(
+        operation_description="Refresh access token using refresh token",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['refresh'],
+            properties={
+                'refresh': openapi.Schema(type=openapi.TYPE_STRING, description='Refresh token')
+            },
+            example={
+                'refresh': 'your-refresh-token-here'
+            }
+        ),
+        responses={
+            200: openapi.Response('Token refreshed successfully', openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'access': openapi.Schema(type=openapi.TYPE_STRING, description='New access token'),
+                }
+            )),
+            401: 'Invalid refresh token'
+        },
+        tags=['Authentication'])
+    def post(self, request, *args, **kwargs):
+        return super().post(request, *args, **kwargs)
 
 # --- Profile ---
 class ProfileView(BaseAPIView, mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin, generics.GenericAPIView):
@@ -504,119 +507,129 @@ class ProfileView(BaseAPIView, mixins.RetrieveModelMixin, mixins.UpdateModelMixi
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-# --- Password ---
+# --- Password Reset ---
 @swagger_auto_schema(
-    operation_description="Request password reset by email",
+    method='post',
+    operation_description="Request password reset code. Enter your email to receive a 6-digit reset code.",
     request_body=openapi.Schema(
         type=openapi.TYPE_OBJECT,
         required=['email'],
         properties={
-            'email': openapi.Schema(type=openapi.TYPE_STRING, format='email', description='User email')
+            'email': openapi.Schema(type=openapi.TYPE_STRING, format='email', description='User email address')
         },
         example={
-            'email': 'user@example.com'
+            'email': 'john.doe@example.com'
         }
     ),
     responses={
-        200: openapi.Response('Reset link sent', openapi.Schema(
+        200: openapi.Response('Reset code sent', openapi.Schema(
             type=openapi.TYPE_OBJECT,
             properties={
                 'success': openapi.Schema(type=openapi.TYPE_BOOLEAN),
-                'message': openapi.Schema(type=openapi.TYPE_STRING)
+                'data': openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'email': openapi.Schema(type=openapi.TYPE_STRING, description='Email address')
+                    }
+                ),
+                'message': openapi.Schema(type=openapi.TYPE_STRING, description='Success message')
             }
         )),
         400: 'Email is required',
         404: 'User not found'
     },
-    tags=['Password'])
-class PasswordResetView(BaseAPIView):
-    """Request password reset by email"""
-    permission_classes = [AllowAny]
-    http_method_names = ['post']
+    tags=['Password Reset'])
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def password_reset_request(request):
+    """Request password reset code by email"""
+    email = request.data.get('email')
+    if not email:
+        return Response({
+            'success': False,
+            'error': {
+                'error_number': 'EMAIL_REQUIRED',
+                'error_message': 'Email is required',
+                'timestamp': timezone.now().isoformat()
+            }
+        }, status=status.HTTP_400_BAD_REQUEST)
     
-    @transaction.atomic
-    def post(self, request, *args, **kwargs):
-        email = request.data.get('email')
-        if not email:
-            return self.error_response(
-                error_number='EMAIL_REQUIRED',
-                error_message='Email is required',
-                status_code=status.HTTP_400_BAD_REQUEST
-            )
-        
-        try:
-            user = User.objects.get(email=email)
-        except User.DoesNotExist:
-            return self.error_response(
-                error_number='USER_NOT_FOUND',
-                error_message='User with this email not found',
-                status_code=status.HTTP_404_NOT_FOUND
-            )
-        
-        # Generate reset token
-        token = str(uuid.uuid4())
-        expires_at = timezone.now() + timedelta(hours=1)
-        
-        # Delete old tokens for this user
-        PasswordResetToken.objects.filter(email=email).delete()
-        
-        # Create new reset token
-        PasswordResetToken.objects.create(
-            email=email,
-            token=token,
-            expires_at=expires_at
+    try:
+        user = User.objects.get(email=email)
+    except User.DoesNotExist:
+        return Response({
+            'success': False,
+            'error': {
+                'error_number': 'USER_NOT_FOUND',
+                'error_message': 'User with this email not found',
+                'timestamp': timezone.now().isoformat()
+            }
+        }, status=status.HTTP_404_NOT_FOUND)
+    
+    # Generate 6-digit code
+    code = str(random.randint(100000, 999999))
+    
+    # Delete old codes for this user
+    PasswordResetCode.objects.filter(email=email).delete()
+    
+    # Create new reset code
+    PasswordResetCode.objects.create(
+        email=email,
+        code=code
+    )
+    
+    # Send reset email
+    subject = 'Password Reset Code'
+    message = f'''
+    Hello!
+    
+    You requested a password reset for your account.
+    Your reset code is: {code}
+    
+    This code is valid for 10 minutes.
+    
+    If you did not request this reset, please ignore this email.
+    '''
+    
+    try:
+        send_mail(
+            subject=subject,
+            message=message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[email]
         )
-        
-        # Send reset email
-        reset_url = f"{settings.FRONTEND_URL}/reset-password?token={token}"
-        subject = 'Password Reset Request'
-        message = f'''
-        Hello!
-        
-        You requested a password reset for your account.
-        Click the link below to reset your password:
-        
-        {reset_url}
-        
-        This link is valid for 1 hour.
-        
-        If you did not request this reset, please ignore this email.
-        '''
-        
-        try:
-            send_mail(
-                subject=subject,
-                message=message,
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[email]
-            )
-        except Exception as e:
-            return self.error_response(
-                error_number='EMAIL_SEND_ERROR',
-                error_message='Failed to send reset email',
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-        
-        return self.success_response(
-            data={'email': email},
-            message='Password reset link sent to your email'
-        )
+    except Exception as e:
+        return Response({
+            'success': False,
+            'error': {
+                'error_number': 'EMAIL_SEND_ERROR',
+                'error_message': 'Failed to send reset email',
+                'timestamp': timezone.now().isoformat()
+            }
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    return Response({
+        'success': True,
+        'data': {'email': email},
+        'message': 'Password reset code sent to your email'
+    }, status=status.HTTP_200_OK)
 
 
 @swagger_auto_schema(
-    operation_description="Reset password using token",
+    method='post',
+    operation_description="Reset password using code from email. Enter the 6-digit code and your new password.",
     request_body=openapi.Schema(
         type=openapi.TYPE_OBJECT,
-        required=['token', 'new_password', 'confirm_password'],
+        required=['email', 'code', 'new_password'],
         properties={
-            'token': openapi.Schema(type=openapi.TYPE_STRING, description='Reset token from email'),
-            'new_password': openapi.Schema(type=openapi.TYPE_STRING, description='New password'),
-            'confirm_password': openapi.Schema(type=openapi.TYPE_STRING, description='Password confirmation')
+            'email': openapi.Schema(type=openapi.TYPE_STRING, format='email', description='User email address'),
+            'code': openapi.Schema(type=openapi.TYPE_STRING, description='6-digit reset code from email'),
+            'new_password': openapi.Schema(type=openapi.TYPE_STRING, description='New password (min 8 characters)')
         },
         example={
-            'token': 'reset-token-here',
-            'new_password': 'newpassword123',
-            'confirm_password': 'newpassword123'
+            'email': 'john.doe@example.com',
+            'code': '123456',
+            'new_password': 'MyNewSecurePassword123!'
         }
     ),
     responses={
@@ -624,83 +637,95 @@ class PasswordResetView(BaseAPIView):
             type=openapi.TYPE_OBJECT,
             properties={
                 'success': openapi.Schema(type=openapi.TYPE_BOOLEAN),
-                'message': openapi.Schema(type=openapi.TYPE_STRING)
+                'data': openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'email': openapi.Schema(type=openapi.TYPE_STRING, description='User email')
+                    }
+                ),
+                'message': openapi.Schema(type=openapi.TYPE_STRING, description='Success message')
             }
         )),
-        400: 'Invalid token, expired token, or passwords do not match',
-        404: 'Token not found'
+        400: 'Invalid code, expired code, or weak password',
+        404: 'Code not found'
     },
-    tags=['Password'])
-class PasswordResetConfirmView(BaseAPIView):
-    """Confirm password reset using token"""
-    permission_classes = [AllowAny]
-    http_method_names = ['post']
+    tags=['Password Reset'])
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def password_reset_confirm(request):
+    """Confirm password reset using code"""
+    email = request.data.get('email')
+    code = request.data.get('code')
+    new_password = request.data.get('new_password')
     
-    @transaction.atomic
-    def post(self, request, *args, **kwargs):
-        token = request.data.get('token')
-        new_password = request.data.get('new_password')
-        confirm_password = request.data.get('confirm_password')
-        
-        if not all([token, new_password, confirm_password]):
-            return self.error_response(
-                error_number='MISSING_FIELDS',
-                error_message='Token, new_password, and confirm_password are required',
-                status_code=status.HTTP_400_BAD_REQUEST
-            )
-        
-        if new_password != confirm_password:
-            return self.error_response(
-                error_number='PASSWORDS_DONT_MATCH',
-                error_message='Passwords do not match',
-                status_code=status.HTTP_400_BAD_REQUEST
-            )
-        
-        # Validate password strength
-        if len(new_password) < 8:
-            return self.error_response(
-                error_number='WEAK_PASSWORD',
-                error_message='Password must be at least 8 characters long',
-                status_code=status.HTTP_400_BAD_REQUEST
-            )
-        
-        try:
-            reset_token = PasswordResetToken.objects.get(token=token, is_used=False)
-        except PasswordResetToken.DoesNotExist:
-            return self.error_response(
-                error_number='INVALID_TOKEN',
-                error_message='Invalid or used reset token',
-                status_code=status.HTTP_404_NOT_FOUND
-            )
-        
-        if reset_token.is_expired():
-            return self.error_response(
-                error_number='EXPIRED_TOKEN',
-                error_message='Reset token has expired',
-                status_code=status.HTTP_400_BAD_REQUEST
-            )
-        
-        try:
-            user = User.objects.get(email=reset_token.email)
-        except User.DoesNotExist:
-            return self.error_response(
-                error_number='USER_NOT_FOUND',
-                error_message='User not found',
-                status_code=status.HTTP_404_NOT_FOUND
-            )
-        
-        # Update password
-        user.set_password(new_password)
-        user.save()
-        
-        # Mark token as used
-        reset_token.is_used = True
-        reset_token.save()
-        
-        return self.success_response(
-            data={'email': user.email},
-            message='Password reset successful'
-        )
+    if not all([email, code, new_password]):
+        return Response({
+            'success': False,
+            'error': {
+                'error_number': 'MISSING_FIELDS',
+                'error_message': 'Email, code, and new_password are required',
+                'timestamp': timezone.now().isoformat()
+            }
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    # Validate password strength
+    if len(new_password) < 8:
+        return Response({
+            'success': False,
+            'error': {
+                'error_number': 'WEAK_PASSWORD',
+                'error_message': 'Password must be at least 8 characters long',
+                'timestamp': timezone.now().isoformat()
+            }
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        reset_code = PasswordResetCode.objects.get(email=email, code=code, is_used=False)
+    except PasswordResetCode.DoesNotExist:
+        return Response({
+            'success': False,
+            'error': {
+                'error_number': 'INVALID_CODE',
+                'error_message': 'Invalid or used reset code',
+                'timestamp': timezone.now().isoformat()
+            }
+        }, status=status.HTTP_404_NOT_FOUND)
+    
+    if reset_code.is_expired():
+        return Response({
+            'success': False,
+            'error': {
+                'error_number': 'EXPIRED_CODE',
+                'error_message': 'Reset code has expired',
+                'timestamp': timezone.now().isoformat()
+            }
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        user = User.objects.get(email=email)
+    except User.DoesNotExist:
+        return Response({
+            'success': False,
+            'error': {
+                'error_number': 'USER_NOT_FOUND',
+                'error_message': 'User not found',
+                'timestamp': timezone.now().isoformat()
+            }
+        }, status=status.HTTP_404_NOT_FOUND)
+    
+    # Update password
+    user.set_password(new_password)
+    user.save()
+    
+    # Mark code as used
+    reset_code.is_used = True
+    reset_code.save()
+    
+    return Response({
+        'success': True,
+        'data': {'email': user.email},
+        'message': 'Password reset successful'
+    }, status=status.HTTP_200_OK)
 
 @swagger_auto_schema(
     method='post',
@@ -837,145 +862,177 @@ class VerificationCodeVerifyMixin:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-@swagger_auto_schema(
-    operation_description="Customer authentication (customer)",
-    request_body=openapi.Schema(
-        type=openapi.TYPE_OBJECT,
-        required=['email', 'password'],
-        properties={
-            'email': openapi.Schema(type=openapi.TYPE_STRING, format='email', description='User email'),
-            'password': openapi.Schema(type=openapi.TYPE_STRING, description='Password'),
-        },
-        example={
-            'email': 'customer@example.com',
-            'password': 'password123'
-        }
-    ),
-    responses={
-        200: openapi.Response('Successful authentication', openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            properties={
-                'access': openapi.Schema(type=openapi.TYPE_STRING, description='Access token'),
-                'refresh': openapi.Schema(type=openapi.TYPE_STRING, description='Refresh token'),
-                'role': openapi.Schema(type=openapi.TYPE_STRING, description='User role'),
-            }
-        )),
-        401: 'Authentication error or role mismatch'
-    },
-    tags=['Authentication'])
 class CustomerLoginView(TokenObtainPairView):
     """Customer login"""
     serializer_class = CustomTokenObtainPairSerializer
+    permission_classes = [AllowAny]
     throttle_classes = [AnonRateThrottle]
 
+    @swagger_auto_schema(
+        operation_description="Customer authentication (customer)",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['email', 'password'],
+            properties={
+                'email': openapi.Schema(type=openapi.TYPE_STRING, format='email', description='User email'),
+                'password': openapi.Schema(type=openapi.TYPE_STRING, description='Password'),
+            },
+            example={
+                'email': 'shilovscky@i.ua',
+                'password': 'shilovscky'
+            }
+        ),
+        responses={
+            200: openapi.Response('Successful authentication', openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'access': openapi.Schema(type=openapi.TYPE_STRING, description='Access token'),
+                    'refresh': openapi.Schema(type=openapi.TYPE_STRING, description='Refresh token'),
+                    'role': openapi.Schema(type=openapi.TYPE_STRING, description='User role'),
+                }
+            )),
+            401: 'Authentication error or role mismatch'
+        },
+        tags=['Authentication'])
     def post(self, request, *args, **kwargs):
-        data = dict(request.data)
-        data['role'] = 'customer'
-        serializer = self.get_serializer(data=data)
         try:
-            serializer.is_valid(raise_exception=True)
-            return Response(serializer.validated_data, status=status.HTTP_200_OK)
-        except Exception as e:
-            from error_handling.utils import create_error_response
-            from error_handling.exceptions import AuthenticationError
-            if isinstance(e, AuthenticationError):
-                return create_error_response(
-                    error_number='AUTHENTICATION_ERROR',
-                    error_message=str(e),
-                    status_code=status.HTTP_401_UNAUTHORIZED
+            response = super().post(request, *args, **kwargs)
+            
+            if response.status_code == 200:
+                # Check if user has customer role
+                user = User.objects.get(email=request.data.get('email'))
+                if user.role != 'customer':
+                    return create_error_response(
+                        error_number='ROLE_MISMATCH',
+                        error_message='This login is for customers only',
+                        status_code=401
+                    )
+                
+                return create_success_response(
+                    data=response.data,
+                    message='Customer login successful'
                 )
             else:
                 return create_error_response(
-                    error_number='AUTH_ERROR',
-                    error_message=str(e),
-                    status_code=status.HTTP_401_UNAUTHORIZED
+                    error_number='AUTHENTICATION_ERROR',
+                    error_message='Invalid email or password',
+                    status_code=401
                 )
+                
+        except User.DoesNotExist:
+            return create_error_response(
+                error_number='AUTHENTICATION_ERROR',
+                error_message='Invalid email or password',
+                status_code=401
+            )
+        except Exception as e:
+            return create_error_response(
+                error_number='AUTHENTICATION_ERROR',
+                error_message='Invalid email or password',
+                status_code=401
+            )
 
-@swagger_auto_schema(
-    operation_description="Provider authentication (provider)",
-    request_body=openapi.Schema(
-        type=openapi.TYPE_OBJECT,
-        required=['email', 'password'],
-        properties={
-            'email': openapi.Schema(type=openapi.TYPE_STRING, format='email', description='User email'),
-            'password': openapi.Schema(type=openapi.TYPE_STRING, description='Password'),
-        },
-        example={
-            'email': 'provider@example.com',
-            'password': 'password123'
-        }
-    ),
-    responses={
-        200: openapi.Response('Successful authentication', openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            properties={
-                'access': openapi.Schema(type=openapi.TYPE_STRING, description='Access token'),
-                'refresh': openapi.Schema(type=openapi.TYPE_STRING, description='Refresh token'),
-                'role': openapi.Schema(type=openapi.TYPE_STRING, description='User role'),
-            }
-        )),
-        401: 'Authentication error or role mismatch'
-    },
-    tags=['Authentication'])
 class ProviderLoginView(TokenObtainPairView):
     """Provider login"""
     serializer_class = CustomTokenObtainPairSerializer
+    permission_classes = [AllowAny]
     throttle_classes = [AnonRateThrottle]
 
+    @swagger_auto_schema(
+        operation_description="Provider authentication (provider)",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['email', 'password'],
+            properties={
+                'email': openapi.Schema(type=openapi.TYPE_STRING, format='email', description='User email'),
+                'password': openapi.Schema(type=openapi.TYPE_STRING, description='Password'),
+            },
+            example={
+                'email': 'shilovscky2020@gmail.com',
+                'password': 'shilovscky2020'
+            }
+        ),
+        responses={
+            200: openapi.Response('Successful authentication', openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'access': openapi.Schema(type=openapi.TYPE_STRING, description='Access token'),
+                    'refresh': openapi.Schema(type=openapi.TYPE_STRING, description='Refresh token'),
+                    'role': openapi.Schema(type=openapi.TYPE_STRING, description='User role'),
+                }
+            )),
+            401: 'Authentication error or role mismatch'
+        },
+        tags=['Authentication'])
     def post(self, request, *args, **kwargs):
-        data = dict(request.data)
-        data['role'] = 'provider'
-        serializer = self.get_serializer(data=data)
         try:
-            serializer.is_valid(raise_exception=True)
-            return Response(serializer.validated_data, status=status.HTTP_200_OK)
-        except Exception as e:
-            from error_handling.utils import create_error_response
-            from error_handling.exceptions import AuthenticationError
-            if isinstance(e, AuthenticationError):
-                return create_error_response(
-                    error_number='AUTHENTICATION_ERROR',
-                    error_message=str(e),
-                    status_code=status.HTTP_401_UNAUTHORIZED
+            response = super().post(request, *args, **kwargs)
+            
+            if response.status_code == 200:
+                # Check if user has provider role
+                user = User.objects.get(email=request.data.get('email'))
+                if user.role != 'provider':
+                    return create_error_response(
+                        error_number='ROLE_MISMATCH',
+                        error_message='This login is for providers only',
+                        status_code=401
+                    )
+                
+                return create_success_response(
+                    data=response.data,
+                    message='Provider login successful'
                 )
             else:
                 return create_error_response(
-                    error_number='AUTH_ERROR',
-                    error_message=str(e),
-                    status_code=status.HTTP_401_UNAUTHORIZED
+                    error_number='AUTHENTICATION_ERROR',
+                    error_message='Invalid email or password',
+                    status_code=401
                 )
+                
+        except User.DoesNotExist:
+            return create_error_response(
+                error_number='AUTHENTICATION_ERROR',
+                error_message='Invalid email or password',
+                status_code=401
+            )
+        except Exception as e:
+            return create_error_response(
+                error_number='AUTHENTICATION_ERROR',
+                error_message='Invalid email or password',
+                status_code=401
+            )
 
-@swagger_auto_schema(
-    operation_description="Manager authentication (management)",
-    request_body=openapi.Schema(
-        type=openapi.TYPE_OBJECT,
-        required=['email', 'password'],
-        properties={
-            'email': openapi.Schema(type=openapi.TYPE_STRING, format='email', description='User email'),
-            'password': openapi.Schema(type=openapi.TYPE_STRING, description='Password'),
-        },
-        example={
-            'email': 'manager@example.com',
-            'password': 'password123'
-        }
-    ),
-    responses={
-        200: openapi.Response('Successful authentication', openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            properties={
-                'access': openapi.Schema(type=openapi.TYPE_STRING, description='Access token'),
-                'refresh': openapi.Schema(type=openapi.TYPE_STRING, description='Refresh token'),
-                'role': openapi.Schema(type=openapi.TYPE_STRING, description='User role'),
-            }
-        )),
-        401: 'Authentication error or role mismatch'
-    },
-    tags=['Authentication'])
 class ManagementLoginView(TokenObtainPairView):
     """Manager login"""
     serializer_class = CustomTokenObtainPairSerializer
     throttle_classes = [AnonRateThrottle]
 
+    @swagger_auto_schema(
+        operation_description="Manager authentication (management)",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['email', 'password'],
+            properties={
+                'email': openapi.Schema(type=openapi.TYPE_STRING, format='email', description='User email'),
+                'password': openapi.Schema(type=openapi.TYPE_STRING, description='Password'),
+            },
+            example={
+                'email': 'shilovscky2020@gmail.com',
+                'password': 'shilovscky2020'
+            }
+        ),
+        responses={
+            200: openapi.Response('Successful authentication', openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'access': openapi.Schema(type=openapi.TYPE_STRING, description='Access token'),
+                    'refresh': openapi.Schema(type=openapi.TYPE_STRING, description='Refresh token'),
+                    'role': openapi.Schema(type=openapi.TYPE_STRING, description='User role'),
+                }
+            )),
+            401: 'Authentication error or role mismatch'
+        },
+        tags=['Authentication'])
     def post(self, request, *args, **kwargs):
         data = dict(request.data)
         data['role'] = 'management'
@@ -984,7 +1041,6 @@ class ManagementLoginView(TokenObtainPairView):
             serializer.is_valid(raise_exception=True)
             return Response(serializer.validated_data, status=status.HTTP_200_OK)
         except Exception as e:
-            from error_handling.utils import create_error_response
             from error_handling.exceptions import AuthenticationError
             if isinstance(e, AuthenticationError):
                 return create_error_response(
@@ -1001,11 +1057,15 @@ class ManagementLoginView(TokenObtainPairView):
 
 @swagger_auto_schema(
     method='post',
+    operation_description="Request email confirmation link. Enter your email to receive a confirmation link.",
     request_body=openapi.Schema(
         type=openapi.TYPE_OBJECT,
         required=['email'],
         properties={
-            'email': openapi.Schema(type=openapi.TYPE_STRING, format='email', description='Email for confirmation')
+            'email': openapi.Schema(type=openapi.TYPE_STRING, format='email', description='Email address for confirmation')
+        },
+        example={
+            'email': 'john.doe@example.com'
         }
     ),
     responses={
@@ -1013,7 +1073,7 @@ class ManagementLoginView(TokenObtainPairView):
             type=openapi.TYPE_OBJECT,
             properties={
                 'success': openapi.Schema(type=openapi.TYPE_BOOLEAN),
-                'message': openapi.Schema(type=openapi.TYPE_STRING)
+                'message': openapi.Schema(type=openapi.TYPE_STRING, description='Success message')
             }
         )),
         400: 'Error: email is required'
@@ -1107,40 +1167,3 @@ def email_confirm_verify(request):
     return Response({'success': True, 'message': 'Email confirmed successfully'}, status=200)
 
 # Удаляем устаревший ProfilePhotoView, так как теперь используется система из file_storage
-
-@swagger_auto_schema(
-    method='post',
-    operation_description="Clear authentication token from Swagger UI",
-    request_body=openapi.Schema(
-        type=openapi.TYPE_OBJECT,
-        properties={},
-        description="No body required - just click Execute to clear token"
-    ),
-    responses={
-        200: openapi.Response('Token cleared', openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            properties={
-                'success': openapi.Schema(type=openapi.TYPE_BOOLEAN),
-                'message': openapi.Schema(type=openapi.TYPE_STRING),
-                'javascript_code': openapi.Schema(type=openapi.TYPE_STRING, description='JavaScript code to clear token')
-            }
-        )),
-        401: 'Authentication required'
-    },
-    tags=['Authentication'])
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def clear_token_view(request):
-    """Clear authentication token from Swagger UI"""
-    return Response({
-        'success': True,
-        'message': 'Token cleared successfully',
-        'javascript_code': '''
-        // Copy and paste this code in browser console to clear token:
-        localStorage.removeItem('swagger-ui');
-        sessionStorage.removeItem('swagger-ui');
-        // Or manually clear the Authorization field in Swagger UI
-        console.log('Token cleared! Please refresh the page.');
-        ''',
-        'manual_instructions': '1. Click the "Authorize" button at the top of Swagger UI\n2. Click "Logout" or manually clear the Bearer token field\n3. Click "Authorize" to save changes'
-    })

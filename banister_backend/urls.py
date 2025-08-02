@@ -8,7 +8,24 @@ schema_view = get_schema_view(
     openapi.Info(
         title="Banister API",
         default_version='v1',
-        description="API for Banister project",
+        description="""
+        ## Banister Project API
+        
+        ### Authentication
+        Use JWT tokens for authentication. In the Authorization field, insert only the token (without "Bearer").
+        The system will automatically add "Bearer " to your token.
+        
+        ### Usage Examples:
+        1. Get a token through `/api/v1/auth/login/customer/` or `/api/v1/auth/login/provider/`
+        2. Copy the `access` value from the response
+        3. Insert the token in the Authorization field in Swagger UI
+        4. Now you can use protected endpoints
+        
+        ### Supported Roles:
+        - **customer** - customers
+        - **provider** - service providers  
+        - **management** - managers
+        """,
         terms_of_service="https://www.example.com/terms/",
         contact=openapi.Contact(email="contact@example.com"),
         license=openapi.License(name="MIT License"),

@@ -31,35 +31,11 @@ class BookingListCreateView(BaseAPIView, generics.ListCreateAPIView):
             return Booking.objects.filter(provider=self.request.user)
         return Booking.objects.none()
 
-    @transaction.atomic
-    def perform_create(self, serializer):
-        # Check access rights
-        if self.request.user.role != 'customer':
-            raise CustomPermissionError('Only customers can create bookings')
-        
-        # Check time availability
-        service = serializer.validated_data.get('service')
-        booking_date = serializer.validated_data.get('booking_date')
-        booking_time = serializer.validated_data.get('booking_time')
-        
-        # Check for time conflict
-        conflicting_booking = Booking.objects.filter(
-            service=service,
-            booking_date=booking_date,
-            booking_time=booking_time,
-            status__in=['confirmed', 'pending']
-        ).first()
-        
-        if conflicting_booking:
-            raise ConflictError('Selected time is already booked')
-        
-        booking = serializer.save(customer=self.request.user)
-
     @swagger_auto_schema(
         operation_description="Get list of all user bookings (customer sees their own, provider sees their own)",
         responses={
             200: openapi.Response('Booking list', BookingSerializer(many=True)),
-            403: 'No access rights',
+            500: 'Server error'
         },
         tags=['Bookings']
     )
@@ -84,12 +60,27 @@ class BookingListCreateView(BaseAPIView, generics.ListCreateAPIView):
 
     @swagger_auto_schema(
         operation_description="Create new booking (customers only)",
-        request_body=BookingSerializer,
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['service', 'date'],
+            properties={
+                'service': openapi.Schema(type=openapi.TYPE_INTEGER, description='Service ID'),
+                'date': openapi.Schema(type=openapi.TYPE_STRING, format='date-time', description='Booking date and time'),
+                'status': openapi.Schema(type=openapi.TYPE_STRING, description='Booking status (optional)', default='pending')
+            },
+            example={
+                'service': 1,
+                'date': '2024-01-15T14:00:00Z',
+                'status': 'pending'
+            }
+        ),
         responses={
             201: openapi.Response('Booking created', BookingSerializer),
             400: 'Validation error',
-            403: 'No access rights',
+            401: 'Authentication required',
+            403: 'Only customers can create bookings',
             409: 'Time conflict',
+            500: 'Server error'
         },
         tags=['Bookings']
     )
@@ -99,9 +90,21 @@ class BookingListCreateView(BaseAPIView, generics.ListCreateAPIView):
         Create new booking
         """
         try:
+            # Check if user is authenticated
+            if not request.user.is_authenticated:
+                return self.error_response(
+                    error_number='AUTHENTICATION_REQUIRED',
+                    error_message='Authentication required',
+                    status_code=401
+                )
+            
             # Check access rights
-            if self.request.user.role != 'customer':
-                raise CustomPermissionError('Only customers can create bookings')
+            if request.user.role != 'customer':
+                return self.error_response(
+                    error_number='PERMISSION_DENIED',
+                    error_message='Only customers can create bookings',
+                    status_code=403
+                )
             
             serializer = self.get_serializer(data=request.data)
             if not serializer.is_valid():
@@ -110,31 +113,33 @@ class BookingListCreateView(BaseAPIView, generics.ListCreateAPIView):
             
             # Check time availability
             service = serializer.validated_data.get('service')
-            booking_date = serializer.validated_data.get('booking_date')
-            booking_time = serializer.validated_data.get('booking_time')
+            booking_date = serializer.validated_data.get('date')
             
             # Check for time conflict
             conflicting_booking = Booking.objects.filter(
                 service=service,
-                booking_date=booking_date,
-                booking_time=booking_time,
+                date=booking_date,
                 status__in=['confirmed', 'pending']
             ).first()
             
             if conflicting_booking:
-                raise ConflictError('Selected time is already booked')
+                return self.error_response(
+                    error_number='TIME_CONFLICT',
+                    error_message='Selected time is already booked',
+                    status_code=409
+                )
             
-            booking = serializer.save(customer=self.request.user)
+            # Set customer and provider (provider comes from service)
+            booking = serializer.save(
+                customer=request.user,
+                provider=service.provider
+            )
             
             return self.success_response(
                 data=serializer.data,
                 message='Booking created successfully'
             )
             
-        except CustomPermissionError:
-            raise
-        except ConflictError:
-            raise
         except Exception as e:
             return self.error_response(
                 error_number='BOOKING_CREATE_ERROR',
@@ -162,7 +167,9 @@ class BookingDetailView(BaseAPIView, generics.RetrieveUpdateDestroyAPIView):
         operation_description="Get detailed booking information by ID (owner only)",
         responses={
             200: openapi.Response('Booking information', BookingSerializer),
+            401: 'Authentication required',
             404: 'Booking not found',
+            500: 'Server error'
         },
         tags=['Bookings']
     )
@@ -171,6 +178,14 @@ class BookingDetailView(BaseAPIView, generics.RetrieveUpdateDestroyAPIView):
         Get detailed booking information
         """
         try:
+            # Check if user is authenticated
+            if not request.user.is_authenticated:
+                return self.error_response(
+                    error_number='AUTHENTICATION_REQUIRED',
+                    error_message='Authentication required',
+                    status_code=401
+                )
+            
             instance = self.get_object()
             serializer = self.get_serializer(instance)
             
@@ -180,7 +195,11 @@ class BookingDetailView(BaseAPIView, generics.RetrieveUpdateDestroyAPIView):
             )
             
         except Booking.DoesNotExist:
-            raise BookingNotFoundError('Booking not found')
+            return self.error_response(
+                error_number='BOOKING_NOT_FOUND',
+                error_message='Booking not found',
+                status_code=404
+            )
         except Exception as e:
             return self.error_response(
                 error_number='BOOKING_RETRIEVE_ERROR',
@@ -190,12 +209,25 @@ class BookingDetailView(BaseAPIView, generics.RetrieveUpdateDestroyAPIView):
 
     @swagger_auto_schema(
         operation_description="Update booking data (owner only)",
-        request_body=BookingSerializer,
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'service': openapi.Schema(type=openapi.TYPE_INTEGER, description='Service ID'),
+                'date': openapi.Schema(type=openapi.TYPE_STRING, format='date-time', description='Booking date and time'),
+                'status': openapi.Schema(type=openapi.TYPE_STRING, description='Booking status')
+            },
+            example={
+                'date': '2024-01-16T15:00:00Z',
+                'status': 'confirmed'
+            }
+        ),
         responses={
             200: openapi.Response('Booking updated', BookingSerializer),
             400: 'Validation error',
-            403: 'No permissions',
+            401: 'Authentication required',
+            403: 'No permissions to update this booking',
             404: 'Booking not found',
+            500: 'Server error'
         },
         tags=['Bookings']
     )
@@ -205,20 +237,36 @@ class BookingDetailView(BaseAPIView, generics.RetrieveUpdateDestroyAPIView):
         Update booking
         """
         try:
+            # Check if user is authenticated
+            if not request.user.is_authenticated:
+                return self.error_response(
+                    error_number='AUTHENTICATION_REQUIRED',
+                    error_message='Authentication required',
+                    status_code=401
+                )
+            
             instance = self.get_object()
             
             # Check update permissions
-            if self.request.user.role == 'customer' and instance.customer != self.request.user:
-                raise CustomPermissionError('No permissions to update this booking')
+            if request.user.role == 'customer' and instance.customer != request.user:
+                return self.error_response(
+                    error_number='PERMISSION_DENIED',
+                    error_message='No permissions to update this booking',
+                    status_code=403
+                )
             
-            serializer = self.get_serializer(instance, data=request.data, partial=True)
+            serializer = self.get_serializer(instance, data=request.data, partial=False)
             if not serializer.is_valid():
                 field_errors = format_validation_errors(serializer.errors)
                 return self.validation_error_response(field_errors)
             
             # Check booking status
             if instance.status in ['cancelled', 'completed']:
-                raise ValidationError('Cannot modify completed or cancelled booking')
+                return self.error_response(
+                    error_number='INVALID_STATUS',
+                    error_message='Cannot modify completed or cancelled booking',
+                    status_code=400
+                )
             
             booking = serializer.save()
             
@@ -228,11 +276,11 @@ class BookingDetailView(BaseAPIView, generics.RetrieveUpdateDestroyAPIView):
             )
             
         except Booking.DoesNotExist:
-            raise BookingNotFoundError('Booking not found')
-        except CustomPermissionError:
-            raise
-        except ValidationError:
-            raise
+            return self.error_response(
+                error_number='BOOKING_NOT_FOUND',
+                error_message='Booking not found',
+                status_code=404
+            )
         except Exception as e:
             return self.error_response(
                 error_number='BOOKING_UPDATE_ERROR',
@@ -243,9 +291,11 @@ class BookingDetailView(BaseAPIView, generics.RetrieveUpdateDestroyAPIView):
     @swagger_auto_schema(
         operation_description="Delete booking (owner only)",
         responses={
-            200: 'Booking deleted',
-            403: 'No permissions',
+            200: 'Booking deleted successfully',
+            401: 'Authentication required',
+            403: 'No permissions to delete this booking',
             404: 'Booking not found',
+            500: 'Server error'
         },
         tags=['Bookings']
     )
@@ -254,11 +304,23 @@ class BookingDetailView(BaseAPIView, generics.RetrieveUpdateDestroyAPIView):
         Delete booking
         """
         try:
+            # Check if user is authenticated
+            if not request.user.is_authenticated:
+                return self.error_response(
+                    error_number='AUTHENTICATION_REQUIRED',
+                    error_message='Authentication required',
+                    status_code=401
+                )
+            
             instance = self.get_object()
             
             # Check delete permissions
-            if self.request.user.role == 'customer' and instance.customer != self.request.user:
-                raise CustomPermissionError('No permissions to delete this booking')
+            if request.user.role == 'customer' and instance.customer != request.user:
+                return self.error_response(
+                    error_number='PERMISSION_DENIED',
+                    error_message='No permissions to delete this booking',
+                    status_code=403
+                )
             
             instance.delete()
             
@@ -267,9 +329,11 @@ class BookingDetailView(BaseAPIView, generics.RetrieveUpdateDestroyAPIView):
             )
             
         except Booking.DoesNotExist:
-            raise BookingNotFoundError('Booking not found')
-        except CustomPermissionError:
-            raise
+            return self.error_response(
+                error_number='BOOKING_NOT_FOUND',
+                error_message='Booking not found',
+                status_code=404
+            )
         except Exception as e:
             return self.error_response(
                 error_number='BOOKING_DELETE_ERROR',
@@ -289,12 +353,17 @@ class BookingStatusUpdateView(BaseAPIView):
                 'status': openapi.Schema(type=openapi.TYPE_STRING, description='New status'),
             },
             required=['status'],
+            example={
+                'status': 'confirmed'
+            }
         ),
         responses={
-            200: 'Status updated',
-            400: 'Request error',
-            403: 'No permissions',
+            200: 'Status updated successfully',
+            400: 'Invalid status or missing status',
+            401: 'Authentication required',
+            403: 'Only providers can update booking status',
             404: 'Booking not found',
+            500: 'Server error'
         },
         tags=['Bookings']
     )
@@ -304,15 +373,31 @@ class BookingStatusUpdateView(BaseAPIView):
         Update booking status
         """
         try:
+            # Check if user is authenticated
+            if not request.user.is_authenticated:
+                return self.error_response(
+                    error_number='AUTHENTICATION_REQUIRED',
+                    error_message='Authentication required',
+                    status_code=401
+                )
+            
             # Check user role
-            if self.request.user.role != 'provider':
-                raise CustomPermissionError('Only providers can update booking status')
+            if request.user.role != 'provider':
+                return self.error_response(
+                    error_number='PERMISSION_DENIED',
+                    error_message='Only providers can update booking status',
+                    status_code=403
+                )
             
             # Get booking
             try:
-                booking = Booking.objects.get(id=booking_id, provider=self.request.user)
+                booking = Booking.objects.get(id=booking_id, provider=request.user)
             except Booking.DoesNotExist:
-                raise BookingNotFoundError('Booking not found')
+                return self.error_response(
+                    error_number='BOOKING_NOT_FOUND',
+                    error_message='Booking not found',
+                    status_code=404
+                )
             
             new_status = request.data.get('status')
             if not new_status:
@@ -339,10 +424,6 @@ class BookingStatusUpdateView(BaseAPIView):
                 message='Booking status updated successfully'
             )
             
-        except CustomPermissionError:
-            raise
-        except BookingNotFoundError:
-            raise
         except Exception as e:
             return self.error_response(
                 error_number='STATUS_UPDATE_ERROR',

@@ -24,7 +24,7 @@ class PublicServiceListView(BaseAPIView, generics.ListAPIView):
         responses={
             200: openapi.Response('Public service list', ServiceSerializer(many=True)),
         },
-        tags=['Public data']
+        tags=['Public Services']
     )
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
@@ -46,7 +46,7 @@ class PublicProviderListView(BaseAPIView, generics.ListAPIView):
         responses={
             200: openapi.Response('Public provider list', ProviderSerializer(many=True)),
         },
-        tags=['Public data']
+        tags=['Public Providers']
     )
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
@@ -69,7 +69,7 @@ class PublicProviderDetailView(BaseAPIView, generics.RetrieveAPIView):
             200: openapi.Response('Provider information', ProviderSerializer),
             404: 'Provider not found',
         },
-        tags=['Public data']
+        tags=['Public Providers']
     )
     def retrieve(self, request, *args, **kwargs):
         try:

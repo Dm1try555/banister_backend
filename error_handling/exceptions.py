@@ -130,4 +130,25 @@ class WithdrawalError(BaseCustomException):
 class InvalidEmailError(BaseCustomException):
     status_code = 400
     default_detail = 'Invalid email'
-    default_code = 'INVALID_EMAIL' 
+    default_code = 'INVALID_EMAIL'
+
+
+class InvalidTokenError(AuthenticationError):
+    """Invalid or expired token error"""
+    status_code = status.HTTP_401_UNAUTHORIZED
+    default_detail = 'Invalid or expired token'
+    default_code = 'INVALID_TOKEN'
+
+
+class TokenExpiredError(AuthenticationError):
+    """Token expired error"""
+    status_code = status.HTTP_401_UNAUTHORIZED
+    default_detail = 'Token has expired'
+    default_code = 'TOKEN_EXPIRED'
+
+
+class TokenMissingError(AuthenticationError):
+    """Token missing error"""
+    status_code = status.HTTP_401_UNAUTHORIZED
+    default_detail = 'Authentication token is required'
+    default_code = 'TOKEN_MISSING' 

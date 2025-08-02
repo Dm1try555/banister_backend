@@ -1,6 +1,7 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.exceptions import NotAuthenticated, AuthenticationFailed
 from .utils import ErrorResponseMixin, create_error_response, create_success_response
 from .exceptions import BaseCustomException
 import logging
@@ -19,6 +20,18 @@ class BaseAPIView(APIView, ErrorResponseMixin):
                 error_number=exc.error_number,
                 error_message=str(exc.detail) if exc.detail else exc.default_detail,
                 status_code=exc.status_code
+            )
+        elif isinstance(exc, NotAuthenticated):
+            return create_error_response(
+                error_number='TOKEN_MISSING',
+                error_message='Authentication token is required',
+                status_code=status.HTTP_401_UNAUTHORIZED
+            )
+        elif isinstance(exc, AuthenticationFailed):
+            return create_error_response(
+                error_number='AUTHENTICATION_FAILED',
+                error_message=str(exc.detail) if hasattr(exc, 'detail') else 'Authentication failed',
+                status_code=status.HTTP_401_UNAUTHORIZED
             )
         
         # Log unexpected errors

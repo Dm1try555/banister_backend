@@ -666,6 +666,39 @@ Verify email using token from link.
 }
 ```
 
+### Invalid Token Error (401)
+```json
+{
+  "success": false,
+  "error": {
+    "error_number": "INVALID_TOKEN",
+    "error_message": "Invalid or expired token"
+  }
+}
+```
+
+### Token Expired Error (401)
+```json
+{
+  "success": false,
+  "error": {
+    "error_number": "TOKEN_EXPIRED",
+    "error_message": "Token has expired"
+  }
+}
+```
+
+### Token Missing Error (401)
+```json
+{
+  "success": false,
+  "error": {
+    "error_number": "TOKEN_MISSING",
+    "error_message": "Authentication token is required"
+  }
+}
+```
+
 ## Rate Limiting
 
 All registration and login endpoints are rate-limited:
