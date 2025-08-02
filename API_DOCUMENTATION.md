@@ -271,8 +271,6 @@ POST /api/v1/services/
   "title": "Web Development",
   "description": "Professional web development services",
   "price": 100.00,
-  "category": "technology",
-  "duration_hours": 8
 }
 ```
 

@@ -28,7 +28,7 @@ class ServiceViewSet(BaseAPIView, viewsets.ModelViewSet):
     """ViewSet for service management"""
     queryset = Service.objects.all()
     serializer_class = ServiceSerializer
-    permission_classes = [IsProviderOrReadOnly]
+    permission_classes = []  # Убираем permission class
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['title', 'description']
     ordering_fields = ['price', 'created_at']
@@ -42,15 +42,11 @@ class ServiceViewSet(BaseAPIView, viewsets.ModelViewSet):
                 'title': openapi.Schema(type=openapi.TYPE_STRING, description='Service title'),
                 'description': openapi.Schema(type=openapi.TYPE_STRING, description='Service description'),
                 'price': openapi.Schema(type=openapi.TYPE_NUMBER, description='Service price'),
-                'category': openapi.Schema(type=openapi.TYPE_STRING, description='Service category (optional)'),
-                'duration_hours': openapi.Schema(type=openapi.TYPE_INTEGER, description='Service duration in hours (optional)')
             },
             example={
                 'title': 'Web Development',
                 'description': 'Professional web development services',
                 'price': 100.00,
-                'category': 'technology',
-                'duration_hours': 8
             }
         ),
         responses={
@@ -66,7 +62,7 @@ class ServiceViewSet(BaseAPIView, viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         """Create new service"""
         try:
-            # Check if user is authenticated
+            # Check authentication
             if not request.user.is_authenticated:
                 return self.error_response(
                     error_number='AUTHENTICATION_REQUIRED',
@@ -78,7 +74,7 @@ class ServiceViewSet(BaseAPIView, viewsets.ModelViewSet):
             if request.user.role != 'provider':
                 return self.error_response(
                     error_number='PERMISSION_DENIED',
-                    error_message='Only providers can create services',
+                    error_message='This function is only available for providers',
                     status_code=403
                 )
             
@@ -110,15 +106,13 @@ class ServiceViewSet(BaseAPIView, viewsets.ModelViewSet):
                 'title': openapi.Schema(type=openapi.TYPE_STRING, description='Service title'),
                 'description': openapi.Schema(type=openapi.TYPE_STRING, description='Service description'),
                 'price': openapi.Schema(type=openapi.TYPE_NUMBER, description='Service price'),
-                'category': openapi.Schema(type=openapi.TYPE_STRING, description='Service category'),
-                'duration_hours': openapi.Schema(type=openapi.TYPE_INTEGER, description='Service duration in hours')
+                
             },
             example={
                 'title': 'Updated Web Development',
                 'description': 'Updated web development services',
                 'price': 150.00,
-                'category': 'technology',
-                'duration_hours': 10
+                
             }
         ),
         responses={
@@ -134,9 +128,7 @@ class ServiceViewSet(BaseAPIView, viewsets.ModelViewSet):
     def update(self, request, *args, **kwargs):
         """Update service"""
         try:
-            instance = self.get_object()
-            
-            # Check if user is authenticated
+            # Check authentication
             if not request.user.is_authenticated:
                 return self.error_response(
                     error_number='AUTHENTICATION_REQUIRED',
@@ -144,11 +136,13 @@ class ServiceViewSet(BaseAPIView, viewsets.ModelViewSet):
                     status_code=401
                 )
             
-            # Check update permissions
+            instance = self.get_object()
+            
+            # Check if user owns the service
             if instance.provider != request.user:
                 return self.error_response(
                     error_number='PERMISSION_DENIED',
-                    error_message='No permissions to update this service',
+                    error_message='You do not have permission to modify this service',
                     status_code=403
                 )
             
@@ -185,8 +179,7 @@ class ServiceViewSet(BaseAPIView, viewsets.ModelViewSet):
                 'title': openapi.Schema(type=openapi.TYPE_STRING, description='Service title'),
                 'description': openapi.Schema(type=openapi.TYPE_STRING, description='Service description'),
                 'price': openapi.Schema(type=openapi.TYPE_NUMBER, description='Service price'),
-                'category': openapi.Schema(type=openapi.TYPE_STRING, description='Service category'),
-                'duration_hours': openapi.Schema(type=openapi.TYPE_INTEGER, description='Service duration in hours')
+                
             },
             example={
                 'title': 'Updated Web Development',
@@ -206,9 +199,7 @@ class ServiceViewSet(BaseAPIView, viewsets.ModelViewSet):
     def partial_update(self, request, *args, **kwargs):
         """Partially update service"""
         try:
-            instance = self.get_object()
-            
-            # Check if user is authenticated
+            # Check authentication
             if not request.user.is_authenticated:
                 return self.error_response(
                     error_number='AUTHENTICATION_REQUIRED',
@@ -216,11 +207,13 @@ class ServiceViewSet(BaseAPIView, viewsets.ModelViewSet):
                     status_code=401
                 )
             
-            # Check update permissions
+            instance = self.get_object()
+            
+            # Check if user owns the service
             if instance.provider != request.user:
                 return self.error_response(
                     error_number='PERMISSION_DENIED',
-                    error_message='No permissions to update this service',
+                    error_message='You do not have permission to modify this service',
                     status_code=403
                 )
             
@@ -263,9 +256,7 @@ class ServiceViewSet(BaseAPIView, viewsets.ModelViewSet):
     def destroy(self, request, *args, **kwargs):
         """Delete service"""
         try:
-            instance = self.get_object()
-            
-            # Check if user is authenticated
+            # Check authentication
             if not request.user.is_authenticated:
                 return self.error_response(
                     error_number='AUTHENTICATION_REQUIRED',
@@ -273,11 +264,13 @@ class ServiceViewSet(BaseAPIView, viewsets.ModelViewSet):
                     status_code=401
                 )
             
-            # Check delete permissions
+            instance = self.get_object()
+            
+            # Check if user owns the service
             if instance.provider != request.user:
                 return self.error_response(
                     error_number='PERMISSION_DENIED',
-                    error_message='No permissions to delete this service',
+                    error_message='You do not have permission to delete this service',
                     status_code=403
                 )
             

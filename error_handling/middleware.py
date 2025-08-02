@@ -3,7 +3,7 @@ import logging
 from django.http import JsonResponse
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError
-from rest_framework import status
+from rest_framework import status, permissions
 from rest_framework.views import exception_handler
 from rest_framework.response import Response
 from rest_framework.exceptions import NotAuthenticated
@@ -42,12 +42,18 @@ class ErrorHandlingMiddleware:
             status_code = status.HTTP_401_UNAUTHORIZED
         elif isinstance(exception, NotAuthenticated):
             status_code = status.HTTP_401_UNAUTHORIZED
+        elif isinstance(exception, permissions.exceptions.PermissionDenied):
+            status_code = status.HTTP_403_FORBIDDEN
         elif 'authentication credentials were not provided' in str(exception).lower():
             status_code = status.HTTP_401_UNAUTHORIZED
         elif isinstance(exception, DjangoValidationError):
             status_code = status.HTTP_400_BAD_REQUEST
         elif isinstance(exception, IntegrityError):
             status_code = status.HTTP_409_CONFLICT
+        elif 'permission' in str(exception).lower():
+            status_code = status.HTTP_403_FORBIDDEN
+        elif 'rest_framework.exceptions.PermissionDenied' in str(type(exception)):
+            status_code = status.HTTP_403_FORBIDDEN
         else:
             status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
         
@@ -64,21 +70,22 @@ class ErrorHandlingMiddleware:
             error_number = exception.error_number
             error_message = str(exception.detail) if exception.detail else exception.default_detail
         elif isinstance(exception, (InvalidToken, TokenError)):
-            # Handle JWT token errors
-            if 'expired' in str(exception).lower():
-                error_number = 'TOKEN_EXPIRED'
-                error_message = 'Token has expired'
-            elif 'invalid' in str(exception).lower():
-                error_number = 'INVALID_TOKEN'
-                error_message = 'Invalid or expired token'
-            else:
-                error_number = 'INVALID_TOKEN'
-                error_message = 'Invalid or expired token'
+            error_number = 'INVALID_TOKEN'
+            error_message = 'Invalid or expired token'
         elif isinstance(exception, NotAuthenticated):
-            error_number = 'TOKEN_MISSING'
-            error_message = 'Authentication token is required'
+            error_number = 'AUTHENTICATION_REQUIRED'
+            error_message = 'Authentication required'
+        elif isinstance(exception, permissions.exceptions.PermissionDenied):
+            error_number = 'PERMISSION_DENIED'
+            error_message = 'This function is only available for providers'
+        elif 'permission' in str(exception).lower():
+            error_number = 'PERMISSION_DENIED'
+            error_message = 'This function is only available for providers'
+        elif 'rest_framework.exceptions.PermissionDenied' in str(type(exception)):
+            error_number = 'PERMISSION_DENIED'
+            error_message = 'This function is only available for providers'
         elif 'authentication credentials were not provided' in str(exception).lower():
-            error_number = 'TOKEN_MISSING'
+            error_number = 'AUTHENTICATION_REQUIRED'
             error_message = 'Authentication token is required'
         elif isinstance(exception, DjangoValidationError):
             error_number = 'VALIDATION_ERROR'
@@ -120,21 +127,16 @@ def custom_exception_handler(exc, context):
             error_number = exc.error_number
             error_message = str(exc.detail) if exc.detail else exc.default_detail
         elif isinstance(exc, (InvalidToken, TokenError)):
-            # Handle JWT token errors
-            if 'expired' in str(exc).lower():
-                error_number = 'TOKEN_EXPIRED'
-                error_message = 'Token has expired'
-            elif 'invalid' in str(exc).lower():
-                error_number = 'INVALID_TOKEN'
-                error_message = 'Invalid or expired token'
-            else:
-                error_number = 'INVALID_TOKEN'
-                error_message = 'Invalid or expired token'
+            error_number = 'INVALID_TOKEN'
+            error_message = 'Invalid or expired token'
         elif isinstance(exc, NotAuthenticated):
-            error_number = 'TOKEN_MISSING'
-            error_message = 'Authentication token is required'
+            error_number = 'AUTHENTICATION_REQUIRED'
+            error_message = 'Authentication required'
+        elif isinstance(exc, permissions.exceptions.PermissionDenied):
+            error_number = 'PERMISSION_DENIED'
+            error_message = 'This function is only available for providers'
         elif 'authentication credentials were not provided' in str(exc).lower():
-            error_number = 'TOKEN_MISSING'
+            error_number = 'AUTHENTICATION_REQUIRED'
             error_message = 'Authentication token is required'
         else:
             error_number = 'API_ERROR'
@@ -150,6 +152,18 @@ def custom_exception_handler(exc, context):
         }
         
         return Response(formatted_response, status=response.status_code)
+    
+    # Handle exceptions that DRF doesn't handle
+    if isinstance(exc, permissions.exceptions.PermissionDenied) or 'permission' in str(exc).lower():
+        formatted_response = {
+            'success': False,
+            'error': {
+                'error_number': 'PERMISSION_DENIED',
+                'error_message': 'This function is only available for providers',
+                'timestamp': get_timestamp()
+            }
+        }
+        return Response(formatted_response, status=status.HTTP_403_FORBIDDEN)
     
     return response
 
