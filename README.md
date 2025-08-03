@@ -1,27 +1,29 @@
-# Banister Backend API
+# 🏠 Banister Backend API
 
-## 🚀 Quick Start
+Django REST API для платформы Banister - сервиса для поиска и бронирования услуг в Америке.
 
-### 1. Install Dependencies
+## 🚀 Быстрый старт
+
+### 1. Установка зависимостей
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. Setup Database
+### 2. Настройка базы данных
 ```bash
 python manage.py makemigrations
 python manage.py migrate
 ```
 
-### 3. Start Server
+### 3. Запуск сервера
 ```bash
 python manage.py runserver 0.0.0.0:8000
 ```
 
-### 4. Access API Documentation
-Open your browser and go to: `http://localhost:8000/swagger/`
+### 4. Доступ к документации API
+Откройте браузер и перейдите: `http://localhost:8000/swagger/`
 
-### 5. Test Accounts
+### 5. Тестовые аккаунты
 
 #### Customer (Клиент):
 ```
@@ -35,62 +37,87 @@ Email: shilovscky2020@gmail.com
 Password: shilovscky2020
 ```
 
-### 6. Authentication
-1. Use the login endpoints to get your JWT token
-2. Insert your token in the Authorization field in Swagger UI
-3. The system automatically adds "Bearer " prefix to your token
+### 6. Аутентификация
+1. Используйте эндпоинты входа для получения JWT токена
+2. Вставьте токен в поле Authorization в Swagger UI
+3. Система автоматически добавляет префикс "Bearer " к вашему токену
 
 ---
 
-## 📋 Ready Features
+## ✅ Готовые функции
 
-### ✅ Authentication & Users
-- [x] User registration (customer, provider, management)
-- [x] JWT authentication (login/logout)
-- [x] Profile management (CRUD)
-- [x] Password reset (6-digit code)
-- [x] Email confirmation
-- [x] Profile photo upload/management
+### 🔐 Аутентификация и пользователи
+- [x] Регистрация пользователей (клиент, поставщик, администрация)
+- [x] JWT аутентификация (вход/выход)
+- [x] Управление профилями (CRUD)
+- [x] Сброс пароля (6-значный код)
+- [x] Подтверждение email
+- [x] Загрузка/управление фото профиля
+- [x] Firebase Authentication интеграция
 
-### ✅ Services & Bookings
-- [x] Services CRUD (providers only)
-- [x] Bookings CRUD (customers create, providers manage)
-- [x] Booking status management
-- [x] Search and filtering
+### 🛠️ Услуги и бронирования
+- [x] CRUD услуг (только для поставщиков)
+- [x] CRUD бронирований (клиенты создают, поставщики управляют)
+- [x] Управление статусом бронирования
+- [x] Поиск и фильтрация
+- [x] Система расписаний
 
-### ✅ File Storage
-- [x] Profile photo upload
-- [x] Image processing and validation
-- [x] MinIO integration
+### 💳 Платежи и финансы
+- [x] Система платежей
+- [x] Выводы средств
+- [x] Управление балансом
+- [x] История транзакций
 
-### ✅ API Features
-- [x] Swagger UI documentation
-- [x] Error handling system
-- [x] JWT token auto-prefix
-- [x] Transaction-based operations
+### 📁 Хранилище файлов
+- [x] Загрузка фото профиля
+- [x] Обработка и валидация изображений
+- [x] Интеграция с MinIO
+- [x] Управление документами
+
+### 📱 API функции
+- [x] Swagger UI документация
+- [x] Система обработки ошибок
+- [x] Автоматический префикс JWT токена
+- [x] Транзакционные операции
+- [x] Валидация данных (US форматы)
+
+### ⏰ Автоматизация
+- [x] Крон задачи для бэкапов
+- [x] Автоматический бэкап базы данных в Google Drive
+- [x] Автоматический бэкап MinIO в Google Drive
+- [x] Очистка старых уведомлений
+
+### 🎛️ Административная панель
+- [x] Управление пользователями
+- [x] Управление услугами
+- [x] Мониторинг транзакций
+- [x] Дашборд статистики
 
 ---
 
-## 🔧 Technical Stack
+## 🔧 Технический стек
 
 - **Django 5.2** + **Django REST Framework**
 - **JWT Authentication** (Simple JWT)
-- **PostgreSQL** database
-- **MinIO** file storage
-- **Swagger/OpenAPI** documentation
-- **Custom error handling**
+- **PostgreSQL** база данных
+- **MinIO** хранилище файлов
+- **Google Cloud Storage** для бэкапов
+- **Firebase Authentication**
+- **Swagger/OpenAPI** документация
+- **Кастомная система обработки ошибок**
+- **Django Crontab** для автоматизации
 
 ---
 
-## 📚 Documentation
+## 📚 Документация
 
 **Полная документация находится в папке [`docs/`](./docs/)**
 
 ### 🔗 Быстрые ссылки:
-- [📖 Главная документация](./docs/README.md)
 - [🌐 API Documentation](./docs/API_DOCUMENTATION.md)
 - [🔐 Authentication API](./docs/AUTHENTICATION_API.md)
 - [🛠️ Services API](./docs/SERVICES_API.md)
+- [📋 Endpoints Overview](./docs/ENDPOINTS_OVERVIEW.md)
 - [💾 MinIO Implementation](./docs/MINIO_IMPLEMENTATION.md)
 - [⏰ Cron Tasks Setup](./docs/CRON_SETUP.md)
 - [📝 Changelog](./docs/CHANGELOG.md)
@@ -98,7 +125,6 @@ Password: shilovscky2020
 ### 🏗️ Структура документации
 ```
 docs/
-├── README.md                    # 📖 Главная документация
 ├── API_DOCUMENTATION.md         # 🌐 API документация
 ├── AUTHENTICATION_API.md        # 🔐 Аутентификация
 ├── SERVICES_API.md              # 🛠️ Сервисы
@@ -110,22 +136,94 @@ docs/
 
 ---
 
-## 🔒 Security
+## 🏗️ Структура проекта
 
-- JWT token authentication
-- Password hashing
-- Input validation
-- File upload security
-- CORS configuration
-- Rate limiting
+```
+banister_backend/
+├── authentication/     # 🔐 Аутентификация и пользователи
+├── services/          # 🛠️ Услуги
+├── bookings/          # 📅 Бронирования
+├── payments/          # 💳 Платежи
+├── withdrawals/       # 💰 Выводы средств
+├── message/           # 💬 Сообщения и уведомления
+├── file_storage/      # 📁 Хранилище файлов
+├── cron_tasks/        # ⏰ Автоматические задачи
+├── admin_panel/       # 🎛️ Административная панель
+├── dashboard/         # 📊 Дашборд
+├── documents/         # 📄 Документы
+├── providers/         # 👥 Поставщики услуг
+├── schedules/         # 📅 Расписания
+├── public_core/       # 🌐 Публичное API
+├── error_handling/    # ⚠️ Обработка ошибок
+├── docs/              # 📚 Документация
+└── banister_backend/  # ⚙️ Основные настройки Django
+```
 
 ---
 
-## 📞 Support
+## 🔒 Безопасность
+
+- JWT токен аутентификация
+- Хеширование паролей
+- Валидация входных данных
+- Безопасность загрузки файлов
+- CORS конфигурация
+- Ограничение скорости запросов
+- Транзакционные операции для целостности данных
+
+---
+
+## 🚀 Развертывание
+
+### Docker
+```bash
+docker-compose up -d
+```
+
+### Переменные окружения
+Создайте файл `.env` в корне проекта:
+```env
+# База данных
+POSTGRES_DB=banister_db
+POSTGRES_USER=banister_user
+POSTGRES_PASSWORD=banister_pass
+DB_HOST=localhost
+
+# Django
+DJANGO_SECRET_KEY=your-secret-key
+DJANGO_DEBUG=True
+
+# Firebase
+FIREBASE_API_KEY=your-firebase-api-key
+FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
+FIREBASE_PROJECT_ID=your-project-id
+
+# Google Cloud Storage
+GOOGLE_CLOUD_BUCKET_NAME=banister-backups
+
+# MinIO
+MINIO_ENDPOINT=localhost:9000
+MINIO_ACCESS_KEY=your_access_key
+MINIO_SECRET_KEY=your_secret_key
+MINIO_SECURE=False
+```
+
+---
+
+## 📞 Поддержка
 
 - **Swagger UI:** `http://localhost:8000/swagger/`
-- **Full Documentation:** [API_DOCUMENTATION.md](API_DOCUMENTATION.md)
+- **Полная документация:** [docs/](./docs/)
+- **Логи:** `debug.log`
 
 ---
 
-*Last updated: August 2, 2024* 
+## 🔄 Обновления
+
+Регулярно проверяйте [CHANGELOG.md](./docs/CHANGELOG.md) для получения информации о новых функциях и обновлениях.
+
+---
+
+**Версия:** 1.0.0  
+**Последнее обновление:** Август 2025  
+**Статус:** ✅ Готово к продакшену 
