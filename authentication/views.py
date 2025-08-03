@@ -1484,7 +1484,7 @@ class AdminPermissionManagementView(BaseAPIView):
 
             # Process permissions
             with transaction.atomic():
-                    if action == 'grant':
+                if action == 'grant':
                     for permission in permissions:
                         AdminPermission.objects.get_or_create(
                             admin_user=admin_user,
@@ -1495,7 +1495,7 @@ class AdminPermissionManagementView(BaseAPIView):
                             }
                         )
                     message = f'Permissions granted successfully to {admin_user.email}'
-                    elif action == 'revoke':
+                elif action == 'revoke':
                     AdminPermission.objects.filter(
                         admin_user=admin_user,
                         permission__in=permissions
@@ -1642,7 +1642,7 @@ class AdminPermissionManagementView(BaseAPIView):
                     message=f'Permission {permission} deleted successfully for {admin_user.email}'
                 )
                 
-                        except AdminPermission.DoesNotExist:
+            except AdminPermission.DoesNotExist:
                 return self.error_response(
                     message='Permission not found for this admin user',
                     status_code=status.HTTP_404_NOT_FOUND
