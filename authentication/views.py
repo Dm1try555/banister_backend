@@ -1290,7 +1290,7 @@ class AdminPermissionManagementView(BaseAPIView):
 
             # Get admin user
             try:
-                admin_user = User.objects.get(id=admin_user_id, role__in=['admin', 'accountant', 'management'])
+                admin_user = User.objects.get(id=admin_user_id, role__in=['management', 'admin', 'accountant'])
             except User.DoesNotExist:
                 return create_error_response(
                     error_number='ADMIN_NOT_FOUND',
@@ -1393,7 +1393,7 @@ class AdminListViewModel(BaseAPIView):
             # Get all admin users
             try:
                 admin_users = User.objects.filter(
-                    role__in=['admin', 'super_admin', 'accountant', 'management']
+                    role__in=['management', 'admin', 'super_admin', 'accountant']
                 ).prefetch_related('admin_permissions', 'profile')
 
                 serializer = AdminUserSerializer(admin_users, many=True)

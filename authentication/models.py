@@ -66,7 +66,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def is_admin_role(self):
         """Check if user has admin role"""
-        return self.role in ['admin', 'super_admin', 'accountant']
+        return self.role in ['management', 'admin', 'super_admin', 'accountant']
 
     def is_super_admin(self):
         """Check if user is super admin"""
