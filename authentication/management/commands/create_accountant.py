@@ -6,38 +6,38 @@ from django.db import transaction
 User = get_user_model()
 
 class Command(BaseCommand):
-    help = 'Create a super admin user with full permissions'
+    help = 'Create an accountant user with financial permissions'
 
     def add_arguments(self, parser):
         parser.add_argument(
             '--email',
             type=str,
             required=True,
-            help='Email address for the super admin'
+            help='Email address for the accountant'
         )
         parser.add_argument(
             '--password',
             type=str,
             required=True,
-            help='Password for the super admin'
+            help='Password for the accountant'
         )
         parser.add_argument(
             '--first-name',
             type=str,
-            default='Super',
-            help='First name for the super admin'
+            default='Accountant',
+            help='First name for the accountant'
         )
         parser.add_argument(
             '--last-name',
             type=str,
-            default='Admin',
-            help='Last name for the super admin'
+            default='User',
+            help='Last name for the accountant'
         )
         parser.add_argument(
             '--phone',
             type=str,
             default='',
-            help='Phone number for the super admin'
+            help='Phone number for the accountant'
         )
 
     def handle(self, *args, **options):
@@ -46,6 +46,14 @@ class Command(BaseCommand):
         first_name = options['first_name']
         last_name = options['last_name']
         phone = options['phone']
+
+        # Default financial permissions for accountants
+        permissions = [
+            'payment_management',
+            'withdrawal_management', 
+            'financial_reports',
+            'document_management'
+        ]
 
         try:
             with transaction.atomic():
@@ -56,14 +64,14 @@ class Command(BaseCommand):
                     )
                     return
 
-                # Create super admin user
+                # Create accountant user
                 user = User.objects.create_user(
                     email=email,
                     password=password,
-                    role='super_admin',
+                    role='accountant',
                     phone=phone,
                     is_staff=True,
-                    is_superuser=True
+                    is_superuser=False
                 )
 
                 # Create profile
@@ -74,29 +82,27 @@ class Command(BaseCommand):
                     last_name=last_name
                 )
 
-                # Grant all permissions to super admin
-                all_permissions = [choice[0] for choice in AdminPermission.PERMISSION_CHOICES]
-                
-                for permission in all_permissions:
+                # Grant financial permissions to accountant
+                for permission in permissions:
                     AdminPermission.objects.create(
                         admin_user=user,
                         permission=permission,
                         is_active=True,
-                        granted_by=user  # Self-granted for super admin
+                        granted_by=None  # Will be set by super admin later
                     )
 
                 self.stdout.write(
                     self.style.SUCCESS(
-                        f'Super admin created successfully:\n'
+                        f'Accountant user created successfully:\n'
                         f'Email: {email}\n'
-                        f'Role: super_admin\n'
-                        f'Permissions granted: {len(all_permissions)}\n'
-                        f'Permissions: {", ".join(all_permissions)}'
+                        f'Role: accountant\n'
+                        f'Permissions granted: {len(permissions)}\n'
+                        f'Permissions: {", ".join(permissions)}'
                     )
                 )
 
         except Exception as e:
             self.stdout.write(
-                self.style.ERROR(f'Error creating super admin: {str(e)}')
+                self.style.ERROR(f'Error creating accountant user: {str(e)}')
             )
             raise 

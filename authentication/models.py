@@ -26,7 +26,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     ROLE_CHOICES = (
         ('customer', 'Customer'),
         ('provider', 'Provider'),
-        ('management', 'Management'),
+        ('management', 'Support Manager'),  # Сотрудник поддержки/менеджер
         ('admin', 'Admin'),
         ('super_admin', 'Super Admin'),
         ('accountant', 'Accountant'),

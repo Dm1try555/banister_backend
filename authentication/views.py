@@ -137,13 +137,13 @@ class ProviderRegistrationView(BaseAPIView):
             return self.handle_registration_errors(exc)
 
 class ManagementRegistrationView(BaseAPIView):
-    """Manager registration"""
+    """Support Manager registration - for customer support staff"""
     permission_classes = [AllowAny]
     http_method_names = ['post']
     throttle_classes = [AnonRateThrottle]
 
     @swagger_auto_schema(
-        operation_description="Manager registration (management)",
+        operation_description="Support Manager registration (support staff)",
         request_body=openapi.Schema(
             type=openapi.TYPE_OBJECT,
             required=['email', 'password', 'confirm_password', 'first_name', 'last_name'],
@@ -156,10 +156,10 @@ class ManagementRegistrationView(BaseAPIView):
                 'phone': openapi.Schema(type=openapi.TYPE_STRING, description='US phone number (optional) - Supports: (555) 123-4567, +1 (555) 123-4567, 555-123-4567, 555.123.4567, 555 123 4567, 123-4567, 5551234567'),
         },
             example={
-                'email': 'manager@example.com',
+                'email': 'support@banister.com',
                 'password': 'password123',
                 'confirm_password': 'password123',
-                'first_name': 'Admin',
+                'first_name': 'Support',
                 'last_name': 'Manager',
                 'phone': '(555) 123-4567'
             }
@@ -258,14 +258,14 @@ class CustomTokenRefreshView(TokenRefreshView):
             )),
             401: 'Invalid refresh token'
         },
-        tags=['Authentication'])
+        tags=['Login'])
     def post(self, request, *args, **kwargs):
         return super().post(request, *args, **kwargs)
 
 # --- Profile ---
 class ProfileView(BaseAPIView, mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin, generics.GenericAPIView):
     permission_classes = [IsAuthenticated]
-    http_method_names = ['get', 'put', 'patch', 'delete']
+    http_method_names = ['get', 'put', 'delete']
 
     def get_serializer_class(self):
         """Return appropriate serializer based on user role"""
@@ -373,41 +373,7 @@ class ProfileView(BaseAPIView, mixins.RetrieveModelMixin, mixins.UpdateModelMixi
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-    @swagger_auto_schema(
-        operation_description="Update user profile (partial update) - Role-specific fields. Note: Role cannot be changed.",
-        request_body=openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            properties={
-                'email': openapi.Schema(type=openapi.TYPE_STRING, format='email'),
-                'phone': openapi.Schema(type=openapi.TYPE_STRING),
-                'role': openapi.Schema(type=openapi.TYPE_STRING, description='Role cannot be changed'),
-                'profile': openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        'first_name': openapi.Schema(type=openapi.TYPE_STRING),
-                        'last_name': openapi.Schema(type=openapi.TYPE_STRING),
-                        'bio': openapi.Schema(type=openapi.TYPE_STRING),
-                    }
-                ),
-                'provider_profile': openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    description='Only available for provider users',
-                    properties={
-                        'experience_years': openapi.Schema(type=openapi.TYPE_INTEGER),
-                        'hourly_rate': openapi.Schema(type=openapi.TYPE_NUMBER),
-                    }
-                ),
-            }
-        ),
-        responses={
-            200: openapi.Response('Profile updated successfully', UserSerializer),
-            400: 'Validation error, role change not allowed, or profile photo required for providers/managers',
-            401: 'Authentication required',
-            500: 'Server error'
-        },
-        tags=['Profile'])
-    @transaction.atomic
-    def patch(self, request, *args, **kwargs):
+
         try:
             # Prevent role change
             if 'role' in request.data and request.data['role'] != request.user.role:
@@ -748,10 +714,10 @@ def password_reset_confirm(request):
                 'message': openapi.Schema(type=openapi.TYPE_STRING),
                 'instructions': openapi.Schema(type=openapi.TYPE_STRING, description='Instructions for clearing token in Swagger UI')
             }
-        )),
-        401: 'Authentication required'
-    },
-    tags=['Authentication'])
+                    )),
+            401: 'Authentication required'
+        },
+        tags=['Login'])
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def logout_view(request):
@@ -898,7 +864,7 @@ class CustomerLoginView(TokenObtainPairView):
             )),
             401: 'Authentication error or role mismatch'
         },
-        tags=['Authentication'])
+        tags=['Login'])
     def post(self, request, *args, **kwargs):
         try:
             response = super().post(request, *args, **kwargs)
@@ -968,7 +934,7 @@ class ProviderLoginView(TokenObtainPairView):
             )),
             401: 'Authentication error or role mismatch'
         },
-        tags=['Authentication'])
+        tags=['Login'])
     def post(self, request, *args, **kwargs):
         try:
             response = super().post(request, *args, **kwargs)
@@ -1008,12 +974,82 @@ class ProviderLoginView(TokenObtainPairView):
             )
 
 class ManagementLoginView(TokenObtainPairView):
-    """Admin login - supports management, admin, super_admin, accountant roles"""
+    """Support Manager login - for customer support staff"""
     serializer_class = CustomTokenObtainPairSerializer
     throttle_classes = [AnonRateThrottle]
 
     @swagger_auto_schema(
-        operation_description="Admin authentication (management, admin, super_admin, accountant)",
+        operation_description="Support Manager authentication (support staff)",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['email', 'password'],
+            properties={
+                'email': openapi.Schema(type=openapi.TYPE_STRING, format='email', description='User email'),
+                'password': openapi.Schema(type=openapi.TYPE_STRING, description='Password'),
+            },
+            example={
+                'email': 'support@banister.com',
+                'password': 'password123'
+            }
+        ),
+        responses={
+            200: openapi.Response('Successful authentication', openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'access': openapi.Schema(type=openapi.TYPE_STRING, description='Access token'),
+                    'refresh': openapi.Schema(type=openapi.TYPE_STRING, description='Refresh token'),
+                    'role': openapi.Schema(type=openapi.TYPE_STRING, description='User role'),
+                }
+            )),
+            401: 'Authentication error or role mismatch'
+        },
+        tags=['Login'])
+    def post(self, request, *args, **kwargs):
+        try:
+            response = super().post(request, *args, **kwargs)
+            
+            if response.status_code == 200:
+                # Check if user has management role
+                user = User.objects.get(email=request.data.get('email'))
+                if user.role != 'management':
+                    return create_error_response(
+                        error_number='ROLE_MISMATCH',
+                        error_message='This login is for management staff only',
+                        status_code=401
+                    )
+                
+                return create_success_response(
+                    data=response.data,
+                    message='Management login successful'
+                )
+            else:
+                return create_error_response(
+                    error_number='AUTHENTICATION_ERROR',
+                    error_message='Invalid email or password',
+                    status_code=401
+                )
+                
+        except User.DoesNotExist:
+            return create_error_response(
+                error_number='AUTHENTICATION_ERROR',
+                error_message='Invalid email or password',
+                status_code=401
+            )
+        except Exception as e:
+            return create_error_response(
+                error_number='AUTHENTICATION_ERROR',
+                error_message='Invalid email or password',
+                status_code=401
+            )
+
+class AdminLoginView(TokenObtainPairView):
+    """Admin login - only for admin role"""
+    serializer_class = CustomTokenObtainPairSerializer
+    permission_classes = [AllowAny]
+    throttle_classes = [AnonRateThrottle]
+
+    @swagger_auto_schema(
+        operation_description="Admin authentication (admin role only)",
         request_body=openapi.Schema(
             type=openapi.TYPE_OBJECT,
             required=['email', 'password'],
@@ -1037,44 +1073,184 @@ class ManagementLoginView(TokenObtainPairView):
             )),
             401: 'Authentication error or role mismatch'
         },
-        tags=['Authentication'])
+        tags=['Login'])
     def post(self, request, *args, **kwargs):
         try:
-            response = super().post(request, *args, **kwargs)
+            # Validate credentials
+            serializer = self.get_serializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
             
-            if response.status_code == 200:
-                # Check if user has admin role (management, admin, super_admin, accountant)
-                user = User.objects.get(email=request.data.get('email'))
-                if user.role not in ['management', 'admin', 'super_admin', 'accountant']:
-                    return create_error_response(
-                        error_number='ROLE_MISMATCH',
-                        error_message='This login is for admin users only',
-                        status_code=401
-                    )
-                
-                return create_success_response(
-                    data=response.data,
-                    message='Admin login successful'
+            user = serializer.user
+            
+            # Check if user has admin role
+            if user.role != 'admin':
+                logger.warning(f"Login attempt for non-admin user: {user.email} (role: {user.role})")
+                return Response(
+                    {'error': 'Access denied. This endpoint is for admin users only.'},
+                    status=status.HTTP_403_FORBIDDEN
                 )
-            else:
-                return create_error_response(
-                    error_number='AUTHENTICATION_ERROR',
-                    error_message='Invalid email or password',
-                    status_code=401
+            
+            # Generate tokens
+            refresh = RefreshToken.for_user(user)
+            access_token = refresh.access_token
+            
+            # Add role to token
+            access_token['role'] = user.role
+            
+            logger.info(f"Admin login successful: {user.email}")
+            return Response({
+                'access': str(access_token),
+                'refresh': str(refresh),
+                'role': user.role
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as exc:
+            logger.error(f"Admin login failed: {str(exc)}")
+            return Response(
+                {'error': 'Invalid credentials or access denied'},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+
+class SuperAdminLoginView(TokenObtainPairView):
+    """Super Admin login - only for super_admin role"""
+    serializer_class = CustomTokenObtainPairSerializer
+    permission_classes = [AllowAny]
+    throttle_classes = [AnonRateThrottle]
+
+    @swagger_auto_schema(
+        operation_description="Super Admin authentication (super_admin role only)",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['email', 'password'],
+            properties={
+                'email': openapi.Schema(type=openapi.TYPE_STRING, format='email', description='User email'),
+                'password': openapi.Schema(type=openapi.TYPE_STRING, description='Password'),
+            },
+            example={
+                'email': 'superadmin@banister.com',
+                'password': 'AdminPass123!'
+            }
+        ),
+        responses={
+            200: openapi.Response('Successful authentication', openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'access': openapi.Schema(type=openapi.TYPE_STRING, description='Access token'),
+                    'refresh': openapi.Schema(type=openapi.TYPE_STRING, description='Refresh token'),
+                    'role': openapi.Schema(type=openapi.TYPE_STRING, description='User role'),
+                }
+            )),
+            401: 'Authentication error or role mismatch'
+        },
+        tags=['Login'])
+    def post(self, request, *args, **kwargs):
+        try:
+            # Validate credentials
+            serializer = self.get_serializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            
+            user = serializer.user
+            
+            # Check if user has super_admin role
+            if user.role != 'super_admin':
+                logger.warning(f"Login attempt for non-super-admin user: {user.email} (role: {user.role})")
+                return Response(
+                    {'error': 'Access denied. This endpoint is for super admin users only.'},
+                    status=status.HTTP_403_FORBIDDEN
                 )
-                
-        except User.DoesNotExist:
-            return create_error_response(
-                error_number='AUTHENTICATION_ERROR',
-                error_message='Invalid email or password',
-                status_code=401
+            
+            # Generate tokens
+            refresh = RefreshToken.for_user(user)
+            access_token = refresh.access_token
+            
+            # Add role to token
+            access_token['role'] = user.role
+            
+            logger.info(f"Super Admin login successful: {user.email}")
+            return Response({
+                'access': str(access_token),
+                'refresh': str(refresh),
+                'role': user.role
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as exc:
+            logger.error(f"Super Admin login failed: {str(exc)}")
+            return Response(
+                {'error': 'Invalid credentials or access denied'},
+                status=status.HTTP_401_UNAUTHORIZED
             )
-        except Exception as e:
-            return create_error_response(
-                error_number='AUTHENTICATION_ERROR',
-                error_message='Invalid email or password',
-                status_code=401
+
+
+class AccountantLoginView(TokenObtainPairView):
+    """Accountant login - only for accountant role"""
+    serializer_class = CustomTokenObtainPairSerializer
+    permission_classes = [AllowAny]
+    throttle_classes = [AnonRateThrottle]
+
+    @swagger_auto_schema(
+        operation_description="Accountant authentication (accountant role only)",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['email', 'password'],
+            properties={
+                'email': openapi.Schema(type=openapi.TYPE_STRING, format='email', description='User email'),
+                'password': openapi.Schema(type=openapi.TYPE_STRING, description='Password'),
+            },
+            example={
+                'email': 'accountant@banister.com',
+                'password': 'password123'
+            }
+        ),
+        responses={
+            200: openapi.Response('Successful authentication', openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'access': openapi.Schema(type=openapi.TYPE_STRING, description='Access token'),
+                    'refresh': openapi.Schema(type=openapi.TYPE_STRING, description='Refresh token'),
+                    'role': openapi.Schema(type=openapi.TYPE_STRING, description='User role'),
+                }
+            )),
+            401: 'Authentication error or role mismatch'
+        },
+        tags=['Login'])
+    def post(self, request, *args, **kwargs):
+        try:
+            # Validate credentials
+            serializer = self.get_serializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            
+            user = serializer.user
+            
+            # Check if user has accountant role
+            if user.role != 'accountant':
+                logger.warning(f"Login attempt for non-accountant user: {user.email} (role: {user.role})")
+                return Response(
+                    {'error': 'Access denied. This endpoint is for accountant users only.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            
+            # Generate tokens
+            refresh = RefreshToken.for_user(user)
+            access_token = refresh.access_token
+            
+            # Add role to token
+            access_token['role'] = user.role
+            
+            logger.info(f"Accountant login successful: {user.email}")
+            return Response({
+                'access': str(access_token),
+                'refresh': str(refresh),
+                'role': user.role
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as exc:
+            logger.error(f"Accountant login failed: {str(exc)}")
+            return Response(
+                {'error': 'Invalid credentials or access denied'},
+                status=status.HTTP_401_UNAUTHORIZED
             )
+
 
 @swagger_auto_schema(
     method='post',
@@ -1204,7 +1380,7 @@ class AdminProfileUpdateView(BaseAPIView):
             404: 'Profile not found',
             500: 'Server error'
         },
-        tags=['Admin Management'])
+        tags=['Admin'])
     def put(self, request):
         try:
             # Check if user is admin
@@ -1252,7 +1428,7 @@ class AdminProfileUpdateView(BaseAPIView):
 class AdminPermissionManagementView(BaseAPIView):
     """Manage admin permissions (grant/revoke) - Super Admin only"""
     permission_classes = [IsAuthenticated]
-    http_method_names = ['post']
+    http_method_names = ['post', 'get', 'delete']
 
     @swagger_auto_schema(
         operation_description="Grant or revoke permissions for admin users (Super Admin only)",
@@ -1264,155 +1440,1691 @@ class AdminPermissionManagementView(BaseAPIView):
             404: 'Admin user not found',
             500: 'Server error'
         },
-        tags=['Admin Management'])
+        tags=['Admin'])
     def post(self, request):
+        """Grant permissions to admin user"""
         try:
             # Check if user is super admin
             if not request.user.is_super_admin():
-                return create_error_response(
-                    error_number='ACCESS_DENIED',
-                    error_message='Access denied. Only super admin can manage permissions.',
-                    status_code=403
+                logger.warning(f"Permission management attempt by non-super-admin: {request.user.email}")
+                return self.error_response(
+                    message='Access denied. Only super admin can manage permissions.',
+                    status_code=status.HTTP_403_FORBIDDEN
                 )
-
-            # Validate request data
+            
             serializer = AdminPermissionUpdateSerializer(data=request.data)
             if not serializer.is_valid():
-                return create_error_response(
-                    error_number='VALIDATION_ERROR',
-                    error_message='Invalid request data.',
-                    status_code=400
+                return self.error_response(
+                    message='Validation error',
+                    data=serializer.errors,
+                    status_code=status.HTTP_400_BAD_REQUEST
                 )
-
+            
             admin_user_id = serializer.validated_data['admin_user_id']
             permissions = serializer.validated_data['permissions']
             action = serializer.validated_data['action']
-
+            
             # Get admin user
             try:
-                admin_user = User.objects.get(id=admin_user_id, role__in=['management', 'admin', 'accountant'])
+                admin_user = User.objects.get(id=admin_user_id, role='admin')
             except User.DoesNotExist:
-                return create_error_response(
-                    error_number='ADMIN_NOT_FOUND',
-                    error_message='Admin user not found.',
-                    status_code=404
+                return self.error_response(
+                    message='Admin user not found',
+                    status_code=status.HTTP_404_NOT_FOUND
                 )
-
+            
             # Validate permissions
-            valid_permissions = dict(AdminPermission.PERMISSION_CHOICES)
+            valid_permissions = [choice[0] for choice in AdminPermission.PERMISSION_CHOICES]
             invalid_permissions = [p for p in permissions if p not in valid_permissions]
             if invalid_permissions:
-                return create_error_response(
-                    error_number='INVALID_PERMISSION',
-                    error_message=f'Invalid permissions: {", ".join(invalid_permissions)}',
-                    status_code=400
+                return self.error_response(
+                    message=f'Invalid permissions: {", ".join(invalid_permissions)}',
+                    status_code=status.HTTP_400_BAD_REQUEST
                 )
-
+            
             # Process permissions
-            updated_permissions = []
-            for permission_code in permissions:
-                try:
-                    if action == 'grant':
-                        # Grant permission
-                        permission, created = AdminPermission.objects.get_or_create(
+            with transaction.atomic():
+                if action == 'grant':
+                    for permission in permissions:
+                        AdminPermission.objects.get_or_create(
                             admin_user=admin_user,
-                            permission=permission_code,
+                            permission=permission,
                             defaults={
                                 'is_active': True,
                                 'granted_by': request.user
                             }
                         )
-                        if not created:
-                            permission.is_active = True
-                            permission.granted_by = request.user
-                            permission.save()
-                        updated_permissions.append(permission_code)
-
-                    elif action == 'revoke':
-                        # Revoke permission
-                        try:
-                            permission = AdminPermission.objects.get(
-                                admin_user=admin_user,
-                                permission=permission_code
-                            )
-                            permission.is_active = False
-                            permission.save()
-                            updated_permissions.append(permission_code)
-                        except AdminPermission.DoesNotExist:
-                            # Permission doesn't exist, skip
-                            pass
-
-                except Exception as e:
-                    return create_error_response(
-                        error_number='PERMISSION_ERROR',
-                        error_message=f'Error processing permission {permission_code}: {str(e)}',
-                        status_code=500
+                    message = f'Permissions granted successfully to {admin_user.email}'
+                elif action == 'revoke':
+                    AdminPermission.objects.filter(
+                        admin_user=admin_user,
+                        permission__in=permissions
+                    ).update(is_active=False)
+                    message = f'Permissions revoked successfully from {admin_user.email}'
+                else:
+                    return self.error_response(
+                        message='Invalid action. Use "grant" or "revoke"',
+                        status_code=status.HTTP_400_BAD_REQUEST
                     )
-
-            return create_success_response(
-                data={
-                    'admin_user_id': admin_user_id,
-                    'admin_user_email': admin_user.email,
-                    'action': action,
-                    'updated_permissions': updated_permissions
-                },
-                message=f'Permissions {action}ed successfully for {admin_user.email}'
+            
+            logger.info(f"Permissions {action}ed for admin {admin_user.email} by super admin {request.user.email}")
+            return self.success_response(
+                data={'admin_user_id': admin_user_id, 'permissions': permissions, 'action': action},
+                message=message
             )
-
-        except Exception as e:
-            return create_error_response(
-                error_number='SERVER_ERROR',
-                error_message=f'Server error occurred: {str(e)}',
-                status_code=500
+            
+        except Exception as exc:
+            logger.error(f"Permission management error: {str(exc)}")
+            return self.error_response(
+                message='Server error occurred while managing permissions',
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-
-
-class AdminListViewModel(BaseAPIView):
-    """List all admin users with their permissions"""
-    permission_classes = [IsAuthenticated]
-    http_method_names = ['get']
 
     @swagger_auto_schema(
-        operation_description="List all admin users with their permissions (Super Admin only)",
+        operation_description="Get permissions for specific admin user (Super Admin only)",
+        manual_parameters=[
+            openapi.Parameter(
+                'admin_user_id',
+                openapi.IN_QUERY,
+                description='Admin user ID',
+                type=openapi.TYPE_INTEGER,
+                required=True
+            )
+        ],
+        responses={
+            200: openapi.Response('Admin permissions retrieved', AdminPermissionSerializer),
+            403: 'Access denied - only super admin can view permissions',
+            404: 'Admin user not found',
+            500: 'Server error'
+        },
+        tags=['Admin'])
+    def get(self, request):
+        """Get permissions for specific admin user"""
+        try:
+            # Check if user is super admin
+            if not request.user.is_super_admin():
+                return self.error_response(
+                    message='Access denied. Only super admin can view permissions.',
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+            
+            admin_user_id = request.query_params.get('admin_user_id')
+            if not admin_user_id:
+                return self.error_response(
+                    message='admin_user_id parameter is required',
+                    status_code=status.HTTP_400_BAD_REQUEST
+                )
+            
+            try:
+                admin_user = User.objects.get(id=admin_user_id, role='admin')
+            except User.DoesNotExist:
+                return self.error_response(
+                    message='Admin user not found',
+                    status_code=status.HTTP_404_NOT_FOUND
+                )
+            
+            permissions = AdminPermission.objects.filter(admin_user=admin_user)
+            serializer = AdminPermissionSerializer(permissions, many=True)
+            
+            return self.success_response(
+                data={
+                    'admin_user': {
+                        'id': admin_user.id,
+                        'email': admin_user.email,
+                        'role': admin_user.role
+                    },
+                    'permissions': serializer.data
+                },
+                message='Admin permissions retrieved successfully'
+            )
+            
+        except Exception as exc:
+            logger.error(f"Get permissions error: {str(exc)}")
+            return self.error_response(
+                message='Server error occurred while retrieving permissions',
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @swagger_auto_schema(
+        operation_description="Delete specific permission for admin user (Super Admin only)",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['admin_user_id', 'permission'],
+            properties={
+                'admin_user_id': openapi.Schema(type=openapi.TYPE_INTEGER, description='Admin user ID'),
+                'permission': openapi.Schema(type=openapi.TYPE_STRING, description='Permission to delete'),
+            }
+        ),
+        responses={
+            200: openapi.Response('Permission deleted successfully'),
+            400: 'Validation error',
+            403: 'Access denied - only super admin can delete permissions',
+            404: 'Admin user or permission not found',
+            500: 'Server error'
+        },
+        tags=['Admin'])
+    def delete(self, request):
+        """Delete specific permission for admin user"""
+        try:
+            # Check if user is super admin
+            if not request.user.is_super_admin():
+                return self.error_response(
+                    message='Access denied. Only super admin can delete permissions.',
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+            
+            admin_user_id = request.data.get('admin_user_id')
+            permission = request.data.get('permission')
+            
+            if not admin_user_id or not permission:
+                return self.error_response(
+                    message='admin_user_id and permission are required',
+                    status_code=status.HTTP_400_BAD_REQUEST
+                )
+            
+            try:
+                admin_user = User.objects.get(id=admin_user_id, role='admin')
+            except User.DoesNotExist:
+                return self.error_response(
+                    message='Admin user not found',
+                    status_code=status.HTTP_404_NOT_FOUND
+                )
+            
+            try:
+                admin_permission = AdminPermission.objects.get(
+                    admin_user=admin_user,
+                    permission=permission
+                )
+                admin_permission.delete()
+                
+                logger.info(f"Permission {permission} deleted for admin {admin_user.email} by super admin {request.user.email}")
+                return self.success_response(
+                    message=f'Permission {permission} deleted successfully for {admin_user.email}'
+                )
+                
+            except AdminPermission.DoesNotExist:
+                return self.error_response(
+                    message='Permission not found for this admin user',
+                    status_code=status.HTTP_404_NOT_FOUND
+                )
+            
+        except Exception as exc:
+            logger.error(f"Delete permission error: {str(exc)}")
+            return self.error_response(
+                message='Server error occurred while deleting permission',
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+
+
+class AdminPermissionDetailView(BaseAPIView):
+    """Detailed admin permission management - Super Admin only"""
+    permission_classes = [IsAuthenticated]
+    http_method_names = ['get', 'post', 'put', 'delete']
+
+    @swagger_auto_schema(
+        operation_description="Get all admin users with their permissions (Super Admin only)",
+        responses={
+            200: openapi.Response('Admin users with permissions', AdminUserSerializer),
+            403: 'Access denied - only super admin can view admin list',
+            500: 'Server error'
+        },
+        tags=['Admin'])
+    def get(self, request):
+        """Get all admin users with their permissions"""
+        try:
+            # Check if user is super admin
+            if not request.user.is_super_admin():
+                return self.error_response(
+                    error_number='ACCESS_DENIED',
+                    error_message='Access denied. Only super admin can view admin list.',
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+            
+            # Get only admin users (role='admin')
+            admin_users = User.objects.filter(role='admin')
+            
+            # Prepare response data with permissions
+            admin_users_data = []
+            for user in admin_users:
+                user_data = AdminUserSerializer(user).data
+                # Get user permissions
+                user_permissions = AdminPermission.objects.filter(admin_user=user, is_active=True).values_list('permission', flat=True)
+                user_data['permissions'] = list(user_permissions)
+                admin_users_data.append(user_data)
+            
+            return self.success_response(
+                data={'admin_users': admin_users_data},
+                message='Admin users with permissions retrieved successfully'
+            )
+            
+        except Exception as exc:
+            logger.error(f"Get admin list error: {str(exc)}")
+            return self.error_response(
+                error_number='SERVER_ERROR',
+                error_message='Server error occurred while retrieving admin list',
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @swagger_auto_schema(
+        operation_description="Bulk update permissions for admin users (Super Admin only)",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['updates'],
+            properties={
+                'updates': openapi.Schema(
+                    type=openapi.TYPE_ARRAY,
+                    items=openapi.Schema(
+                        type=openapi.TYPE_OBJECT,
+                        properties={
+                            'admin_user_id': openapi.Schema(type=openapi.TYPE_INTEGER),
+                            'permissions': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_STRING)),
+                            'action': openapi.Schema(type=openapi.TYPE_STRING, enum=['grant', 'revoke'])
+                        }
+                    )
+                )
+            }
+        ),
+        responses={
+            200: openapi.Response('Permissions updated successfully'),
+            400: 'Validation error',
+            403: 'Access denied - only super admin can manage permissions',
+            500: 'Server error'
+        },
+        tags=['Admin'])
+    def post(self, request):
+        """Bulk update permissions for multiple admin users"""
+        try:
+            # Check if user is super admin
+            if not request.user.is_super_admin():
+                return self.error_response(
+                    error_number='ACCESS_DENIED',
+                    error_message='Access denied. Only super admin can manage permissions.',
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+            
+            updates = request.data.get('updates', [])
+            if not updates:
+                return self.error_response(
+                    error_number='MISSING_FIELD',
+                    error_message='Updates array is required',
+                    status_code=status.HTTP_400_BAD_REQUEST
+                )
+            
+            results = []
+            with transaction.atomic():
+                for update in updates:
+                    admin_user_id = update.get('admin_user_id')
+                    permissions = update.get('permissions', [])
+                    action = update.get('action')
+                    
+                    if not all([admin_user_id, permissions, action]):
+                        return self.error_response(
+                            error_number='MISSING_FIELD',
+                            error_message='Each update must contain admin_user_id, permissions, and action',
+                            status_code=status.HTTP_400_BAD_REQUEST
+                        )
+                    
+                    if action not in ['grant', 'revoke']:
+                        return self.error_response(
+                            error_number='INVALID_ACTION',
+                            error_message='Action must be "grant" or "revoke"',
+                            status_code=status.HTTP_400_BAD_REQUEST
+                        )
+                    
+                    try:
+                        admin_user = User.objects.get(id=admin_user_id, role='admin')
+                    except User.DoesNotExist:
+                        results.append({
+                            'admin_user_id': admin_user_id,
+                            'status': 'error',
+                            'message': 'Admin user not found'
+                        })
+                        continue
+                    
+                    # Validate permissions
+                    valid_permissions = [choice[0] for choice in AdminPermission.PERMISSION_CHOICES]
+                    invalid_permissions = [p for p in permissions if p not in valid_permissions]
+                    if invalid_permissions:
+                        results.append({
+                            'admin_user_id': admin_user_id,
+                            'status': 'error',
+                            'message': f'Invalid permissions: {", ".join(invalid_permissions)}'
+                        })
+                        continue
+                    
+                    # Process permissions
+                    if action == 'grant':
+                        for permission in permissions:
+                            AdminPermission.objects.get_or_create(
+                                admin_user=admin_user,
+                                permission=permission,
+                                defaults={
+                                    'is_active': True,
+                                    'granted_by': request.user
+                                }
+                            )
+                    elif action == 'revoke':
+                        AdminPermission.objects.filter(
+                            admin_user=admin_user,
+                            permission__in=permissions
+                        ).update(is_active=False)
+                    
+                    results.append({
+                        'admin_user_id': admin_user_id,
+                        'admin_user_email': admin_user.email,
+                        'status': 'success',
+                        'action': action,
+                        'permissions': permissions
+                    })
+            
+            logger.info(f"Bulk permission update by super admin {request.user.email}: {len(results)} updates")
+            return self.success_response(
+                data={'results': results},
+                message='Bulk permission update completed'
+            )
+            
+        except Exception as exc:
+            logger.error(f"Bulk permission update error: {str(exc)}")
+            return self.error_response(
+                message='Server error occurred while updating permissions',
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @swagger_auto_schema(
+        operation_description="Check if admin user has specific permissions (Super Admin only)",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['admin_user_id', 'permissions'],
+            properties={
+                'admin_user_id': openapi.Schema(type=openapi.TYPE_INTEGER, description='Admin user ID'),
+                'permissions': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_STRING), description='Permissions to check'),
+            }
+        ),
+        responses={
+            200: openapi.Response('Permission check results'),
+            400: 'Validation error',
+            403: 'Access denied - only super admin can check permissions',
+            404: 'Admin user not found',
+            500: 'Server error'
+        },
+        tags=['Admin'])
+    def put(self, request):
+        """Check if admin user has specific permissions"""
+        try:
+            # Check if user is super admin
+            if not request.user.is_super_admin():
+                return self.error_response(
+                    error_number='ACCESS_DENIED',
+                    error_message='Access denied. Only super admin can check permissions.',
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+            
+            admin_user_id = request.data.get('admin_user_id')
+            permissions = request.data.get('permissions', [])
+            
+            if not admin_user_id or not permissions:
+                return self.error_response(
+                    error_number='MISSING_FIELD',
+                    error_message='admin_user_id and permissions are required',
+                    status_code=status.HTTP_400_BAD_REQUEST
+                )
+            
+            try:
+                admin_user = User.objects.get(id=admin_user_id, role='admin')
+            except User.DoesNotExist:
+                return self.error_response(
+                    error_number='USER_NOT_FOUND',
+                    error_message='Admin user not found',
+                    status_code=status.HTTP_404_NOT_FOUND
+                )
+            
+            # Check permissions
+            user_permissions = AdminPermission.objects.filter(
+                admin_user=admin_user,
+                is_active=True
+            ).values_list('permission', flat=True)
+            
+            permission_status = {}
+            for permission in permissions:
+                permission_status[permission] = permission in user_permissions
+            
+            return self.success_response(
+                data={
+                    'admin_user': {
+                        'id': admin_user.id,
+                        'email': admin_user.email,
+                        'role': admin_user.role
+                    },
+                    'permission_status': permission_status,
+                    'all_permissions': list(user_permissions)
+                },
+                message='Permission check completed successfully'
+            )
+            
+        except Exception as exc:
+            logger.error(f"Permission check error: {str(exc)}")
+            return self.error_response(
+                error_number='SERVER_ERROR',
+                error_message='Server error occurred while checking permissions',
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @swagger_auto_schema(
+        operation_description="Reset all permissions for admin user (Super Admin only)",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['admin_user_id'],
+            properties={
+                'admin_user_id': openapi.Schema(type=openapi.TYPE_INTEGER, description='Admin user ID'),
+            }
+        ),
+        responses={
+            200: openapi.Response('Permissions reset successfully'),
+            400: 'Validation error',
+            403: 'Access denied - only super admin can reset permissions',
+            404: 'Admin user not found',
+            500: 'Server error'
+        },
+        tags=['Admin'])
+    def delete(self, request):
+        """Reset all permissions for admin user"""
+        try:
+            # Check if user is super admin
+            if not request.user.is_super_admin():
+                return self.error_response(
+                    error_number='ACCESS_DENIED',
+                    error_message='Access denied. Only super admin can reset permissions.',
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+            
+            admin_user_id = request.data.get('admin_user_id')
+            if not admin_user_id:
+                return self.error_response(
+                    error_number='MISSING_FIELD',
+                    error_message='admin_user_id is required',
+                    status_code=status.HTTP_400_BAD_REQUEST
+                )
+            
+            try:
+                admin_user = User.objects.get(id=admin_user_id, role='admin')
+            except User.DoesNotExist:
+                return self.error_response(
+                    error_number='USER_NOT_FOUND',
+                    error_message='Admin user not found',
+                    status_code=status.HTTP_404_NOT_FOUND
+                )
+            
+            # Delete all permissions for this admin user
+            deleted_count = AdminPermission.objects.filter(admin_user=admin_user).delete()[0]
+            
+            logger.info(f"All permissions reset for admin {admin_user.email} by super admin {request.user.email}")
+            return self.success_response(
+                data={'deleted_permissions_count': deleted_count},
+                message=f'All permissions reset successfully for {admin_user.email}'
+            )
+            
+        except Exception as exc:
+            logger.error(f"Reset permissions error: {str(exc)}")
+            return self.error_response(
+                message='Server error occurred while resetting permissions',
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+
+
+
+
+class CreateAdminView(BaseAPIView):
+    """Create admin user via API - Super Admin only"""
+    permission_classes = [IsAuthenticated]
+    http_method_names = ['post']
+
+    @swagger_auto_schema(
+        operation_description="Create admin user (Super Admin only)",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['email', 'password', 'confirm_password', 'first_name', 'last_name'],
+            properties={
+                'email': openapi.Schema(type=openapi.TYPE_STRING, format='email', description='User email'),
+                'password': openapi.Schema(type=openapi.TYPE_STRING, description='Password'),
+                'confirm_password': openapi.Schema(type=openapi.TYPE_STRING, description='Password confirmation'),
+                'first_name': openapi.Schema(type=openapi.TYPE_STRING, description='First name'),
+                'last_name': openapi.Schema(type=openapi.TYPE_STRING, description='Last name'),
+                'phone': openapi.Schema(type=openapi.TYPE_STRING, description='Phone number (optional)'),
+                'permissions': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_STRING), description='Permissions (optional)'),
+            },
+            example={
+                'email': 'admin@example.com',
+                'password': 'securepass123',
+                'confirm_password': 'securepass123',
+                'first_name': 'Admin',
+                'last_name': 'User',
+                'phone': '(555) 123-4567',
+                'permissions': ['user_management', 'service_management']
+            }
+        ),
+        responses={
+            201: openapi.Response('Admin user created successfully', openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'success': openapi.Schema(type=openapi.TYPE_BOOLEAN),
+                    'message': openapi.Schema(type=openapi.TYPE_STRING),
+                    'timestamp': openapi.Schema(type=openapi.TYPE_STRING),
+                    'data': openapi.Schema(
+                        type=openapi.TYPE_OBJECT,
+                        properties={
+                            'id': openapi.Schema(type=openapi.TYPE_INTEGER),
+                            'email': openapi.Schema(type=openapi.TYPE_STRING),
+                            'phone': openapi.Schema(type=openapi.TYPE_STRING),
+                            'role': openapi.Schema(type=openapi.TYPE_STRING),
+                            'profile': openapi.Schema(
+                                type=openapi.TYPE_OBJECT,
+                                properties={
+                                    'first_name': openapi.Schema(type=openapi.TYPE_STRING),
+                                    'last_name': openapi.Schema(type=openapi.TYPE_STRING),
+                                    'bio': openapi.Schema(type=openapi.TYPE_STRING)
+                                }
+                            ),
+                            'provider_profile': openapi.Schema(type=openapi.TYPE_OBJECT, nullable=True),
+                            'profile_photo_url': openapi.Schema(type=openapi.TYPE_STRING, nullable=True),
+                            'has_required_profile_photo': openapi.Schema(type=openapi.TYPE_BOOLEAN),
+                            'permissions': openapi.Schema(
+                                type=openapi.TYPE_ARRAY,
+                                items=openapi.Schema(type=openapi.TYPE_STRING),
+                                description='List of granted permissions'
+                            )
+                        }
+                    )
+                }
+            )),
+            400: 'Validation error or user already exists',
+            403: 'Access denied - only super admin can create admin users',
+            500: 'Server error'
+        },
+        tags=['Admin'])
+    def post(self, request):
+        """Create admin user"""
+        try:
+            # Check if user is super admin
+            if not request.user.is_super_admin():
+                logger.warning(f"Admin creation attempt by non-super-admin: {request.user.email}")
+                return self.error_response(
+                    error_number='ACCESS_DENIED',
+                    error_message='Access denied. Only super admin can create admin users.',
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+            # Validate required fields
+            required_fields = ['email', 'password', 'confirm_password', 'first_name', 'last_name']
+            for field in required_fields:
+                if not request.data.get(field):
+                    return self.error_response(
+                        error_number='MISSING_FIELD',
+                        error_message=f'{field} is required',
+                        status_code=status.HTTP_400_BAD_REQUEST
+                    )
+            email = request.data.get('email')
+            password = request.data.get('password')
+            confirm_password = request.data.get('confirm_password')
+            first_name = request.data.get('first_name')
+            last_name = request.data.get('last_name')
+            phone = request.data.get('phone', '')
+            permissions = request.data.get('permissions', [])
+            # Validate password confirmation
+            if password != confirm_password:
+                return self.error_response(
+                    error_number='PASSWORD_MISMATCH',
+                    error_message='Password and confirm_password must match',
+                    status_code=status.HTTP_400_BAD_REQUEST
+                )
+            # Validate password strength
+            if len(password) < 8:
+                return self.error_response(
+                    error_number='WEAK_PASSWORD',
+                    error_message='Password must be at least 8 characters long',
+                    status_code=status.HTTP_400_BAD_REQUEST
+                )
+            # Check if user already exists
+            if User.objects.filter(email=email).exists():
+                return self.error_response(
+                    error_number='USER_EXISTS',
+                    error_message='User with this email already exists',
+                    status_code=status.HTTP_400_BAD_REQUEST
+                )
+            # Validate permissions
+            if permissions:
+                valid_permissions = [choice[0] for choice in AdminPermission.PERMISSION_CHOICES]
+                invalid_permissions = [p for p in permissions if p not in valid_permissions]
+                if invalid_permissions:
+                    return self.error_response(
+                        error_number='INVALID_PERMISSION',
+                        error_message=f'Invalid permissions: {", ".join(invalid_permissions)}',
+                        status_code=status.HTTP_400_BAD_REQUEST
+                    )
+            with transaction.atomic():
+                # Create user with admin role
+                user = User.objects.create_user(
+                    email=email,
+                    password=password,
+                    role='admin',
+                    phone=phone,
+                    is_staff=True,
+                    is_superuser=False
+                )
+                # Create profile
+                Profile.objects.create(
+                    user=user,
+                    first_name=first_name,
+                    last_name=last_name
+                )
+                # Grant permissions
+                for permission in permissions:
+                    AdminPermission.objects.create(
+                        admin_user=user,
+                        permission=permission,
+                        is_active=True,
+                        granted_by=request.user
+                    )
+                # Get user permissions
+                user_permissions = AdminPermission.objects.filter(admin_user=user, is_active=True).values_list('permission', flat=True)
+                # Serialize response
+                serializer = UserSerializer(user)
+                response_data = serializer.data
+                response_data['permissions'] = list(user_permissions)
+                logger.info(f"Admin user created by super admin {request.user.email}: {email}")
+                return self.success_response(
+                    data=response_data,
+                    message='Admin user created successfully'
+                )
+        except Exception as exc:
+            logger.error(f"Admin user creation error: {str(exc)}")
+            return self.error_response(
+                error_number='SERVER_ERROR',
+                error_message='Server error occurred while creating admin user',
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class CreateAccountantView(BaseAPIView):
+    """Create accountant user via API - Super Admin only"""
+    permission_classes = [IsAuthenticated]
+    http_method_names = ['post']
+
+    @swagger_auto_schema(
+        operation_description="Create accountant user (Super Admin only)",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['email', 'password', 'confirm_password', 'first_name', 'last_name'],
+            properties={
+                'email': openapi.Schema(type=openapi.TYPE_STRING, format='email', description='User email'),
+                'password': openapi.Schema(type=openapi.TYPE_STRING, description='Password'),
+                'confirm_password': openapi.Schema(type=openapi.TYPE_STRING, description='Password confirmation'),
+                'first_name': openapi.Schema(type=openapi.TYPE_STRING, description='First name'),
+                'last_name': openapi.Schema(type=openapi.TYPE_STRING, description='Last name'),
+                'phone': openapi.Schema(type=openapi.TYPE_STRING, description='Phone number (optional)'),
+            },
+            example={
+                'email': 'accountant@example.com',
+                'password': 'securepass123',
+                'confirm_password': 'securepass123',
+                'first_name': 'Accountant',
+                'last_name': 'User',
+                'phone': '(555) 123-4567'
+            }
+        ),
+        responses={
+            201: openapi.Response('Accountant user created successfully', UserSerializer),
+            400: 'Validation error or user already exists',
+            403: 'Access denied - only super admin can create accountant users',
+            500: 'Server error'
+        },
+        tags=['Accountant'])
+    def post(self, request):
+        """Create accountant user"""
+        try:
+            # Check if user is super admin
+            if not request.user.is_super_admin():
+                logger.warning(f"Accountant creation attempt by non-super-admin: {request.user.email}")
+                return self.error_response(
+                    message='Access denied. Only super admin can create accountant users.',
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+            
+            # Validate required fields
+            required_fields = ['email', 'password', 'confirm_password', 'first_name', 'last_name']
+            for field in required_fields:
+                if not request.data.get(field):
+                    return self.error_response(
+                        message=f'{field} is required',
+                        status_code=status.HTTP_400_BAD_REQUEST
+                    )
+            
+            email = request.data.get('email')
+            password = request.data.get('password')
+            confirm_password = request.data.get('confirm_password')
+            first_name = request.data.get('first_name')
+            last_name = request.data.get('last_name')
+            phone = request.data.get('phone', '')
+            
+            # Validate password confirmation
+            if password != confirm_password:
+                return self.error_response(
+                    message='Password and confirm_password must match',
+                    status_code=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Validate password strength
+            if len(password) < 8:
+                return self.error_response(
+                    message='Password must be at least 8 characters long',
+                    status_code=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Check if user already exists
+            if User.objects.filter(email=email).exists():
+                return self.error_response(
+                    message='User with this email already exists',
+                    status_code=status.HTTP_400_BAD_REQUEST
+                )
+            
+            with transaction.atomic():
+                # Create user with accountant role
+                user = User.objects.create_user(
+                    email=email,
+                    password=password,
+                    role='accountant',
+                    phone=phone,
+                    is_staff=True,
+                    is_superuser=False
+                )
+                
+                # Create profile
+                Profile.objects.create(
+                    user=user,
+                    first_name=first_name,
+                    last_name=last_name
+                )
+                
+                # Grant default financial permissions
+                accountant_permissions = [
+                    'payment_management',
+                    'withdrawal_management',
+                    'financial_reports',
+                    'document_management'
+                ]
+                for permission in accountant_permissions:
+                    AdminPermission.objects.create(
+                        admin_user=user,
+                        permission=permission,
+                        is_active=True,
+                        granted_by=request.user
+                    )
+                
+                # Serialize response
+                serializer = UserSerializer(user)
+                
+                logger.info(f"Accountant user created by super admin {request.user.email}: {email}")
+                return self.success_response(
+                    data=serializer.data,
+                    message='Accountant user created successfully'
+                )
+                
+        except Exception as exc:
+            logger.error(f"Accountant user creation error: {str(exc)}")
+            return self.error_response(
+                message='Server error occurred while creating accountant user',
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class CreateSupportManagerView(BaseAPIView):
+    """Create support manager user via API - Super Admin only"""
+    permission_classes = [IsAuthenticated]
+    http_method_names = ['post']
+
+    @swagger_auto_schema(
+        operation_description="Create support manager user (Super Admin only)",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['email', 'password', 'confirm_password', 'first_name', 'last_name'],
+            properties={
+                'email': openapi.Schema(type=openapi.TYPE_STRING, format='email', description='User email'),
+                'password': openapi.Schema(type=openapi.TYPE_STRING, description='Password'),
+                'confirm_password': openapi.Schema(type=openapi.TYPE_STRING, description='Password confirmation'),
+                'first_name': openapi.Schema(type=openapi.TYPE_STRING, description='First name'),
+                'last_name': openapi.Schema(type=openapi.TYPE_STRING, description='Last name'),
+                'phone': openapi.Schema(type=openapi.TYPE_STRING, description='Phone number (optional)'),
+            },
+            example={
+                'email': 'support@example.com',
+                'password': 'securepass123',
+                'confirm_password': 'securepass123',
+                'first_name': 'Support',
+                'last_name': 'Manager',
+                'phone': '(555) 123-4567'
+            }
+        ),
+        responses={
+            201: openapi.Response('Support manager created successfully', UserSerializer),
+            400: 'Validation error or user already exists',
+            403: 'Access denied - only super admin can create support manager users',
+            500: 'Server error'
+        },
+        tags=['Support Manager'])
+    def post(self, request):
+        """Create support manager user"""
+        try:
+            # Check if user is super admin
+            if not request.user.is_super_admin():
+                logger.warning(f"Support manager creation attempt by non-super-admin: {request.user.email}")
+                return self.error_response(
+                    message='Access denied. Only super admin can create support manager users.',
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+            
+            # Validate required fields
+            required_fields = ['email', 'password', 'confirm_password', 'first_name', 'last_name']
+            for field in required_fields:
+                if not request.data.get(field):
+                    return self.error_response(
+                        message=f'{field} is required',
+                        status_code=status.HTTP_400_BAD_REQUEST
+                    )
+            
+            email = request.data.get('email')
+            password = request.data.get('password')
+            confirm_password = request.data.get('confirm_password')
+            first_name = request.data.get('first_name')
+            last_name = request.data.get('last_name')
+            phone = request.data.get('phone', '')
+            
+            # Validate password confirmation
+            if password != confirm_password:
+                return self.error_response(
+                    message='Password and confirm_password must match',
+                    status_code=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Validate password strength
+            if len(password) < 8:
+                return self.error_response(
+                    message='Password must be at least 8 characters long',
+                    status_code=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Check if user already exists
+            if User.objects.filter(email=email).exists():
+                return self.error_response(
+                    message='User with this email already exists',
+                    status_code=status.HTTP_400_BAD_REQUEST
+                )
+            
+            with transaction.atomic():
+                # Create user with management role
+                user = User.objects.create_user(
+                    email=email,
+                    password=password,
+                    role='management',
+                    phone=phone,
+                    is_staff=True,
+                    is_superuser=False
+                )
+                
+                # Create profile
+                Profile.objects.create(
+                    user=user,
+                    first_name=first_name,
+                    last_name=last_name
+                )
+                
+                # Serialize response
+                serializer = UserSerializer(user)
+                
+                logger.info(f"Support manager created by super admin {request.user.email}: {email}")
+                return self.success_response(
+                    data=serializer.data,
+                    message='Support manager created successfully'
+                )
+                
+        except Exception as exc:
+            logger.error(f"Support manager creation error: {str(exc)}")
+            return self.error_response(
+                message='Server error occurred while creating support manager user',
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class AdminUserListView(BaseAPIView):
+    """List all admin users - Super Admin only"""
+    permission_classes = [IsAuthenticated]
+    http_method_names = ['get', 'delete']
+
+    @swagger_auto_schema(
+        operation_description="List all admin users (Super Admin only)",
         responses={
             200: openapi.Response('Admin users list', AdminUserSerializer),
             403: 'Access denied - only super admin can view admin list',
             500: 'Server error'
         },
-        tags=['Admin Management'])
+        tags=['Admin'])
     def get(self, request):
+        """List all admin users"""
         try:
             # Check if user is super admin
             if not request.user.is_super_admin():
-                return create_error_response(
+                return self.error_response(
                     error_number='ACCESS_DENIED',
                     error_message='Access denied. Only super admin can view admin list.',
-                    status_code=403
+                    status_code=status.HTTP_403_FORBIDDEN
                 )
-
-            # Get all admin users
-            try:
-                admin_users = User.objects.filter(
-                    role__in=['management', 'admin', 'super_admin', 'accountant']
-                ).prefetch_related('admin_permissions', 'profile')
-
-                serializer = AdminUserSerializer(admin_users, many=True)
-
-                return create_success_response(
-                    data=serializer.data,
-                    message='Admin users retrieved successfully'
-                )
-
-            except Exception as e:
-                return create_error_response(
-                    error_number='QUERY_ERROR',
-                    error_message=f'Error retrieving admin users: {str(e)}',
-                    status_code=500
-                )
-
-        except Exception as e:
-            return create_error_response(
+            
+            # Get only admin users (role='admin')
+            admin_users = User.objects.filter(role='admin')
+            serializer = AdminUserSerializer(admin_users, many=True)
+            
+            return self.success_response(
+                data={'admin_users': serializer.data},
+                message='Admin users list retrieved successfully'
+            )
+            
+        except Exception as exc:
+            logger.error(f"Get admin list error: {str(exc)}")
+            return self.error_response(
                 error_number='SERVER_ERROR',
-                error_message=f'Server error occurred: {str(e)}',
-                status_code=500
+                error_message='Server error occurred while retrieving admin list',
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @swagger_auto_schema(
+        operation_description="Delete admin user (Super Admin only)",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['user_id'],
+            properties={
+                'user_id': openapi.Schema(type=openapi.TYPE_INTEGER, description='User ID to delete'),
+            }
+        ),
+        responses={
+            200: openapi.Response('Admin user deleted successfully'),
+            400: 'Validation error',
+            403: 'Access denied - only super admin can delete admin users',
+            404: 'User not found',
+            500: 'Server error'
+        },
+        tags=['Admin'])
+    def delete(self, request):
+        """Delete admin user (role=admin) by user_id (Super Admin only)"""
+        try:
+            if not request.user.is_super_admin():
+                return self.error_response(
+                    error_number='ACCESS_DENIED',
+                    error_message='Access denied. Only super admin can delete admin users.',
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+            user_id = request.data.get('user_id')
+            if not user_id:
+                return self.error_response(
+                    error_number='MISSING_FIELD',
+                    error_message='user_id is required',
+                    status_code=status.HTTP_400_BAD_REQUEST
+                )
+            try:
+                user = User.objects.get(id=user_id, role='admin')
+            except User.DoesNotExist:
+                return self.error_response(
+                    error_number='USER_NOT_FOUND',
+                    error_message='Admin user not found',
+                    status_code=status.HTTP_404_NOT_FOUND
+                )
+            if user.id == request.user.id:
+                return self.error_response(
+                    error_number='CANNOT_DELETE_SELF',
+                    error_message='Cannot delete your own account',
+                    status_code=status.HTTP_400_BAD_REQUEST
+                )
+            user_email = user.email
+            user.delete()
+            logger.info(f"Admin user deleted by super admin {request.user.email}: {user_email}")
+            return self.success_response(
+                message=f'Admin user {user_email} deleted successfully'
+            )
+        except Exception as exc:
+            logger.error(f"Admin user deletion error: {str(exc)}")
+            return self.error_response(
+                error_number='SERVER_ERROR',
+                error_message='Server error occurred while deleting admin user',
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+class AccountantCRUDView(BaseAPIView):
+    """CRUD operations for Accountant users - Super Admin only"""
+    permission_classes = [IsAuthenticated]
+    http_method_names = ['get', 'put', 'delete']
+
+    @swagger_auto_schema(
+        operation_description="List all accountant users (Super Admin only)",
+        responses={
+            200: openapi.Response('Accountant users list', AdminUserSerializer),
+            403: 'Access denied - only super admin can view accountant list',
+            500: 'Server error'
+        },
+        tags=['Accountant'])
+    def get(self, request):
+        """List all accountant users"""
+        try:
+            if not request.user.is_super_admin():
+                return self.error_response(
+                    message='Access denied. Only super admin can view accountant list.',
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+            
+            accountants = User.objects.filter(role='accountant')
+            serializer = AdminUserSerializer(accountants, many=True)
+            
+            return self.success_response(
+                data={'accountants': serializer.data},
+                message='Accountant users list retrieved successfully'
+            )
+            
+        except Exception as exc:
+            logger.error(f"Get accountant list error: {str(exc)}")
+            return self.error_response(
+                message='Server error occurred while retrieving accountant list',
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @swagger_auto_schema(
+        operation_description="Update accountant user (Super Admin only)",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'user_id': openapi.Schema(type=openapi.TYPE_INTEGER, description='User ID to update'),
+                'is_active': openapi.Schema(type=openapi.TYPE_BOOLEAN, description='User active status'),
+            }
+        ),
+        responses={
+            200: openapi.Response('Accountant user updated successfully', UserSerializer),
+            400: 'Validation error',
+            403: 'Access denied - only super admin can update accountant users',
+            404: 'User not found',
+            500: 'Server error'
+        },
+        tags=['Accountant'])
+    def put(self, request):
+        """Update accountant user"""
+        try:
+            if not request.user.is_super_admin():
+                return self.error_response(
+                    message='Access denied. Only super admin can update accountant users.',
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+            
+            user_id = request.data.get('user_id')
+            is_active = request.data.get('is_active')
+            
+            if not user_id:
+                return self.error_response(
+                    message='user_id is required',
+                    status_code=status.HTTP_400_BAD_REQUEST
+                )
+            
+            try:
+                user = User.objects.get(id=user_id, role='accountant')
+            except User.DoesNotExist:
+                return self.error_response(
+                    message='Accountant user not found',
+                    status_code=status.HTTP_404_NOT_FOUND
+                )
+            
+            if is_active is not None:
+                user.is_active = is_active
+                user.save()
+            
+            serializer = UserSerializer(user)
+            logger.info(f"Accountant user updated by super admin {request.user.email}: {user.email}")
+            return self.success_response(
+                data=serializer.data,
+                message='Accountant user updated successfully'
+            )
+            
+        except Exception as exc:
+            logger.error(f"Accountant user update error: {str(exc)}")
+            return self.error_response(
+                message='Server error occurred while updating accountant user',
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @swagger_auto_schema(
+        operation_description="Delete accountant user (Super Admin only)",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['user_id'],
+            properties={
+                'user_id': openapi.Schema(type=openapi.TYPE_INTEGER, description='User ID to delete'),
+            }
+        ),
+        responses={
+            200: openapi.Response('Accountant user deleted successfully'),
+            400: 'Validation error',
+            403: 'Access denied - only super admin can delete accountant users',
+            404: 'User not found',
+            500: 'Server error'
+        },
+        tags=['Accountant'])
+    def delete(self, request):
+        """Delete accountant user"""
+        try:
+            if not request.user.is_super_admin():
+                return self.error_response(
+                    message='Access denied. Only super admin can delete accountant users.',
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+            
+            user_id = request.data.get('user_id')
+            
+            if not user_id:
+                return self.error_response(
+                    message='user_id is required',
+                    status_code=status.HTTP_400_BAD_REQUEST
+                )
+            
+            try:
+                user = User.objects.get(id=user_id, role='accountant')
+            except User.DoesNotExist:
+                return self.error_response(
+                    message='Accountant user not found',
+                    status_code=status.HTTP_404_NOT_FOUND
+                )
+            
+            if user.id == request.user.id:
+                return self.error_response(
+                    message='Cannot delete your own account',
+                    status_code=status.HTTP_400_BAD_REQUEST
+                )
+            
+            user_email = user.email
+            user.delete()
+            
+            logger.info(f"Accountant user deleted by super admin {request.user.email}: {user_email}")
+            return self.success_response(
+                message=f'Accountant user {user_email} deleted successfully'
+            )
+            
+        except Exception as exc:
+            logger.error(f"Accountant user deletion error: {str(exc)}")
+            return self.error_response(
+                message='Server error occurred while deleting accountant user',
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class SupportManagerCRUDView(BaseAPIView):
+    """CRUD operations for Support Manager users - Super Admin only"""
+    permission_classes = [IsAuthenticated]
+    http_method_names = ['get', 'put', 'delete']
+
+    @swagger_auto_schema(
+        operation_description="List all support manager users (Super Admin only)",
+        responses={
+            200: openapi.Response('Support manager users list', AdminUserSerializer),
+            403: 'Access denied - only super admin can view support manager list',
+            500: 'Server error'
+        },
+        tags=['Support Manager'])
+    def get(self, request):
+        """List all support manager users"""
+        try:
+            if not request.user.is_super_admin():
+                return self.error_response(
+                    message='Access denied. Only super admin can view support manager list.',
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+            
+            support_managers = User.objects.filter(role='management')
+            serializer = AdminUserSerializer(support_managers, many=True)
+            
+            return self.success_response(
+                data={'support_managers': serializer.data},
+                message='Support manager users list retrieved successfully'
+            )
+            
+        except Exception as exc:
+            logger.error(f"Get support manager list error: {str(exc)}")
+            return self.error_response(
+                message='Server error occurred while retrieving support manager list',
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @swagger_auto_schema(
+        operation_description="Update support manager user (Super Admin only)",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'user_id': openapi.Schema(type=openapi.TYPE_INTEGER, description='User ID to update'),
+                'is_active': openapi.Schema(type=openapi.TYPE_BOOLEAN, description='User active status'),
+            }
+        ),
+        responses={
+            200: openapi.Response('Support manager user updated successfully', UserSerializer),
+            400: 'Validation error',
+            403: 'Access denied - only super admin can update support manager users',
+            404: 'User not found',
+            500: 'Server error'
+        },
+        tags=['Support Manager'])
+    def put(self, request):
+        """Update support manager user"""
+        try:
+            if not request.user.is_super_admin():
+                return self.error_response(
+                    message='Access denied. Only super admin can update support manager users.',
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+            
+            user_id = request.data.get('user_id')
+            is_active = request.data.get('is_active')
+            
+            if not user_id:
+                return self.error_response(
+                    message='user_id is required',
+                    status_code=status.HTTP_400_BAD_REQUEST
+                )
+            
+            try:
+                user = User.objects.get(id=user_id, role='management')
+            except User.DoesNotExist:
+                return self.error_response(
+                    message='Support manager user not found',
+                    status_code=status.HTTP_404_NOT_FOUND
+                )
+            
+            if is_active is not None:
+                user.is_active = is_active
+                user.save()
+            
+            serializer = UserSerializer(user)
+            logger.info(f"Support manager user updated by super admin {request.user.email}: {user.email}")
+            return self.success_response(
+                data=serializer.data,
+                message='Support manager user updated successfully'
+            )
+            
+        except Exception as exc:
+            logger.error(f"Support manager user update error: {str(exc)}")
+            return self.error_response(
+                message='Server error occurred while updating support manager user',
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @swagger_auto_schema(
+        operation_description="Delete support manager user (Super Admin only)",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['user_id'],
+            properties={
+                'user_id': openapi.Schema(type=openapi.TYPE_INTEGER, description='User ID to delete'),
+            }
+        ),
+        responses={
+            200: openapi.Response('Support manager user deleted successfully'),
+            400: 'Validation error',
+            403: 'Access denied - only super admin can delete support manager users',
+            404: 'User not found',
+            500: 'Server error'
+        },
+        tags=['Support Manager'])
+    def delete(self, request):
+        """Delete support manager user"""
+        try:
+            if not request.user.is_super_admin():
+                return self.error_response(
+                    message='Access denied. Only super admin can delete support manager users.',
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+            
+            user_id = request.data.get('user_id')
+            
+            if not user_id:
+                return self.error_response(
+                    message='user_id is required',
+                    status_code=status.HTTP_400_BAD_REQUEST
+                )
+            
+            try:
+                user = User.objects.get(id=user_id, role='management')
+            except User.DoesNotExist:
+                return self.error_response(
+                    message='Support manager user not found',
+                    status_code=status.HTTP_404_NOT_FOUND
+                )
+            
+            if user.id == request.user.id:
+                return self.error_response(
+                    message='Cannot delete your own account',
+                    status_code=status.HTTP_400_BAD_REQUEST
+                )
+            
+            user_email = user.email
+            user.delete()
+            
+            logger.info(f"Support manager user deleted by super admin {request.user.email}: {user_email}")
+            return self.success_response(
+                message=f'Support manager user {user_email} deleted successfully'
+            )
+            
+        except Exception as exc:
+            logger.error(f"Support manager user deletion error: {str(exc)}")
+            return self.error_response(
+                message='Server error occurred while deleting support manager user',
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+class AdminPermissionGrantView(BaseAPIView):
+    """Grant permissions to admin users - Super Admin only"""
+    permission_classes = [IsAuthenticated]
+    http_method_names = ['post']
+
+    @swagger_auto_schema(
+        operation_description="Grant permissions to admin users (Super Admin only)",
+        request_body=AdminPermissionUpdateSerializer,
+        responses={
+            200: openapi.Response('Permissions granted successfully'),
+            400: 'Validation error or invalid permission',
+            403: 'Access denied - only super admin can grant permissions',
+            404: 'Admin user not found',
+            500: 'Server error'
+        },
+        tags=['Admin Permissions'])
+    def post(self, request):
+        """Grant permissions to admin user"""
+        try:
+            # Check if user is super admin
+            if not request.user.is_super_admin():
+                logger.warning(f"Permission grant attempt by non-super-admin: {request.user.email}")
+                return self.error_response(
+                    message='Access denied. Only super admin can grant permissions.',
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+            
+            serializer = AdminPermissionUpdateSerializer(data=request.data)
+            if not serializer.is_valid():
+                return self.error_response(
+                    message='Validation error',
+                    data=serializer.errors,
+                    status_code=status.HTTP_400_BAD_REQUEST
+                )
+            
+            admin_user_id = serializer.validated_data['admin_user_id']
+            permissions = serializer.validated_data['permissions']
+            
+            # Get admin user
+            try:
+                admin_user = User.objects.get(id=admin_user_id, role='admin')
+            except User.DoesNotExist:
+                return self.error_response(
+                    message='Admin user not found',
+                    status_code=status.HTTP_404_NOT_FOUND
+                )
+            
+            # Validate permissions
+            valid_permissions = [choice[0] for choice in AdminPermission.PERMISSION_CHOICES]
+            invalid_permissions = [p for p in permissions if p not in valid_permissions]
+            if invalid_permissions:
+                return self.error_response(
+                    message=f'Invalid permissions: {", ".join(invalid_permissions)}',
+                    status_code=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Grant permissions
+            with transaction.atomic():
+                for permission in permissions:
+                    AdminPermission.objects.get_or_create(
+                        admin_user=admin_user,
+                        permission=permission,
+                        defaults={
+                            'is_active': True,
+                            'granted_by': request.user
+                        }
+                    )
+            
+            logger.info(f"Permissions granted to admin {admin_user.email} by super admin {request.user.email}")
+            return self.success_response(
+                data={'admin_user_id': admin_user_id, 'permissions': permissions},
+                message=f'Permissions granted successfully to {admin_user.email}'
+            )
+            
+        except Exception as exc:
+            logger.error(f"Permission grant error: {str(exc)}")
+            return self.error_response(
+                message='Server error occurred while granting permissions',
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class AdminPermissionRevokeView(BaseAPIView):
+    """Revoke permissions from admin users - Super Admin only"""
+    permission_classes = [IsAuthenticated]
+    http_method_names = ['post']
+
+    @swagger_auto_schema(
+        operation_description="Revoke permissions from admin users (Super Admin only)",
+        request_body=AdminPermissionUpdateSerializer,
+        responses={
+            200: openapi.Response('Permissions revoked successfully'),
+            400: 'Validation error or invalid permission',
+            403: 'Access denied - only super admin can revoke permissions',
+            404: 'Admin user not found',
+            500: 'Server error'
+        },
+        tags=['Admin Permissions'])
+    def post(self, request):
+        """Revoke permissions from admin user"""
+        try:
+            # Check if user is super admin
+            if not request.user.is_super_admin():
+                logger.warning(f"Permission revoke attempt by non-super-admin: {request.user.email}")
+                return self.error_response(
+                    message='Access denied. Only super admin can revoke permissions.',
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+            
+            serializer = AdminPermissionUpdateSerializer(data=request.data)
+            if not serializer.is_valid():
+                return self.error_response(
+                    message='Validation error',
+                    data=serializer.errors,
+                    status_code=status.HTTP_400_BAD_REQUEST
+                )
+            
+            admin_user_id = serializer.validated_data['admin_user_id']
+            permissions = serializer.validated_data['permissions']
+            
+            # Get admin user
+            try:
+                admin_user = User.objects.get(id=admin_user_id, role='admin')
+            except User.DoesNotExist:
+                return self.error_response(
+                    message='Admin user not found',
+                    status_code=status.HTTP_404_NOT_FOUND
+                )
+            
+            # Validate permissions
+            valid_permissions = [choice[0] for choice in AdminPermission.PERMISSION_CHOICES]
+            invalid_permissions = [p for p in permissions if p not in valid_permissions]
+            if invalid_permissions:
+                return self.error_response(
+                    message=f'Invalid permissions: {", ".join(invalid_permissions)}',
+                    status_code=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Revoke permissions
+            with transaction.atomic():
+                AdminPermission.objects.filter(
+                    admin_user=admin_user,
+                    permission__in=permissions
+                ).update(is_active=False)
+            
+            logger.info(f"Permissions revoked from admin {admin_user.email} by super admin {request.user.email}")
+            return self.success_response(
+                data={'admin_user_id': admin_user_id, 'permissions': permissions},
+                message=f'Permissions revoked successfully from {admin_user.email}'
+            )
+            
+        except Exception as exc:
+            logger.error(f"Permission revoke error: {str(exc)}")
+            return self.error_response(
+                message='Server error occurred while revoking permissions',
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class AdminPermissionListView(BaseAPIView):
+    """List permissions for admin users - Super Admin only"""
+    permission_classes = [IsAuthenticated]
+    http_method_names = ['get']
+
+    @swagger_auto_schema(
+        operation_description="Get permissions for specific admin user (Super Admin only)",
+        manual_parameters=[
+            openapi.Parameter(
+                'admin_user_id',
+                openapi.IN_QUERY,
+                description='Admin user ID',
+                type=openapi.TYPE_INTEGER,
+                required=True
+            )
+        ],
+        responses={
+            200: openapi.Response('Admin permissions retrieved', AdminPermissionSerializer),
+            403: 'Access denied - only super admin can view permissions',
+            404: 'Admin user not found',
+            500: 'Server error'
+        },
+        tags=['Admin Permissions'])
+    def get(self, request):
+        """Get permissions for admin user"""
+        try:
+            # Check if user is super admin
+            if not request.user.is_super_admin():
+                logger.warning(f"Permission list attempt by non-super-admin: {request.user.email}")
+                return self.error_response(
+                    message='Access denied. Only super admin can view permissions.',
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+            
+            admin_user_id = request.GET.get('admin_user_id')
+            if not admin_user_id:
+                return self.error_response(
+                    message='admin_user_id is required',
+                    status_code=status.HTTP_400_BAD_REQUEST
+                )
+            
+            try:
+                admin_user = User.objects.get(id=admin_user_id, role='admin')
+            except User.DoesNotExist:
+                return self.error_response(
+                    message='Admin user not found',
+                    status_code=status.HTTP_404_NOT_FOUND
+                )
+            
+            # Get permissions
+            permissions = AdminPermission.objects.filter(admin_user=admin_user, is_active=True)
+            serializer = AdminPermissionSerializer(permissions, many=True)
+            
+            return self.success_response(
+                data={
+                    'admin_user': {
+                        'id': admin_user.id,
+                        'email': admin_user.email,
+                        'first_name': admin_user.first_name,
+                        'last_name': admin_user.last_name
+                    },
+                    'permissions': serializer.data
+                },
+                message=f'Permissions retrieved for {admin_user.email}'
+            )
+            
+        except Exception as exc:
+            logger.error(f"Permission list error: {str(exc)}")
+            return self.error_response(
+                message='Server error occurred while retrieving permissions',
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class AdminPermissionDeleteView(BaseAPIView):
+    """Delete specific permission for admin user - Super Admin only"""
+    permission_classes = [IsAuthenticated]
+    http_method_names = ['delete']
+
+    @swagger_auto_schema(
+        operation_description="Delete specific permission for admin user (Super Admin only)",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['admin_user_id', 'permission'],
+            properties={
+                'admin_user_id': openapi.Schema(type=openapi.TYPE_INTEGER, description='Admin user ID'),
+                'permission': openapi.Schema(type=openapi.TYPE_STRING, description='Permission to delete'),
+            }
+        ),
+        responses={
+            200: openapi.Response('Permission deleted successfully'),
+            400: 'Validation error',
+            403: 'Access denied - only super admin can delete permissions',
+            404: 'Admin user or permission not found',
+            500: 'Server error'
+        },
+        tags=['Admin Permissions'])
+    def delete(self, request):
+        """Delete specific permission for admin user"""
+        try:
+            # Check if user is super admin
+            if not request.user.is_super_admin():
+                logger.warning(f"Permission delete attempt by non-super-admin: {request.user.email}")
+                return self.error_response(
+                    message='Access denied. Only super admin can delete permissions.',
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+            
+            admin_user_id = request.data.get('admin_user_id')
+            permission = request.data.get('permission')
+            
+            if not admin_user_id or not permission:
+                return self.error_response(
+                    message='admin_user_id and permission are required',
+                    status_code=status.HTTP_400_BAD_REQUEST
+                )
+            
+            try:
+                admin_user = User.objects.get(id=admin_user_id, role='admin')
+            except User.DoesNotExist:
+                return self.error_response(
+                    message='Admin user not found',
+                    status_code=status.HTTP_404_NOT_FOUND
+                )
+            
+            # Delete permission
+            deleted_count = AdminPermission.objects.filter(
+                admin_user=admin_user,
+                permission=permission
+            ).delete()[0]
+            
+            if deleted_count == 0:
+                return self.error_response(
+                    message='Permission not found',
+                    status_code=status.HTTP_404_NOT_FOUND
+                )
+            
+            logger.info(f"Permission {permission} deleted for admin {admin_user.email} by super admin {request.user.email}")
+            return self.success_response(
+                message=f'Permission {permission} deleted successfully for {admin_user.email}'
+            )
+            
+        except Exception as exc:
+            logger.error(f"Permission delete error: {str(exc)}")
+            return self.error_response(
+                message='Server error occurred while deleting permission',
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
             )

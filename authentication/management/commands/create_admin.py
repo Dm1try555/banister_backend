@@ -6,38 +6,45 @@ from django.db import transaction
 User = get_user_model()
 
 class Command(BaseCommand):
-    help = 'Create a super admin user with full permissions'
+    help = 'Create an admin user with specified permissions'
 
     def add_arguments(self, parser):
         parser.add_argument(
             '--email',
             type=str,
             required=True,
-            help='Email address for the super admin'
+            help='Email address for the admin'
         )
         parser.add_argument(
             '--password',
             type=str,
             required=True,
-            help='Password for the super admin'
+            help='Password for the admin'
         )
         parser.add_argument(
             '--first-name',
             type=str,
-            default='Super',
-            help='First name for the super admin'
+            default='Admin',
+            help='First name for the admin'
         )
         parser.add_argument(
             '--last-name',
             type=str,
-            default='Admin',
-            help='Last name for the super admin'
+            default='User',
+            help='Last name for the admin'
         )
         parser.add_argument(
             '--phone',
             type=str,
             default='',
-            help='Phone number for the super admin'
+            help='Phone number for the admin'
+        )
+        parser.add_argument(
+            '--permissions',
+            nargs='+',
+            type=str,
+            default=['user_management', 'service_management'],
+            help='List of permissions to grant (space-separated)'
         )
 
     def handle(self, *args, **options):
@@ -46,6 +53,7 @@ class Command(BaseCommand):
         first_name = options['first_name']
         last_name = options['last_name']
         phone = options['phone']
+        permissions = options['permissions']
 
         try:
             with transaction.atomic():
@@ -56,14 +64,27 @@ class Command(BaseCommand):
                     )
                     return
 
-                # Create super admin user
+                # Validate permissions
+                valid_permissions = [choice[0] for choice in AdminPermission.PERMISSION_CHOICES]
+                invalid_permissions = [p for p in permissions if p not in valid_permissions]
+                
+                if invalid_permissions:
+                    self.stdout.write(
+                        self.style.ERROR(
+                            f'Invalid permissions: {", ".join(invalid_permissions)}\n'
+                            f'Valid permissions: {", ".join(valid_permissions)}'
+                        )
+                    )
+                    return
+
+                # Create admin user
                 user = User.objects.create_user(
                     email=email,
                     password=password,
-                    role='super_admin',
+                    role='admin',
                     phone=phone,
                     is_staff=True,
-                    is_superuser=True
+                    is_superuser=False
                 )
 
                 # Create profile
@@ -74,29 +95,27 @@ class Command(BaseCommand):
                     last_name=last_name
                 )
 
-                # Grant all permissions to super admin
-                all_permissions = [choice[0] for choice in AdminPermission.PERMISSION_CHOICES]
-                
-                for permission in all_permissions:
+                # Grant specified permissions to admin
+                for permission in permissions:
                     AdminPermission.objects.create(
                         admin_user=user,
                         permission=permission,
                         is_active=True,
-                        granted_by=user  # Self-granted for super admin
+                        granted_by=None  # Will be set by super admin later
                     )
 
                 self.stdout.write(
                     self.style.SUCCESS(
-                        f'Super admin created successfully:\n'
+                        f'Admin user created successfully:\n'
                         f'Email: {email}\n'
-                        f'Role: super_admin\n'
-                        f'Permissions granted: {len(all_permissions)}\n'
-                        f'Permissions: {", ".join(all_permissions)}'
+                        f'Role: admin\n'
+                        f'Permissions granted: {len(permissions)}\n'
+                        f'Permissions: {", ".join(permissions)}'
                     )
                 )
 
         except Exception as e:
             self.stdout.write(
-                self.style.ERROR(f'Error creating super admin: {str(e)}')
+                self.style.ERROR(f'Error creating admin user: {str(e)}')
             )
             raise 

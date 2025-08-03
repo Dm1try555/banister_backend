@@ -1,43 +1,43 @@
 from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
-from authentication.models import AdminPermission, User
+from authentication.models import User
 from django.db import transaction
 
 User = get_user_model()
 
 class Command(BaseCommand):
-    help = 'Create a super admin user with full permissions'
+    help = 'Create a support manager user for customer support'
 
     def add_arguments(self, parser):
         parser.add_argument(
             '--email',
             type=str,
             required=True,
-            help='Email address for the super admin'
+            help='Email address for the support manager'
         )
         parser.add_argument(
             '--password',
             type=str,
             required=True,
-            help='Password for the super admin'
+            help='Password for the support manager'
         )
         parser.add_argument(
             '--first-name',
             type=str,
-            default='Super',
-            help='First name for the super admin'
+            default='Support',
+            help='First name for the support manager'
         )
         parser.add_argument(
             '--last-name',
             type=str,
-            default='Admin',
-            help='Last name for the super admin'
+            default='Manager',
+            help='Last name for the support manager'
         )
         parser.add_argument(
             '--phone',
             type=str,
             default='',
-            help='Phone number for the super admin'
+            help='Phone number for the support manager'
         )
 
     def handle(self, *args, **options):
@@ -56,14 +56,14 @@ class Command(BaseCommand):
                     )
                     return
 
-                # Create super admin user
+                # Create support manager user
                 user = User.objects.create_user(
                     email=email,
                     password=password,
-                    role='super_admin',
+                    role='management',
                     phone=phone,
                     is_staff=True,
-                    is_superuser=True
+                    is_superuser=False
                 )
 
                 # Create profile
@@ -74,29 +74,18 @@ class Command(BaseCommand):
                     last_name=last_name
                 )
 
-                # Grant all permissions to super admin
-                all_permissions = [choice[0] for choice in AdminPermission.PERMISSION_CHOICES]
-                
-                for permission in all_permissions:
-                    AdminPermission.objects.create(
-                        admin_user=user,
-                        permission=permission,
-                        is_active=True,
-                        granted_by=user  # Self-granted for super admin
-                    )
-
                 self.stdout.write(
                     self.style.SUCCESS(
-                        f'Super admin created successfully:\n'
+                        f'Support Manager created successfully:\n'
                         f'Email: {email}\n'
-                        f'Role: super_admin\n'
-                        f'Permissions granted: {len(all_permissions)}\n'
-                        f'Permissions: {", ".join(all_permissions)}'
+                        f'Role: management (Support Manager)\n'
+                        f'Name: {first_name} {last_name}\n'
+                        f'Responsibilities: Customer support, booking assistance, general inquiries'
                     )
                 )
 
         except Exception as e:
             self.stdout.write(
-                self.style.ERROR(f'Error creating super admin: {str(e)}')
+                self.style.ERROR(f'Error creating support manager: {str(e)}')
             )
             raise 

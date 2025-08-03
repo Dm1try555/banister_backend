@@ -1,379 +1,441 @@
-# MinIO Implementation - Complete Documentation
+# MinIO Интеграция Banister
 
-## 📋 **Задание выполнено полностью**
+## 📋 Обзор
 
-### ✅ **1. MinIO подключен в docker-compose.yml**
-- Сервис MinIO настроен и готов к работе
-- Автоматическое создание бакетов при первой загрузке
-- Консоль управления доступна на порту 9001
+MinIO используется для безопасного хранения файлов (фото профилей, документов) в системе Banister. Обеспечивает масштабируемое и надежное хранение данных.
 
-### ✅ **2. Эндпоинты для профильных фотографий созданы**
-- `/api/v1/files/profile-photo/upload/` - универсальная загрузка/смена фотографии
-- `/api/v1/files/profile-photo/` - получение текущей фотографии
-- `/api/v1/files/profile-photo/delete/` - удаление фотографии
+## 🔧 Установка и настройка
 
-### ✅ **3. Автоматическое создание бакетов**
-- Бакеты создаются автоматически при первой загрузке файла
-- Поддержка разных типов файлов (profile-photos, documents, images, misc)
+### 1. Установка MinIO
 
-### ✅ **4. Валидация обязательности для провайдеров и менеджеров**
-- Профильная фотография обязательна для ролей `provider` и `management`
-- Проверка при обновлении профиля
-- Уведомления в UI о необходимости загрузки
+```bash
+# Скачивание MinIO
+wget https://dl.min.io/server/minio/release/linux-amd64/minio
+chmod +x minio
 
-### ✅ **5. UI компонент для быстрой смены фотографии**
-- Drag & Drop загрузка
-- Предварительный просмотр
-- Валидация форматов и размера файла
-- Красивый интерфейс с подтверждением
-
----
-
-## 🚀 **Техническая реализация**
-
-### **Backend (Django REST API)**
-
-#### **Модели:**
-```python
-# file_storage/models.py
-class FileStorage(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    file_name = models.CharField(max_length=255)
-    original_name = models.CharField(max_length=255)
-    file_type = models.CharField(max_length=20, choices=FILE_TYPES)
-    bucket_name = models.CharField(max_length=100)
-    object_key = models.CharField(max_length=500)
-    file_size = models.BigIntegerField()
-    content_type = models.CharField(max_length=100)
-    is_public = models.BooleanField(default=False)
-
-class ProfilePhoto(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
-    file_storage = models.OneToOneField(FileStorage, on_delete=models.CASCADE)
-    is_active = models.BooleanField(default=True)
+# Создание директории для данных
+sudo mkdir -p /opt/minio/data
+sudo chown $USER:$USER /opt/minio/data
 ```
 
-#### **Утилиты MinIO:**
+### 2. Запуск MinIO
+
+```bash
+# Запуск сервера
+./minio server /opt/minio/data --console-address ":9001"
+
+# Или в фоне
+nohup ./minio server /opt/minio/data --console-address ":9001" > minio.log 2>&1 &
+```
+
+### 3. Настройка Django
+
 ```python
-# file_storage/utils.py
+# settings.py
+import os
+from minio import Minio
+
+# MinIO настройки
+MINIO_ENDPOINT = os.getenv('MINIO_ENDPOINT', 'localhost:9000')
+MINIO_ACCESS_KEY = os.getenv('MINIO_ACCESS_KEY', 'minioadmin')
+MINIO_SECRET_KEY = os.getenv('MINIO_SECRET_KEY', 'minioadmin')
+MINIO_BUCKET_NAME = os.getenv('MINIO_BUCKET_NAME', 'banister-files')
+MINIO_USE_HTTPS = os.getenv('MINIO_USE_HTTPS', 'False').lower() == 'true'
+
+# Инициализация MinIO клиента
+MINIO_CLIENT = Minio(
+    MINIO_ENDPOINT,
+    access_key=MINIO_ACCESS_KEY,
+    secret_key=MINIO_SECRET_KEY,
+    secure=MINIO_USE_HTTPS
+)
+```
+
+### 4. Переменные окружения
+
+```env
+# .env файл
+MINIO_ENDPOINT=localhost:9000
+MINIO_ACCESS_KEY=your-access-key
+MINIO_SECRET_KEY=your-secret-key
+MINIO_BUCKET_NAME=banister-files
+MINIO_USE_HTTPS=False
+```
+
+## 📁 Структура хранения
+
+### Buckets
+
+```
+banister-files/
+├── profile-photos/          # Фото профилей
+│   ├── user_1_photo.jpg
+│   └── user_2_photo.png
+├── documents/               # Документы
+│   ├── user_1_doc.pdf
+│   └── user_2_doc.docx
+└── temp/                    # Временные файлы
+    └── upload_12345.tmp
+```
+
+### Организация файлов
+
+- **profile-photos/**: Фото профилей пользователей
+- **documents/**: Загруженные документы
+- **temp/**: Временные файлы для обработки
+
+## 🔐 Безопасность
+
+### Настройка доступа
+
+```python
+# utils/minio_utils.py
+from minio import Minio
+from django.conf import settings
+import os
+
+def get_minio_client():
+    """Получение MinIO клиента"""
+    return Minio(
+        settings.MINIO_ENDPOINT,
+        access_key=settings.MINIO_ACCESS_KEY,
+        secret_key=settings.MINIO_SECRET_KEY,
+        secure=settings.MINIO_USE_HTTPS
+    )
+
 def create_bucket_if_not_exists(bucket_name):
-    """Автоматическое создание бакета"""
+    """Создание bucket если не существует"""
     client = get_minio_client()
     if not client.bucket_exists(bucket_name):
         client.make_bucket(bucket_name)
+        # Настройка политики доступа
+        policy = {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Principal": {"AWS": "*"},
+                    "Action": ["s3:GetObject"],
+                    "Resource": [f"arn:aws:s3:::{bucket_name}/*"]
+                }
+            ]
+        }
+        client.set_bucket_policy(bucket_name, json.dumps(policy))
+```
 
-def upload_file_to_minio(file_obj, bucket_name, object_key, content_type):
+### Валидация файлов
+
+```python
+# utils/file_validation.py
+import os
+from PIL import Image
+from django.core.exceptions import ValidationError
+
+def validate_image_file(file):
+    """Валидация изображения"""
+    # Проверка размера (максимум 5MB)
+    if file.size > 5 * 1024 * 1024:
+        raise ValidationError("Файл слишком большой (максимум 5MB)")
+    
+    # Проверка формата
+    allowed_formats = ['JPEG', 'PNG', 'GIF']
+    try:
+        with Image.open(file) as img:
+            if img.format not in allowed_formats:
+                raise ValidationError("Неподдерживаемый формат изображения")
+    except Exception:
+        raise ValidationError("Некорректный файл изображения")
+
+def validate_document_file(file):
+    """Валидация документа"""
+    # Проверка размера (максимум 10MB)
+    if file.size > 10 * 1024 * 1024:
+        raise ValidationError("Файл слишком большой (максимум 10MB)")
+    
+    # Проверка расширения
+    allowed_extensions = ['.pdf', '.doc', '.docx', '.txt']
+    file_extension = os.path.splitext(file.name)[1].lower()
+    if file_extension not in allowed_extensions:
+        raise ValidationError("Неподдерживаемый тип документа")
+```
+
+## 📝 API для работы с файлами
+
+### Загрузка фото профиля
+
+```python
+# views.py
+from rest_framework.decorators import api_view, parser_classes
+from rest_framework.parsers import MultiPartParser
+from utils.minio_utils import upload_file_to_minio
+
+@api_view(['POST'])
+@parser_classes([MultiPartParser])
+def upload_profile_photo(request):
+    """Загрузка фото профиля"""
+    try:
+        file = request.FILES.get('photo')
+        if not file:
+            return error_response('MISSING_FILE', 'Файл не предоставлен')
+        
+        # Валидация файла
+        validate_image_file(file)
+        
+        # Генерация имени файла
+        file_name = f"profile-photos/user_{request.user.id}_{int(time.time())}.{file.name.split('.')[-1]}"
+        
+        # Загрузка в MinIO
+        file_url = upload_file_to_minio(
+            file, 
+            file_name, 
+            'banister-files',
+            content_type=file.content_type
+        )
+        
+        # Обновление профиля пользователя
+        request.user.profile_photo_url = file_url
+        request.user.save()
+        
+        return success_response(
+            data={'photo_url': file_url},
+            message='Фото профиля загружено успешно'
+        )
+        
+    except ValidationError as e:
+        return error_response('VALIDATION_ERROR', str(e))
+    except Exception as e:
+        return error_response('UPLOAD_ERROR', 'Ошибка загрузки файла')
+```
+
+### Получение фото профиля
+
+```python
+@api_view(['GET'])
+def get_profile_photo(request):
+    """Получение фото профиля"""
+    try:
+        if not request.user.profile_photo_url:
+            return error_response('NO_PHOTO', 'Фото профиля не найдено')
+        
+        return success_response(
+            data={'photo_url': request.user.profile_photo_url},
+            message='Фото профиля получено успешно'
+        )
+        
+    except Exception as e:
+        return error_response('RETRIEVE_ERROR', 'Ошибка получения фото')
+```
+
+### Удаление фото профиля
+
+```python
+@api_view(['DELETE'])
+def delete_profile_photo(request):
+    """Удаление фото профиля"""
+    try:
+        if not request.user.profile_photo_url:
+            return error_response('NO_PHOTO', 'Фото профиля не найдено')
+        
+        # Удаление из MinIO
+        file_name = request.user.profile_photo_url.split('/')[-1]
+        delete_file_from_minio('banister-files', f"profile-photos/{file_name}")
+        
+        # Очистка URL в профиле
+        request.user.profile_photo_url = None
+        request.user.save()
+        
+        return success_response(message='Фото профиля удалено успешно')
+        
+    except Exception as e:
+        return error_response('DELETE_ERROR', 'Ошибка удаления фото')
+```
+
+## 🔧 Утилиты для работы с MinIO
+
+### Загрузка файла
+
+```python
+# utils/minio_utils.py
+def upload_file_to_minio(file, file_name, bucket_name, content_type=None):
     """Загрузка файла в MinIO"""
     client = get_minio_client()
-    create_bucket_if_not_exists(bucket_name)  # Автоматическое создание
-    client.put_object(bucket_name, object_key, file_obj, content_type=content_type)
+    
+    # Создание bucket если не существует
+    create_bucket_if_not_exists(bucket_name)
+    
+    # Загрузка файла
+    client.put_object(
+        bucket_name,
+        file_name,
+        file,
+        file.size,
+        content_type=content_type or 'application/octet-stream'
+    )
+    
+    # Возврат URL файла
+    return f"http://{settings.MINIO_ENDPOINT}/{bucket_name}/{file_name}"
 ```
 
-#### **Валидация обязательности:**
+### Удаление файла
+
 ```python
-# authentication/models.py
-def has_required_profile_photo(self):
-    """Проверка обязательности фото для провайдеров и менеджеров"""
-    if self.role in ['provider', 'management']:
-        try:
-            from file_storage.models import ProfilePhoto
-            return ProfilePhoto.objects.filter(user=self, is_active=True).exists()
-        except Exception:
-            return False
-    return True  # Клиенты могут не иметь фото
+def delete_file_from_minio(bucket_name, file_name):
+    """Удаление файла из MinIO"""
+    client = get_minio_client()
+    
+    try:
+        client.remove_object(bucket_name, file_name)
+        return True
+    except Exception as e:
+        logger.error(f"Ошибка удаления файла {file_name}: {e}")
+        return False
 ```
 
-### **Frontend (Nuxt3)**
+### Получение URL файла
 
-#### **Компонент загрузки:**
-```vue
-<!-- frontend/components/ProfilePhotoUploader.vue -->
-<template>
-  <div class="profile-photo-uploader">
-    <!-- Текущая фотография -->
-    <div class="current-photo" v-if="currentPhotoUrl">
-      <img :src="currentPhotoUrl" alt="Current profile photo" />
-    </div>
+```python
+def get_file_url(bucket_name, file_name, expires=3600):
+    """Получение временного URL для файла"""
+    client = get_minio_client()
     
-    <!-- Область загрузки -->
-    <div class="upload-area" @click="triggerFileInput" @drop="handleDrop">
-      <!-- Drag & Drop интерфейс -->
-    </div>
-    
-    <!-- Предварительный просмотр -->
-    <div v-if="previewImage" class="preview-container">
-      <img :src="previewImage" alt="Preview" />
-      <div class="preview-overlay">
-        <button @click="confirmUpload">Confirm</button>
-        <button @click="cancelUpload">Cancel</button>
-      </div>
-    </div>
-  </div>
-</template>
+    try:
+        url = client.presigned_get_object(bucket_name, file_name, expires=expires)
+        return url
+    except Exception as e:
+        logger.error(f"Ошибка получения URL для файла {file_name}: {e}")
+        return None
 ```
 
-#### **Страница профиля:**
-```vue
-<!-- frontend/pages/profile.vue -->
-<template>
-  <div class="profile-page">
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-      <!-- Секция фотографии -->
-      <div class="bg-white rounded-lg shadow-md p-6">
-        <h2>Profile Photo</h2>
-        <ProfilePhotoUploader
-          :current-photo-url="user?.profile_photo_url"
-          :is-required="isPhotoRequired"
-          @photo-uploaded="handlePhotoUploaded"
-        />
+## 📊 Мониторинг и логирование
+
+### Логирование операций
+
+```python
+# utils/minio_utils.py
+import logging
+
+logger = logging.getLogger(__name__)
+
+def log_minio_operation(operation, file_name, user_id, success=True):
+    """Логирование операций с MinIO"""
+    status = "SUCCESS" if success else "FAILED"
+    logger.info(f"MinIO {operation}: {file_name} by user {user_id} - {status}")
+```
+
+### Мониторинг использования
+
+```python
+def get_storage_stats():
+    """Получение статистики использования хранилища"""
+    client = get_minio_client()
+    
+    try:
+        objects = client.list_objects('banister-files', recursive=True)
+        total_size = 0
+        file_count = 0
         
-        <!-- Уведомление об обязательности -->
-        <div v-if="isPhotoRequired" class="mt-4 p-3 bg-blue-50">
-          <p><strong>Note:</strong> Profile photo is required for {{ user?.role }} accounts.</p>
-        </div>
-      </div>
-      
-      <!-- Информация профиля -->
-      <div class="bg-white rounded-lg shadow-md p-6">
-        <h2>Profile Information</h2>
-        <form @submit.prevent="updateProfile">
-          <!-- Поля формы -->
-        </form>
-      </div>
-    </div>
-  </div>
-</template>
+        for obj in objects:
+            total_size += obj.size
+            file_count += 1
+        
+        return {
+            'total_size_mb': total_size / (1024 * 1024),
+            'file_count': file_count,
+            'bucket_name': 'banister-files'
+        }
+    except Exception as e:
+        logger.error(f"Ошибка получения статистики: {e}")
+        return None
 ```
 
----
+## 🚨 Обработка ошибок
 
-## 🔧 **API Endpoints**
+### Типичные ошибки
 
-### **Загрузка/смена профильной фотографии**
-```http
-POST /api/v1/files/profile-photo/upload/
-Content-Type: multipart/form-data
-Authorization: Bearer <token>
+| Ошибка | Причина | Решение |
+|--------|---------|---------|
+| `ConnectionError` | MinIO сервер недоступен | Проверить статус MinIO |
+| `AccessDenied` | Неверные ключи доступа | Проверить ACCESS_KEY и SECRET_KEY |
+| `NoSuchBucket` | Bucket не существует | Создать bucket автоматически |
+| `InvalidObjectName` | Некорректное имя файла | Валидировать имя файла |
 
-{
-  "photo": <file>
-}
+### Обработка исключений
+
+```python
+from minio.error import S3Error
+
+def safe_minio_operation(operation_func, *args, **kwargs):
+    """Безопасное выполнение операций с MinIO"""
+    try:
+        return operation_func(*args, **kwargs)
+    except S3Error as e:
+        logger.error(f"MinIO S3Error: {e}")
+        raise ValidationError(f"Ошибка MinIO: {e}")
+    except Exception as e:
+        logger.error(f"MinIO Exception: {e}")
+        raise ValidationError("Ошибка работы с файлами")
 ```
 
-**Ответ (первая загрузка):**
-```json
-{
-  "success": true,
-  "message": "Profile photo uploaded successfully",
-  "timestamp": "2025-01-31T19:36:59.900765+00:00",
-  "data": {
-    "id": "1df4cf9b-ef49-42b5-8bb9-5bc03052600c",
-    "user": {
-      "id": 112,
-      "email": "provider@example.com",
-      "phone": "1234567890",
-      "role": "provider",
-      "profile": {
-        "first_name": "John",
-        "last_name": "Doe",
-        "bio": ""
-      },
-      "provider_profile": {
-        "experience_years": 0,
-        "hourly_rate": "0.00"
-      },
-      "profile_photo_url": "http://localhost:9000/profile-photos/112/profile_photo/20250131_193659_e1f2b717.jpg",
-      "has_required_profile_photo": true
-    },
-    "file_storage": {
-      "id": "300917b4-91dd-4abc-bb9e-504fadd38461",
-      "file_name": "profile_photo_112",
-      "original_name": "profile.jpg",
-      "file_type": "profile_photo",
-      "bucket_name": "profile-photos",
-      "object_key": "112/profile_photo/20250131_193659_e1f2b717.jpg",
-      "file_size": 107236,
-      "content_type": "image/jpeg",
-      "is_public": true,
-      "created_at": "2025-01-31T19:36:59.444490Z",
-      "updated_at": "2025-01-31T19:36:59.444508Z",
-      "file_url": "http://localhost:9000/profile-photos/112/profile_photo/20250131_193659_e1f2b717.jpg",
-      "public_url": "http://localhost:9000/profile-photos/112/profile_photo/20250131_193659_e1f2b717.jpg"
-    },
-    "is_active": true,
-    "created_at": "2025-01-31T19:36:59.453362Z",
-    "updated_at": "2025-01-31T19:36:59.453418Z",
-    "photo_url": "http://localhost:9000/profile-photos/112/profile_photo/20250131_193659_e1f2b717.jpg"
-  }
-}
+## 📝 Примеры использования
+
+### Загрузка файла через API
+
+```bash
+curl -X POST /api/v1/files/profile-photo/upload/ \
+  -H "Authorization: Bearer <access_token>" \
+  -F "photo=@/path/to/photo.jpg"
 ```
 
-**Ответ (смена фото):**
-```json
-{
-  "success": true,
-  "message": "Profile photo changed successfully",
-  "timestamp": "2025-01-31T19:36:59.900765+00:00",
-  "data": {
-    // Same structure as above
-  }
-}
+### Получение файла
+
+```bash
+curl -X GET /api/v1/files/profile-photo/ \
+  -H "Authorization: Bearer <access_token>"
 ```
 
-**Особенности:**
-- ✅ **Универсальный эндпоинт** - работает для первой загрузки и замены
-- ✅ **Автоматическое удаление** старых файлов при замене
-- ✅ **Валидация файлов** - формат, размер, тип
-- ✅ **Обработка ошибок** - подробные сообщения об ошибках
+### Удаление файла
 
-### **Получение профильной фотографии**
-```http
-GET /api/v1/files/profile-photo/
-Authorization: Bearer <token>
+```bash
+curl -X DELETE /api/v1/files/profile-photo/delete/ \
+  -H "Authorization: Bearer <access_token>"
 ```
 
-### **Удаление профильной фотографии**
-```http
-DELETE /api/v1/files/profile-photo/delete/
-Authorization: Bearer <token>
+## 🔒 Безопасность
+
+### Рекомендации
+
+1. **Используйте HTTPS** в продакшене
+2. **Ограничьте размер файлов** на уровне приложения
+3. **Валидируйте типы файлов** перед загрузкой
+4. **Логируйте все операции** для аудита
+5. **Регулярно очищайте временные файлы**
+
+### Настройка CORS
+
+```python
+# Настройка CORS для MinIO
+def setup_minio_cors():
+    """Настройка CORS для MinIO"""
+    client = get_minio_client()
+    
+    cors_rules = [
+        {
+            "AllowedOrigins": ["*"],
+            "AllowedMethods": ["GET", "PUT", "POST", "DELETE"],
+            "AllowedHeaders": ["*"],
+            "ExposeHeaders": ["ETag"],
+            "MaxAgeSeconds": 3000
+        }
+    ]
+    
+    client.set_bucket_cors('banister-files', cors_rules)
 ```
 
----
+## 📞 Поддержка
 
-## 🎨 **UI Features**
+При возникновении проблем:
 
-### **Функциональность:**
-- ✅ Drag & Drop загрузка файлов
-- ✅ Предварительный просмотр изображения
-- ✅ Валидация форматов (JPG, PNG, GIF)
-- ✅ Ограничение размера файла (5MB)
-- ✅ Автоматическое изменение размера изображения
-- ✅ Подтверждение/отмена загрузки
-- ✅ Индикатор загрузки
-- ✅ Обработка ошибок
-- ✅ Уведомления об успехе/ошибке
-
-### **Дизайн:**
-- ✅ Современный и отзывчивый интерфейс
-- ✅ Круглые профильные фотографии
-- ✅ Hover эффекты
-- ✅ Анимации загрузки
-- ✅ Адаптивная верстка
-- ✅ Цветовая схема в стиле Tailwind CSS
-
----
-
-## 🔒 **Безопасность**
-
-### **Валидация файлов:**
-- Проверка MIME-типа
-- Ограничение размера файла
-- Проверка расширения файла
-- Автоматическое изменение размера изображения
-
-### **Права доступа:**
-- Только авторизованные пользователи
-- Пользователи могут загружать только свои фотографии
-- Проверка ролей для обязательности фото
-
-### **Хранение:**
-- Файлы хранятся в MinIO (S3-совместимое хранилище)
-- Автоматическое создание бакетов
-- Уникальные ключи для файлов
-- Поддержка публичных и приватных файлов
-
----
-
-## 📊 **Производительность**
-
-### **Оптимизация изображений:**
-- Автоматическое изменение размера до 800x800px
-- Сжатие JPEG с качеством 85%
-- Конвертация в RGB формат
-
-### **Кэширование:**
-- Presigned URLs для быстрого доступа
-- Время жизни ссылок: 1 час
-
-### **Масштабируемость:**
-- MinIO поддерживает горизонтальное масштабирование
-- Возможность добавления реплик
-- Поддержка CDN
-
----
-
-## 🚀 **Развертывание**
-
-### **Docker Compose:**
-```yaml
-minio:
-  image: minio/minio:latest
-  container_name: minio_banister
-  command: server /data --console-address ":9001"
-  environment:
-    - MINIO_ROOT_USER=${MINIO_ACCESS_KEY}
-    - MINIO_ROOT_PASSWORD=${MINIO_SECRET_KEY}
-  volumes:
-    - minio_data:/data
-  ports:
-    - "9000:9000"
-    - "9001:9001"
-```
-
-### **Переменные окружения:**
-```env
-MINIO_ACCESS_KEY=minioadmin
-MINIO_SECRET_KEY=minioadmin123
-MINIO_ENDPOINT=minio:9000
-```
-
----
-
-## 📝 **Использование**
-
-### **Для разработчиков:**
-
-1. **Загрузка/смена фотографии:**
-```javascript
-const formData = new FormData()
-formData.append('photo', file)
-
-const response = await $fetch('/api/v1/files/profile-photo/upload/', {
-  method: 'POST',
-  body: formData,
-  headers: {
-    'Authorization': `Bearer ${token}`
-  }
-})
-```
-
-2. **Получение URL фотографии:**
-```javascript
-const profile = await $fetch('/api/v1/auth/profile/')
-const photoUrl = profile.profile_photo_url
-```
-
-### **Для пользователей:**
-
-1. Перейти на страницу профиля
-2. Нажать на область загрузки или перетащить файл
-3. Выбрать изображение (JPG, PNG, GIF до 5MB)
-4. Предварительный просмотр
-5. Подтвердить загрузку
-6. Фотография автоматически обновится
-
----
-
-## ✅ **Готово к продакшену**
-
-Все требования заказчика выполнены:
-- ✅ MinIO подключен в docker-compose
-- ✅ Универсальный эндпоинт для загрузки/смены фотографий
-- ✅ Автоматическое создание бакетов
-- ✅ UI для загрузки фотографий
-- ✅ Обязательность для провайдеров и менеджеров
-- ✅ Поддержка всех ролей пользователей
-- ✅ Современный и удобный интерфейс
-- ✅ Полная валидация и обработка ошибок
-- ✅ Автоматическое удаление старых файлов при замене
-- ✅ Безопасность: запрет изменения ролей через профиль 
+1. Проверьте статус MinIO сервера
+2. Убедитесь в правильности настроек в `.env`
+3. Проверьте логи MinIO и Django
+4. Убедитесь в доступности bucket и прав доступа 
