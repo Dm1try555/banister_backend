@@ -19,7 +19,7 @@ class UserManager(BaseUserManager):
     def create_superuser(self, email, password=None, **extra_fields):
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
-        extra_fields.setdefault('role', 'management')  # По умолчанию для суперюзеров
+        extra_fields.setdefault('role', 'super_admin')  # По умолчанию для суперюзеров
         return self.create_user(email, password, **extra_fields)
 
 class User(AbstractBaseUser, PermissionsMixin):
@@ -27,6 +27,9 @@ class User(AbstractBaseUser, PermissionsMixin):
         ('customer', 'Customer'),
         ('provider', 'Provider'),
         ('management', 'Management'),
+        ('admin', 'Admin'),
+        ('super_admin', 'Super Admin'),
+        ('accountant', 'Accountant'),
     )
     email = models.EmailField(unique=True)
     phone = models.CharField(max_length=20, blank=True, null=True, help_text="US phone number format: (XXX) XXX-XXXX")
@@ -42,7 +45,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def has_required_profile_photo(self):
         """Check if user has required profile photo (management and provider)"""
-        if self.role in ['provider', 'management']:
+        if self.role in ['provider', 'management', 'admin', 'super_admin', 'accountant']:
             try:
                 from file_storage.models import ProfilePhoto
                 return ProfilePhoto.objects.filter(user=self, is_active=True).exists()
@@ -60,6 +63,14 @@ class User(AbstractBaseUser, PermissionsMixin):
         except Exception:
             pass
         return None
+
+    def is_admin_role(self):
+        """Check if user has admin role"""
+        return self.role in ['admin', 'super_admin', 'accountant']
+
+    def is_super_admin(self):
+        """Check if user is super admin"""
+        return self.role == 'super_admin'
 
     def __str__(self):
         return self.email
@@ -121,3 +132,33 @@ class PasswordResetCode(models.Model):
     def is_expired(self):
         # Code expires after 10 minutes
         return timezone.now() > self.created_at + timedelta(minutes=10)
+
+
+class AdminPermission(models.Model):
+    """Permissions configuration for admin users"""
+    PERMISSION_CHOICES = (
+        ('user_management', 'User Management'),
+        ('service_management', 'Service Management'),
+        ('booking_management', 'Booking Management'),
+        ('payment_management', 'Payment Management'),
+        ('withdrawal_management', 'Withdrawal Management'),
+        ('document_management', 'Document Management'),
+        ('financial_reports', 'Financial Reports'),
+        ('system_settings', 'System Settings'),
+        ('admin_management', 'Admin Management'),
+    )
+    
+    admin_user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='admin_permissions')
+    permission = models.CharField(max_length=50, choices=PERMISSION_CHOICES)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    granted_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='granted_permissions')
+    
+    class Meta:
+        unique_together = ('admin_user', 'permission')
+        verbose_name = 'Admin Permission'
+        verbose_name_plural = 'Admin Permissions'
+    
+    def __str__(self):
+        return f"{self.admin_user.email} - {self.permission} - {'Active' if self.is_active else 'Inactive'}"

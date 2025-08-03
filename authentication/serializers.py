@@ -5,6 +5,7 @@ from providers.models import Provider # Ensure this import is correct and Provid
 from rest_framework_simplejwt.exceptions import AuthenticationFailed
 from django.db import IntegrityError
 from error_handling.exceptions import InvalidEmailError, AuthenticationError, EmailAlreadyExistsError
+from .models import AdminPermission # Added this import for AdminPermission
 
 class ProfileSerializer(serializers.ModelSerializer):
     class Meta:
@@ -414,3 +415,51 @@ class EmailConfirmationCodeSerializer(serializers.ModelSerializer):
         model = EmailConfirmationCode
         fields = ['email', 'code', 'created_at', 'is_used']
         read_only_fields = ['created_at', 'is_used']
+
+class AdminPermissionSerializer(serializers.ModelSerializer):
+    """Serializer for admin permissions"""
+    permission_display = serializers.CharField(source='get_permission_display', read_only=True)
+    granted_by_email = serializers.CharField(source='granted_by.email', read_only=True)
+    
+    class Meta:
+        model = AdminPermission
+        fields = ['id', 'permission', 'permission_display', 'is_active', 'created_at', 'updated_at', 'granted_by_email']
+        read_only_fields = ['created_at', 'updated_at', 'granted_by_email']
+
+
+class AdminUserSerializer(BaseUserSerializer):
+    """Serializer for admin users"""
+    permissions = AdminPermissionSerializer(many=True, read_only=True)
+    role_display = serializers.CharField(source='get_role_display', read_only=True)
+    
+    class Meta(BaseUserSerializer.Meta):
+        fields = BaseUserSerializer.Meta.fields + ['role', 'role_display', 'permissions']
+
+
+class AdminProfileUpdateSerializer(serializers.ModelSerializer):
+    """Serializer for updating admin profile data"""
+    first_name = serializers.CharField(max_length=128, required=False)
+    last_name = serializers.CharField(max_length=128, required=False)
+    
+    class Meta:
+        model = Profile
+        fields = ['first_name', 'last_name']
+    
+    def update(self, instance, validated_data):
+        instance.first_name = validated_data.get('first_name', instance.first_name)
+        instance.last_name = validated_data.get('last_name', instance.last_name)
+        instance.save()
+        return instance
+
+
+class AdminPermissionUpdateSerializer(serializers.Serializer):
+    """Serializer for updating admin permissions"""
+    admin_user_id = serializers.IntegerField()
+    permissions = serializers.ListField(
+        child=serializers.CharField(max_length=50),
+        help_text="List of permission codes to grant/revoke"
+    )
+    action = serializers.ChoiceField(
+        choices=[('grant', 'Grant'), ('revoke', 'Revoke')],
+        help_text="Action to perform: grant or revoke permissions"
+    )

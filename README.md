@@ -92,6 +92,9 @@ Password: shilovscky2020
 - [x] Управление услугами
 - [x] Мониторинг транзакций
 - [x] Дашборд статистики
+- [x] Система ролей администраторов (Admin, Super Admin, Accountant)
+- [x] Управление правами доступа
+- [x] Консольная команда создания суперадмина
 
 ---
 
@@ -120,6 +123,7 @@ Password: shilovscky2020
 - [📋 Endpoints Overview](./docs/ENDPOINTS_OVERVIEW.md)
 - [💾 MinIO Implementation](./docs/MINIO_IMPLEMENTATION.md)
 - [⏰ Cron Tasks Setup](./docs/CRON_SETUP.md)
+- [🎛️ Admin Management](./docs/ADMIN_MANAGEMENT.md)
 - [📝 Changelog](./docs/CHANGELOG.md)
 
 ### 🏗️ Структура документации
@@ -131,6 +135,7 @@ docs/
 ├── ENDPOINTS_OVERVIEW.md        # 📋 Обзор эндпоинтов
 ├── MINIO_IMPLEMENTATION.md      # 💾 Хранилище файлов
 ├── CRON_SETUP.md               # ⏰ Крон задачи
+├── ADMIN_MANAGEMENT.md          # 🎛️ Управление администраторами
 └── CHANGELOG.md                # 📝 История изменений
 ```
 

@@ -2,10 +2,14 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, generics, mixins
 from rest_framework.permissions import IsAuthenticated, AllowAny
-from .serializers import RegisterSerializer, UserSerializer, CustomTokenObtainPairSerializer
+from .serializers import (
+    UserSerializer, RegisterSerializer, LoginSerializer, ProfileSerializer,
+    PasswordResetSerializer, EmailConfirmationSerializer, AdminPermissionSerializer,
+    AdminUserSerializer, AdminProfileUpdateSerializer, AdminPermissionUpdateSerializer
+)
 from .firebase_auth import verify_firebase_token
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
-from .models import User, VerificationCode, Profile, EmailConfirmationCode, EmailConfirmationToken, PasswordResetCode
+from .models import User, Profile, VerificationCode, EmailConfirmationCode, EmailConfirmationToken, PasswordResetCode, AdminPermission
 from file_storage.models import ProfilePhoto, FileStorage  
 import random
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -1167,3 +1171,181 @@ def email_confirm_verify(request):
     return Response({'success': True, 'message': 'Email confirmed successfully'}, status=200)
 
 # Удаляем устаревший ProfilePhotoView, так как теперь используется система из file_storage
+
+class AdminProfileUpdateView(BaseAPIView):
+    """Update admin profile data (first_name, last_name)"""
+    permission_classes = [IsAuthenticated]
+    http_method_names = ['put', 'patch']
+
+    @swagger_auto_schema(
+        operation_description="Update admin profile data (first_name, last_name)",
+        request_body=AdminProfileUpdateSerializer,
+        responses={
+            200: openapi.Response('Profile updated successfully', AdminProfileUpdateSerializer),
+            400: 'Validation error',
+            403: 'Access denied - only admin users can update their profile',
+            404: 'Profile not found'
+        },
+        tags=['Admin Management'])
+    def put(self, request):
+        # Check if user is admin
+        if not request.user.is_admin_role():
+            return self.error_response(
+                message='Access denied. Only admin users can update their profile.',
+                status_code=403
+            )
+
+        try:
+            profile = request.user.profile
+            serializer = AdminProfileUpdateSerializer(profile, data=request.data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+
+            return self.success_response(
+                data=serializer.data,
+                message='Admin profile updated successfully'
+            )
+
+        except Profile.DoesNotExist:
+            return self.error_response(
+                message='Profile not found',
+                status_code=404
+            )
+        except Exception as exc:
+            return self.handle_validation_errors(exc)
+
+    def patch(self, request):
+        return self.put(request)
+
+
+class AdminPermissionManagementView(BaseAPIView):
+    """Manage admin permissions (grant/revoke) - Super Admin only"""
+    permission_classes = [IsAuthenticated]
+    http_method_names = ['post']
+
+    @swagger_auto_schema(
+        operation_description="Grant or revoke permissions for admin users (Super Admin only)",
+        request_body=AdminPermissionUpdateSerializer,
+        responses={
+            200: openapi.Response('Permissions updated successfully'),
+            400: 'Validation error',
+            403: 'Access denied - only super admin can manage permissions',
+            404: 'Admin user not found'
+        },
+        tags=['Admin Management'])
+    def post(self, request):
+        # Check if user is super admin
+        if not request.user.is_super_admin():
+            return self.error_response(
+                message='Access denied. Only super admin can manage permissions.',
+                status_code=403
+            )
+
+        try:
+            serializer = AdminPermissionUpdateSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+
+            admin_user_id = serializer.validated_data['admin_user_id']
+            permissions = serializer.validated_data['permissions']
+            action = serializer.validated_data['action']
+
+            # Get admin user
+            try:
+                admin_user = User.objects.get(id=admin_user_id, role__in=['admin', 'accountant'])
+            except User.DoesNotExist:
+                return self.error_response(
+                    message='Admin user not found',
+                    status_code=404
+                )
+
+            # Process permissions
+            updated_permissions = []
+            for permission_code in permissions:
+                if permission_code not in dict(AdminPermission.PERMISSION_CHOICES):
+                    return self.error_response(
+                        message=f'Invalid permission: {permission_code}',
+                        status_code=400
+                    )
+
+                if action == 'grant':
+                    # Grant permission
+                    permission, created = AdminPermission.objects.get_or_create(
+                        admin_user=admin_user,
+                        permission=permission_code,
+                        defaults={
+                            'is_active': True,
+                            'granted_by': request.user
+                        }
+                    )
+                    if not created:
+                        permission.is_active = True
+                        permission.granted_by = request.user
+                        permission.save()
+                    updated_permissions.append(permission_code)
+
+                elif action == 'revoke':
+                    # Revoke permission
+                    try:
+                        permission = AdminPermission.objects.get(
+                            admin_user=admin_user,
+                            permission=permission_code
+                        )
+                        permission.is_active = False
+                        permission.save()
+                        updated_permissions.append(permission_code)
+                    except AdminPermission.DoesNotExist:
+                        # Permission doesn't exist, skip
+                        pass
+
+            return self.success_response(
+                data={
+                    'admin_user_id': admin_user_id,
+                    'admin_user_email': admin_user.email,
+                    'action': action,
+                    'updated_permissions': updated_permissions
+                },
+                message=f'Permissions {action}ed successfully for {admin_user.email}'
+            )
+
+        except Exception as exc:
+            return self.handle_validation_errors(exc)
+
+
+class AdminListViewModel(BaseAPIView):
+    """List all admin users with their permissions"""
+    permission_classes = [IsAuthenticated]
+    http_method_names = ['get']
+
+    @swagger_auto_schema(
+        operation_description="List all admin users with their permissions (Super Admin only)",
+        responses={
+            200: openapi.Response('Admin users list', AdminUserSerializer),
+            403: 'Access denied - only super admin can view admin list'
+        },
+        tags=['Admin Management'])
+    def get(self, request):
+        # Check if user is super admin
+        if not request.user.is_super_admin():
+            return self.error_response(
+                message='Access denied. Only super admin can view admin list.',
+                status_code=403
+            )
+
+        try:
+            # Get all admin users
+            admin_users = User.objects.filter(
+                role__in=['admin', 'super_admin', 'accountant']
+            ).prefetch_related('admin_permissions', 'profile')
+
+            serializer = AdminUserSerializer(admin_users, many=True)
+
+            return self.success_response(
+                data=serializer.data,
+                message='Admin users retrieved successfully'
+            )
+
+        except Exception as exc:
+            return self.error_response(
+                message=f'Error retrieving admin users: {str(exc)}',
+                status_code=500
+            )

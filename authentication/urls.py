@@ -1,11 +1,9 @@
 # authentication/urls.py
 from django.urls import path
 from .views import (
-    CustomerRegistrationView, ProviderRegistrationView, ManagementRegistrationView,
-    CustomTokenObtainPairView, ProfileView,
-    password_reset_request, password_reset_confirm, logout_view,
-    CustomerLoginView, ProviderLoginView, ManagementLoginView,
-    CustomTokenRefreshView, email_confirm_request, email_confirm_verify
+    RegisterView, LoginView, ProfileView, PasswordResetView, EmailConfirmationView,
+    FirebaseAuthView, TokenObtainPairView, TokenRefreshView, AdminProfileUpdateView,
+    AdminPermissionManagementView, AdminListViewModel
 )
 
 urlpatterns = [
@@ -26,3 +24,8 @@ urlpatterns += [
     path('email-confirm/request/', email_confirm_request, name='email_confirm_request'),
     path('email-confirm/verify/', email_confirm_verify, name='email_confirm_verify'),
 ]
+
+# Admin Management URLs
+path('admin/profile/update/', AdminProfileUpdateView.as_view(), name='admin-profile-update'),
+path('admin/permissions/manage/', AdminPermissionManagementView.as_view(), name='admin-permissions-manage'),
+path('admin/list/', AdminListViewModel.as_view(), name='admin-list'),
