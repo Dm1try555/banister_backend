@@ -262,9 +262,9 @@ Authorization: Bearer <access_token>
     "email": "user@example.com",
     "phone": "(555) 123-4567",
     "role": "customer",
-    "profile": {
-      "first_name": "John",
-      "last_name": "Doe",
+      "profile": {
+        "first_name": "John",
+        "last_name": "Doe",
       "bio": "Software developer"
     },
     "provider_profile": null,
@@ -472,13 +472,13 @@ POST /api/v1/auth/email-confirm/verify/
 
 #### Телефон
 - Поддерживает различные форматы:
-  - `(555) 123-4567`
-  - `+1 (555) 123-4567`
-  - `555-123-4567`
-  - `555.123.4567`
-  - `555 123 4567`
-  - `123-4567`
-  - `5551234567`
+- `(555) 123-4567`
+- `+1 (555) 123-4567`
+- `555-123-4567`
+- `555.123.4567`
+- `555 123 4567`
+- `123-4567`
+- `5551234567`
 
 ### Rate Limiting
 

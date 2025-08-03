@@ -124,7 +124,7 @@ GET /api/v1/auth/admin/list/
 **Ответ:**
 ```json
 {
-  "success": true,
+    "success": true,
   "message": "Admin users list retrieved successfully",
   "data": {
     "admin_users": [
@@ -133,7 +133,7 @@ GET /api/v1/auth/admin/list/
         "email": "admin@example.com",
         "phone": "(555) 123-4567",
         "role": "admin",
-        "profile": {
+            "profile": {
           "first_name": "Admin",
           "last_name": "User",
           "bio": ""

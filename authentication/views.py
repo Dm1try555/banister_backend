@@ -714,9 +714,9 @@ def password_reset_confirm(request):
                 'message': openapi.Schema(type=openapi.TYPE_STRING),
                 'instructions': openapi.Schema(type=openapi.TYPE_STRING, description='Instructions for clearing token in Swagger UI')
             }
-                    )),
-            401: 'Authentication required'
-        },
+        )),
+        401: 'Authentication required'
+    },
         tags=['Login'])
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -1459,11 +1459,11 @@ class AdminPermissionManagementView(BaseAPIView):
                     data=serializer.errors,
                     status_code=status.HTTP_400_BAD_REQUEST
                 )
-            
+
             admin_user_id = serializer.validated_data['admin_user_id']
             permissions = serializer.validated_data['permissions']
             action = serializer.validated_data['action']
-            
+
             # Get admin user
             try:
                 admin_user = User.objects.get(id=admin_user_id, role='admin')
@@ -1472,7 +1472,7 @@ class AdminPermissionManagementView(BaseAPIView):
                     message='Admin user not found',
                     status_code=status.HTTP_404_NOT_FOUND
                 )
-            
+
             # Validate permissions
             valid_permissions = [choice[0] for choice in AdminPermission.PERMISSION_CHOICES]
             invalid_permissions = [p for p in permissions if p not in valid_permissions]
@@ -1481,10 +1481,10 @@ class AdminPermissionManagementView(BaseAPIView):
                     message=f'Invalid permissions: {", ".join(invalid_permissions)}',
                     status_code=status.HTTP_400_BAD_REQUEST
                 )
-            
+
             # Process permissions
             with transaction.atomic():
-                if action == 'grant':
+                    if action == 'grant':
                     for permission in permissions:
                         AdminPermission.objects.get_or_create(
                             admin_user=admin_user,
@@ -1495,7 +1495,7 @@ class AdminPermissionManagementView(BaseAPIView):
                             }
                         )
                     message = f'Permissions granted successfully to {admin_user.email}'
-                elif action == 'revoke':
+                    elif action == 'revoke':
                     AdminPermission.objects.filter(
                         admin_user=admin_user,
                         permission__in=permissions
@@ -1632,7 +1632,7 @@ class AdminPermissionManagementView(BaseAPIView):
             
             try:
                 admin_permission = AdminPermission.objects.get(
-                    admin_user=admin_user,
+                                admin_user=admin_user,
                     permission=permission
                 )
                 admin_permission.delete()
@@ -1642,7 +1642,7 @@ class AdminPermissionManagementView(BaseAPIView):
                     message=f'Permission {permission} deleted successfully for {admin_user.email}'
                 )
                 
-            except AdminPermission.DoesNotExist:
+                        except AdminPermission.DoesNotExist:
                 return self.error_response(
                     message='Permission not found for this admin user',
                     status_code=status.HTTP_404_NOT_FOUND
@@ -1812,10 +1812,10 @@ class AdminPermissionDetailView(BaseAPIView):
                         ).update(is_active=False)
                     
                     results.append({
-                        'admin_user_id': admin_user_id,
-                        'admin_user_email': admin_user.email,
+                    'admin_user_id': admin_user_id,
+                    'admin_user_email': admin_user.email,
                         'status': 'success',
-                        'action': action,
+                    'action': action,
                         'permissions': permissions
                     })
             
@@ -2585,7 +2585,7 @@ class AccountantCRUDView(BaseAPIView):
             serializer = UserSerializer(user)
             logger.info(f"Accountant user updated by super admin {request.user.email}: {user.email}")
             return self.success_response(
-                data=serializer.data,
+                    data=serializer.data,
                 message='Accountant user updated successfully'
             )
             
