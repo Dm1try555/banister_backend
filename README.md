@@ -84,9 +84,29 @@ Password: shilovscky2020
 
 ## 📚 Documentation
 
-- **Full API Documentation:** [API_DOCUMENTATION.md](API_DOCUMENTATION.md)
-- **Swagger UI:** `http://localhost:8000/swagger/`
-- **Authentication Guide:** See API_DOCUMENTATION.md
+**Полная документация находится в папке [`docs/`](./docs/)**
+
+### 🔗 Быстрые ссылки:
+- [📖 Главная документация](./docs/README.md)
+- [🌐 API Documentation](./docs/API_DOCUMENTATION.md)
+- [🔐 Authentication API](./docs/AUTHENTICATION_API.md)
+- [🛠️ Services API](./docs/SERVICES_API.md)
+- [💾 MinIO Implementation](./docs/MINIO_IMPLEMENTATION.md)
+- [⏰ Cron Tasks Setup](./docs/CRON_SETUP.md)
+- [📝 Changelog](./docs/CHANGELOG.md)
+
+### 🏗️ Структура документации
+```
+docs/
+├── README.md                    # 📖 Главная документация
+├── API_DOCUMENTATION.md         # 🌐 API документация
+├── AUTHENTICATION_API.md        # 🔐 Аутентификация
+├── SERVICES_API.md              # 🛠️ Сервисы
+├── ENDPOINTS_OVERVIEW.md        # 📋 Обзор эндпоинтов
+├── MINIO_IMPLEMENTATION.md      # 💾 Хранилище файлов
+├── CRON_SETUP.md               # ⏰ Крон задачи
+└── CHANGELOG.md                # 📝 История изменений
+```
 
 ---
 
