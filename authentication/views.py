@@ -1008,12 +1008,12 @@ class ProviderLoginView(TokenObtainPairView):
             )
 
 class ManagementLoginView(TokenObtainPairView):
-    """Manager login"""
+    """Admin login - supports management, admin, super_admin, accountant roles"""
     serializer_class = CustomTokenObtainPairSerializer
     throttle_classes = [AnonRateThrottle]
 
     @swagger_auto_schema(
-        operation_description="Manager authentication (management)",
+        operation_description="Admin authentication (management, admin, super_admin, accountant)",
         request_body=openapi.Schema(
             type=openapi.TYPE_OBJECT,
             required=['email', 'password'],
@@ -1022,8 +1022,8 @@ class ManagementLoginView(TokenObtainPairView):
                 'password': openapi.Schema(type=openapi.TYPE_STRING, description='Password'),
             },
             example={
-                'email': 'shilovscky2020@gmail.com',
-                'password': 'shilovscky2020'
+                'email': 'admin@banister.com',
+                'password': 'password123'
             }
         ),
         responses={
@@ -1039,26 +1039,42 @@ class ManagementLoginView(TokenObtainPairView):
         },
         tags=['Authentication'])
     def post(self, request, *args, **kwargs):
-        data = dict(request.data)
-        data['role'] = 'management'
-        serializer = self.get_serializer(data=data)
         try:
-            serializer.is_valid(raise_exception=True)
-            return Response(serializer.validated_data, status=status.HTTP_200_OK)
-        except Exception as e:
-            from error_handling.exceptions import AuthenticationError
-            if isinstance(e, AuthenticationError):
-                return create_error_response(
-                    error_number='AUTHENTICATION_ERROR',
-                    error_message=str(e),
-                    status_code=status.HTTP_401_UNAUTHORIZED
+            response = super().post(request, *args, **kwargs)
+            
+            if response.status_code == 200:
+                # Check if user has admin role (management, admin, super_admin, accountant)
+                user = User.objects.get(email=request.data.get('email'))
+                if user.role not in ['management', 'admin', 'super_admin', 'accountant']:
+                    return create_error_response(
+                        error_number='ROLE_MISMATCH',
+                        error_message='This login is for admin users only',
+                        status_code=401
+                    )
+                
+                return create_success_response(
+                    data=response.data,
+                    message='Admin login successful'
                 )
             else:
                 return create_error_response(
-                    error_number='AUTH_ERROR',
-                    error_message=str(e),
-                    status_code=status.HTTP_401_UNAUTHORIZED
+                    error_number='AUTHENTICATION_ERROR',
+                    error_message='Invalid email or password',
+                    status_code=401
                 )
+                
+        except User.DoesNotExist:
+            return create_error_response(
+                error_number='AUTHENTICATION_ERROR',
+                error_message='Invalid email or password',
+                status_code=401
+            )
+        except Exception as e:
+            return create_error_response(
+                error_number='AUTHENTICATION_ERROR',
+                error_message='Invalid email or password',
+                status_code=401
+            )
 
 @swagger_auto_schema(
     method='post',

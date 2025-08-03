@@ -222,7 +222,7 @@ python manage.py create_superadmin \
 ### Шаг 2: Получение JWT токена суперадмина
 
 ```bash
-# 2. Получаем токен через API
+# 2. Получаем токен через API (используем management login для всех админ ролей)
 curl -X POST "http://localhost:8000/api/auth/login/management/" \
   -H "Content-Type: application/json" \
   -d '{
@@ -232,8 +232,13 @@ curl -X POST "http://localhost:8000/api/auth/login/management/" \
 
 # Ожидаемый результат:
 # {
-#   "access": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
-#   "refresh": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9..."
+#   "success": true,
+#   "message": "Admin login successful",
+#   "data": {
+#     "access": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
+#     "refresh": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
+#     "role": "super_admin"
+#   }
 # }
 ```
 
@@ -303,18 +308,32 @@ curl -X GET "http://localhost:8000/api/auth/admin/list/" \
 #       "email": "superadmin@banister.com",
 #       "role": "super_admin",
 #       "role_display": "Super Admin",
+#       "phone": "(555) 999-8888",
+#       "is_active": true,
+#       "profile": {
+#         "first_name": "Super",
+#         "last_name": "Administrator"
+#       },
 #       "permissions": []
 #     },
 #     {
 #       "id": 2,
 #       "email": "admin@banister.com",
-#       "role": "admin",
-#       "role_display": "Admin",
+#       "role": "management",
+#       "role_display": "Management",
+#       "phone": "(555) 123-4567",
+#       "is_active": true,
+#       "profile": {
+#         "first_name": "John",
+#         "last_name": "Admin"
+#       },
 #       "permissions": [
 #         {
+#           "id": 1,
 #           "permission": "user_management",
 #           "permission_display": "User Management",
-#           "is_active": true
+#           "is_active": true,
+#           "granted_by_email": "superadmin@banister.com"
 #         }
 #       ]
 #     }
@@ -370,6 +389,42 @@ curl -X POST "http://localhost:8000/api/auth/admin/permissions/manage/" \
 #   }
 # }
 ```
+
+## 🔐 Логика входа для администраторов
+
+### Эндпоинт входа
+**POST** `/api/auth/login/management/`
+
+Этот эндпоинт поддерживает вход для всех административных ролей:
+- `management` - Обычный администратор
+- `admin` - Администратор с расширенными правами
+- `super_admin` - Суперадмин с полными правами
+- `accountant` - Бухгалтер с финансовыми правами
+
+### Пример входа суперадмина
+```bash
+curl -X POST "http://localhost:8000/api/auth/login/management/" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "superadmin@banister.com",
+    "password": "AdminPass123!"
+  }'
+```
+
+### Пример входа обычного администратора
+```bash
+curl -X POST "http://localhost:8000/api/auth/login/management/" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "admin@banister.com",
+    "password": "password123"
+  }'
+```
+
+### Проверка роли
+Система автоматически проверяет, что пользователь имеет одну из административных ролей:
+- ✅ `management`, `admin`, `super_admin`, `accountant` - доступ разрешен
+- ❌ `customer`, `provider` - доступ запрещен
 
 ## 🔐 Система прав доступа
 
