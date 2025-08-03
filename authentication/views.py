@@ -5,7 +5,8 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from .serializers import (
     UserSerializer, RegisterSerializer, ProfileSerializer, 
     EmailConfirmationCodeSerializer, AdminPermissionSerializer,
-    AdminUserSerializer, AdminProfileUpdateSerializer, AdminPermissionUpdateSerializer
+    AdminUserSerializer, AdminProfileUpdateSerializer, AdminPermissionUpdateSerializer,
+    CustomTokenObtainPairSerializer
 )
 from .firebase_auth import verify_firebase_token
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView

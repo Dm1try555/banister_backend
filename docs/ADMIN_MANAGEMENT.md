@@ -199,6 +199,178 @@ Authorization: Bearer <jwt_token>
 }
 ```
 
+## 🧪 Пошаговое тестирование
+
+### Шаг 1: Создание суперадмина
+
+```bash
+# 1. Создаем суперадмина
+python manage.py create_superadmin \
+    --email superadmin@banister.com \
+    --password AdminPass123! \
+    --first-name "Super" \
+    --last-name "Administrator" \
+    --phone "(555) 999-8888"
+
+# Ожидаемый результат:
+# Super admin created successfully!
+# Email: superadmin@banister.com
+# Name: Super Administrator
+# Role: Super Admin
+```
+
+### Шаг 2: Получение JWT токена суперадмина
+
+```bash
+# 2. Получаем токен через API
+curl -X POST "http://localhost:8000/api/auth/login/management/" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "superadmin@banister.com",
+    "password": "AdminPass123!"
+  }'
+
+# Ожидаемый результат:
+# {
+#   "access": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
+#   "refresh": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9..."
+# }
+```
+
+### Шаг 3: Создание обычного администратора
+
+```bash
+# 3. Создаем обычного администратора
+curl -X POST "http://localhost:8000/api/auth/register/management/" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "admin@banister.com",
+    "password": "password123",
+    "confirm_password": "password123",
+    "first_name": "John",
+    "last_name": "Admin",
+    "phone": "(555) 123-4567"
+  }'
+
+# Ожидаемый результат:
+# {
+#   "success": true,
+#   "message": "Manager registered successfully",
+#   "data": {...}
+# }
+```
+
+### Шаг 4: Назначение прав администратору
+
+```bash
+# 4. Назначаем права (используем токен суперадмина)
+curl -X POST "http://localhost:8000/api/auth/admin/permissions/manage/" \
+  -H "Authorization: Bearer <superadmin_token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "admin_user_id": 2,
+    "permissions": ["user_management", "service_management"],
+    "action": "grant"
+  }'
+
+# Ожидаемый результат:
+# {
+#   "success": true,
+#   "message": "Permissions granted successfully for admin@banister.com",
+#   "data": {
+#     "admin_user_id": 2,
+#     "admin_user_email": "admin@banister.com",
+#     "action": "grant",
+#     "updated_permissions": ["user_management", "service_management"]
+#   }
+# }
+```
+
+### Шаг 5: Просмотр списка администраторов
+
+```bash
+# 5. Просматриваем список всех администраторов
+curl -X GET "http://localhost:8000/api/auth/admin/list/" \
+  -H "Authorization: Bearer <superadmin_token>"
+
+# Ожидаемый результат:
+# {
+#   "success": true,
+#   "message": "Admin users retrieved successfully",
+#   "data": [
+#     {
+#       "id": 1,
+#       "email": "superadmin@banister.com",
+#       "role": "super_admin",
+#       "role_display": "Super Admin",
+#       "permissions": []
+#     },
+#     {
+#       "id": 2,
+#       "email": "admin@banister.com",
+#       "role": "admin",
+#       "role_display": "Admin",
+#       "permissions": [
+#         {
+#           "permission": "user_management",
+#           "permission_display": "User Management",
+#           "is_active": true
+#         }
+#       ]
+#     }
+#   ]
+# }
+```
+
+### Шаг 6: Обновление профиля администратора
+
+```bash
+# 6. Обновляем профиль администратора
+curl -X PUT "http://localhost:8000/api/auth/admin/profile/update/" \
+  -H "Authorization: Bearer <admin_token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "first_name": "Updated Name",
+    "last_name": "Updated Surname"
+  }'
+
+# Ожидаемый результат:
+# {
+#   "success": true,
+#   "message": "Admin profile updated successfully",
+#   "data": {
+#     "first_name": "Updated Name",
+#     "last_name": "Updated Surname"
+#   }
+# }
+```
+
+### Шаг 7: Отзыв прав администратора
+
+```bash
+# 7. Отзываем права (используем токен суперадмина)
+curl -X POST "http://localhost:8000/api/auth/admin/permissions/manage/" \
+  -H "Authorization: Bearer <superadmin_token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "admin_user_id": 2,
+    "permissions": ["user_management"],
+    "action": "revoke"
+  }'
+
+# Ожидаемый результат:
+# {
+#   "success": true,
+#   "message": "Permissions revoked successfully for admin@banister.com",
+#   "data": {
+#     "admin_user_id": 2,
+#     "admin_user_email": "admin@banister.com",
+#     "action": "revoke",
+#     "updated_permissions": ["user_management"]
+#   }
+# }
+```
+
 ## 🔐 Система прав доступа
 
 ### Модель AdminPermission
@@ -338,7 +510,36 @@ PERMISSION_CHOICES = (
 - Обновление профилей
 - Попытки несанкционированного доступа
 
+## ✅ Проверка выполнения задания
+
+### ✅ Консольная команда на создание суперадмина
+- **Файл:** `authentication/management/commands/create_superadmin.py`
+- **Команда:** `python manage.py create_superadmin`
+- **Статус:** Реализовано и протестировано
+
+### ✅ Эндпоинт на обновление данных админка (имя, фамилия)
+- **Эндпоинт:** `PUT/PATCH /api/auth/admin/profile/update/`
+- **Файл:** `AdminProfileUpdateView` в `authentication/views.py`
+- **Статус:** Реализовано и протестировано
+
+### ✅ Новые роли: админ, супер админ, бухгалтер
+- **Роли:** `admin`, `super_admin`, `accountant`
+- **Файл:** Обновлена модель `User` в `authentication/models.py`
+- **Статус:** Реализовано
+
+### ✅ Пермишин конфигуратор для роли админа
+- **Модель:** `AdminPermission` в `authentication/models.py`
+- **Права:** 9 различных прав доступа
+- **Статус:** Реализовано
+
+### ✅ Суперадмин может добавлять и отнимать доступы для админка
+- **Эндпоинт:** `POST /api/auth/admin/permissions/manage/`
+- **Действия:** `grant` (назначить) и `revoke` (отозвать)
+- **Файл:** `AdminPermissionManagementView` в `authentication/views.py`
+- **Статус:** Реализовано и протестировано
+
 ---
 
 **Версия:** 1.0.0  
-**Последнее обновление:** Август 2025 
+**Последнее обновление:** Август 2025  
+**Статус:** ✅ Все требования выполнены и протестированы 
