@@ -3,8 +3,8 @@ from rest_framework.response import Response
 from rest_framework import status, generics, mixins
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from .serializers import (
-    UserSerializer, RegisterSerializer, LoginSerializer, ProfileSerializer,
-    PasswordResetSerializer, EmailConfirmationSerializer, AdminPermissionSerializer,
+    UserSerializer, RegisterSerializer, ProfileSerializer, 
+    EmailConfirmationCodeSerializer, AdminPermissionSerializer,
     AdminUserSerializer, AdminProfileUpdateSerializer, AdminPermissionUpdateSerializer
 )
 from .firebase_auth import verify_firebase_token

@@ -1,9 +1,12 @@
 # authentication/urls.py
 from django.urls import path
 from .views import (
-    RegisterView, LoginView, ProfileView, PasswordResetView, EmailConfirmationView,
-    FirebaseAuthView, TokenObtainPairView, TokenRefreshView, AdminProfileUpdateView,
-    AdminPermissionManagementView, AdminListViewModel
+    CustomerRegistrationView, ProviderRegistrationView, ManagementRegistrationView,
+    CustomTokenObtainPairView, ProfileView,
+    password_reset_request, password_reset_confirm, logout_view,
+    CustomerLoginView, ProviderLoginView, ManagementLoginView,
+    CustomTokenRefreshView, email_confirm_request, email_confirm_verify,
+    AdminProfileUpdateView, AdminPermissionManagementView, AdminListViewModel
 )
 
 urlpatterns = [
@@ -18,14 +21,11 @@ urlpatterns = [
     path('profile/', ProfileView.as_view(), name='profile'),
     path('password-reset/request/', password_reset_request, name='password-reset-request'),
     path('password-reset/confirm/', password_reset_confirm, name='password-reset-confirm'),
-]
-
-urlpatterns += [
     path('email-confirm/request/', email_confirm_request, name='email_confirm_request'),
     path('email-confirm/verify/', email_confirm_verify, name='email_confirm_verify'),
+    
+    # Admin Management URLs
+    path('admin/profile/update/', AdminProfileUpdateView.as_view(), name='admin-profile-update'),
+    path('admin/permissions/manage/', AdminPermissionManagementView.as_view(), name='admin-permissions-manage'),
+    path('admin/list/', AdminListViewModel.as_view(), name='admin-list'),
 ]
-
-# Admin Management URLs
-path('admin/profile/update/', AdminProfileUpdateView.as_view(), name='admin-profile-update'),
-path('admin/permissions/manage/', AdminPermissionManagementView.as_view(), name='admin-permissions-manage'),
-path('admin/list/', AdminListViewModel.as_view(), name='admin-list'),
