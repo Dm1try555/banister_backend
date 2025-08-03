@@ -33,6 +33,10 @@ Thumbs.db
 .env
 .env.*
 
+# Google Cloud credentials
+*.json
+cron_tasks/*.json
+
 # Docker
 *.pid
 docker-compose.override.yml

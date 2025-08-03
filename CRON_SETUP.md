@@ -15,7 +15,6 @@ cron_tasks/
 ├── __init__.py
 ├── apps.py
 ├── cron.py                    # Конфигурация крон задач
-├── banister-backup-1700feef3b7a.json  # Ключ Google Cloud
 └── management/
     └── commands/
         ├── __init__.py
@@ -36,7 +35,7 @@ pip install django-crontab google-cloud-storage
 2. Включите Google Cloud Storage API
 3. Создайте Service Account с правами "Storage Object Admin"
 4. Создайте bucket `banister-backups` в Google Cloud Storage
-5. Ключ уже добавлен в `cron_tasks/banister-backup-1700feef3b7a.json`
+5. Скачайте JSON ключ и поместите в `cron_tasks/banister-backup-1700feef3b7a.json` (файл не будет в репозитории)
 
 ### 3. Добавить в .env файл
 ```env
@@ -130,7 +129,7 @@ python manage.py check
 
 ### Проблема: Ошибки Google Cloud
 - Проверьте, что bucket `banister-backups` существует
-- Убедитесь, что ключ в `cron_tasks/banister-backup-1700feef3b7a.json` корректный
+- Убедитесь, что ключ в `cron_tasks/banister-backup-1700feef3b7a.json` корректный (файл не в репозитории)
 
 
 ## ✅ Статус готовности
@@ -138,7 +137,7 @@ python manage.py check
 - ✅ Приложение `cron_tasks` добавлено в `INSTALLED_APPS`
 - ✅ Команды созданы и готовы к использованию
 - ✅ Крон задачи настроены в `settings.py`
-- ✅ Ключ Google Cloud добавлен
+- ✅ Ключ Google Cloud будет добавлен локально (не в репозитории)
 - ✅ Зависимости добавлены в `requirements.txt`
 
 **Система готова к использованию!** 
