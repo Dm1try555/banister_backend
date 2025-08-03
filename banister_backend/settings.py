@@ -62,6 +62,7 @@ INSTALLED_APPS = [
     'dashboard',
     'public_core',
     'file_storage',
+    'cron_tasks',
     
 
     'corsheaders',
@@ -270,3 +271,10 @@ LOGGING = {
         },
     },
 }
+
+# Cron jobs configuration
+CRONJOBS = [
+    ('0 0 * * *', 'cron_tasks.cron.database_backup_cron_job'),  # Daily at midnight
+    ('0 0 * * *', 'cron_tasks.cron.minio_backup_cron_job'),     # Daily at midnight
+    ('0 0 * * 0', 'cron_tasks.cron.notification_cleanup_cron_job'),  # Weekly on Sunday at midnight
+]
