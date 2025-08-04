@@ -2,6 +2,7 @@ from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated
 from django.db.models import Q
 from datetime import datetime, timedelta
+from django.utils import timezone
 from .models import Booking
 from .serializers import (
     BookingSerializer, BookingCreateSerializer, BookingUpdateSerializer, 
@@ -9,6 +10,7 @@ from .serializers import (
     ProviderSearchRequestSerializer
 )
 from services.models import Service
+from .google_calendar_service import google_calendar_service
 
 # Import error handling system
 from error_handling.views import BaseAPIView
@@ -33,6 +35,184 @@ class IsCustomerOrReadOnly:
         if request.method in ['GET', 'HEAD', 'OPTIONS']:
             return True
         return obj.customer == request.user
+
+class SendMeetingInvitationView(BaseAPIView):
+    """Отправка приглашений на встречу через Google Calendar"""
+    permission_classes = [IsAuthenticated]
+    
+    @swagger_auto_schema(
+        operation_description="Отправить приглашения на встречу пользователям с подтвержденной почтой",
+        responses={
+            200: openapi.Response('Приглашения отправлены', openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'calendar_created': openapi.Schema(type=openapi.TYPE_BOOLEAN),
+                    'calendar_event_id': openapi.Schema(type=openapi.TYPE_STRING),
+                    'emails_sent': openapi.Schema(type=openapi.TYPE_INTEGER),
+                    'total_users': openapi.Schema(type=openapi.TYPE_INTEGER),
+                    'message': openapi.Schema(type=openapi.TYPE_STRING)
+                }
+            )),
+            400: 'Ошибка валидации',
+            401: 'Требуется аутентификация',
+            403: 'Нет прав для отправки приглашений',
+            404: 'Бронирование не найдено',
+            500: 'Ошибка сервера'
+        },
+        tags=['Bookings']
+    )
+    @transaction.atomic
+    def post(self, request, booking_id):
+        """Отправить приглашения на встречу"""
+        try:
+            # Проверка аутентификации
+            if not request.user.is_authenticated:
+                return self.error_response(
+                    error_number='AUTHENTICATION_REQUIRED',
+                    error_message='Требуется аутентификация',
+                    status_code=401
+                )
+            
+            # Получение бронирования
+            try:
+                booking = Booking.objects.get(id=booking_id)
+            except Booking.DoesNotExist:
+                return self.error_response(
+                    error_number='BOOKING_NOT_FOUND',
+                    error_message='Бронирование не найдено',
+                    status_code=404
+                )
+            
+            # Проверка прав доступа - только клиент или провайдер могут отправлять приглашения
+            if request.user not in [booking.customer, booking.provider]:
+                return self.error_response(
+                    error_number='PERMISSION_DENIED',
+                    error_message='Нет прав для отправки приглашений',
+                    status_code=403
+                )
+            
+            # Проверка статуса бронирования
+            if booking.status not in ['confirmed', 'pending']:
+                return self.error_response(
+                    error_number='INVALID_STATUS',
+                    error_message='Можно отправлять приглашения только для подтвержденных или ожидающих бронирований',
+                    status_code=400
+                )
+            
+            # Проверка времени встречи
+            if not booking.scheduled_datetime:
+                return self.error_response(
+                    error_number='NO_SCHEDULED_TIME',
+                    error_message='Время встречи не назначено',
+                    status_code=400
+                )
+            
+            # Отправка приглашений
+            result = google_calendar_service.send_meeting_invitations(booking)
+            
+            # Обновление информации о бронировании
+            booking.calendar_invitations_sent = True
+            booking.calendar_sent_at = timezone.now()
+            if result['calendar_event_id']:
+                booking.google_calendar_event_id = result['calendar_event_id']
+            booking.save()
+            
+            return self.success_response(
+                data=result,
+                message=f'Приглашения отправлены. Email отправлено: {result["emails_sent"]}/{result["total_users"]}'
+            )
+            
+        except Exception as e:
+            return self.error_response(
+                error_number='INVITATION_SEND_ERROR',
+                error_message=f'Ошибка отправки приглашений: {str(e)}',
+                status_code=500
+            )
+
+class AdminSendMeetingInvitationView(BaseAPIView):
+    """Отправка приглашений на встречу администратором"""
+    permission_classes = [IsAuthenticated]
+    
+    @swagger_auto_schema(
+        operation_description="Отправить приглашения на встречу (только админ)",
+        responses={
+            200: openapi.Response('Приглашения отправлены', openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'calendar_created': openapi.Schema(type=openapi.TYPE_BOOLEAN),
+                    'calendar_event_id': openapi.Schema(type=openapi.TYPE_STRING),
+                    'emails_sent': openapi.Schema(type=openapi.TYPE_INTEGER),
+                    'total_users': openapi.Schema(type=openapi.TYPE_INTEGER),
+                    'message': openapi.Schema(type=openapi.TYPE_STRING)
+                }
+            )),
+            400: 'Ошибка валидации',
+            401: 'Требуется аутентификация',
+            403: 'Только администраторы могут отправлять приглашения',
+            404: 'Бронирование не найдено',
+            500: 'Ошибка сервера'
+        },
+        tags=['Admin']
+    )
+    @transaction.atomic
+    def post(self, request, booking_id):
+        """Отправить приглашения на встречу (админ)"""
+        try:
+            # Проверка аутентификации
+            if not request.user.is_authenticated:
+                return self.error_response(
+                    error_number='AUTHENTICATION_REQUIRED',
+                    error_message='Требуется аутентификация',
+                    status_code=401
+                )
+            
+            # Проверка прав администратора
+            if not request.user.is_staff:
+                return self.error_response(
+                    error_number='PERMISSION_DENIED',
+                    error_message='Только администраторы могут отправлять приглашения',
+                    status_code=403
+                )
+            
+            # Получение бронирования
+            try:
+                booking = Booking.objects.get(id=booking_id)
+            except Booking.DoesNotExist:
+                return self.error_response(
+                    error_number='BOOKING_NOT_FOUND',
+                    error_message='Бронирование не найдено',
+                    status_code=404
+                )
+            
+            # Проверка времени встречи
+            if not booking.scheduled_datetime:
+                return self.error_response(
+                    error_number='NO_SCHEDULED_TIME',
+                    error_message='Время встречи не назначено',
+                    status_code=400
+                )
+            
+            # Отправка приглашений
+            result = google_calendar_service.send_meeting_invitations(booking)
+            
+            # Обновление информации о бронировании
+            booking.calendar_invitations_sent = True
+            booking.calendar_sent_at = timezone.now()
+            if result['calendar_event_id']:
+                booking.google_calendar_event_id = result['calendar_event_id']
+            booking.save()
+            
+            return self.success_response(
+                data=result,
+                message=f'Приглашения отправлены администратором. Email отправлено: {result["emails_sent"]}/{result["total_users"]}'
+            )
+            
+        except Exception as e:
+            return self.error_response(
+                error_number='ADMIN_INVITATION_SEND_ERROR',
+                error_message=f'Ошибка отправки приглашений администратором: {str(e)}',
+                status_code=500
+            )
 
 class ProviderSearchView(BaseAPIView):
     """Search for available providers based on criteria"""

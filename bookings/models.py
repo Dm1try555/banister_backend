@@ -38,6 +38,11 @@ class Booking(models.Model):
     # Pricing
     total_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     
+    # Google Calendar integration
+    google_calendar_event_id = models.CharField(max_length=255, blank=True, null=True, help_text="Google Calendar event ID")
+    calendar_invitations_sent = models.BooleanField(default=False, help_text="Whether calendar invitations were sent")
+    calendar_sent_at = models.DateTimeField(blank=True, null=True, help_text="When calendar invitations were sent")
+    
     class Meta:
         ordering = ['-created_at']
         

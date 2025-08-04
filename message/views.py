@@ -1,277 +1,380 @@
 from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated
-from .models import Chat, Message
-from .serializers import ChatSerializer, MessageSerializer
-
-# Import error handling system
+from rest_framework.pagination import PageNumberPagination
+from django.db import transaction
+from django.utils import timezone
+from .models import Chat, Message, ChatUser
+from .serializers import (
+    ChatSerializer, MessageSerializer, MessageCreateSerializer, 
+    MessageUpdateSerializer, ChatCreateSerializer
+)
 from error_handling.views import BaseAPIView
 from error_handling.exceptions import CustomPermissionError
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
-from django.db import transaction
 
-class ChatListView(BaseAPIView, generics.ListAPIView):
-    """User chat list"""
+class MessagePagination(PageNumberPagination):
+    page_size = 50
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
+class ChatListView(BaseAPIView, generics.ListCreateAPIView):
+    """Список чатов пользователя и создание нового чата"""
     serializer_class = ChatSerializer
     permission_classes = [IsAuthenticated]
+    http_method_names = ['get', 'post']
     
     def get_queryset(self):
         return Chat.objects.filter(participants=self.request.user)
+    
+    def get_serializer_class(self):
+        if self.request.method == 'POST':
+            return ChatCreateSerializer
+        return ChatSerializer
+    
+    @transaction.atomic
+    def perform_create(self, serializer):
+        chat = serializer.save()
+        # Добавляем текущего пользователя как участника
+        ChatUser.objects.create(chat=chat, user=self.request.user)
 
     @swagger_auto_schema(
-        operation_description="Get list of all user chats",
+        operation_description="Получить список всех чатов пользователя",
         responses={
-            200: openapi.Response('Chat list', ChatSerializer(many=True)),
+            200: openapi.Response('Список чатов', ChatSerializer(many=True)),
         },
         tags=['Chats and Messages']
     )
-    def list(self, request, *args, **kwargs):
+    def get(self, request, *args, **kwargs):
         try:
             queryset = self.get_queryset()
             serializer = self.get_serializer(queryset, many=True)
             
             return self.success_response(
                 data=serializer.data,
-                message='Chat list retrieved successfully'
+                message='Список чатов получен успешно'
             )
             
         except Exception as e:
             return self.error_response(
                 error_number='CHAT_LIST_ERROR',
-                error_message=f'Error retrieving chat list: {str(e)}',
+                error_message=f'Ошибка получения списка чатов: {str(e)}',
                 status_code=500
             )
 
+    @swagger_auto_schema(
+        operation_description="Создать новый чат",
+        request_body=ChatCreateSerializer,
+        responses={
+            201: openapi.Response('Чат создан', ChatSerializer),
+            400: 'Ошибка валидации',
+        },
+        tags=['Chats and Messages']
+    )
+    def post(self, request, *args, **kwargs):
+        try:
+            serializer = self.get_serializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            chat = serializer.save()
+            
+            # Возвращаем созданный чат
+            chat_serializer = ChatSerializer(chat, context={'request': request})
+            
+            return self.success_response(
+                data=chat_serializer.data,
+                message='Чат создан успешно',
+                status_code=201
+            )
+            
+        except Exception as e:
+            return self.error_response(
+                error_number='CHAT_CREATE_ERROR',
+                error_message=f'Ошибка создания чата: {str(e)}',
+                status_code=400
+            )
+
 class ChatDetailView(BaseAPIView, generics.RetrieveAPIView):
-    """Detailed chat information"""
+    """Детальная информация о чате"""
     queryset = Chat.objects.all()
     serializer_class = ChatSerializer
     permission_classes = [IsAuthenticated]
+    http_method_names = ['get']
 
     def get_object(self):
         obj = super().get_object()
         if self.request.user not in obj.participants.all():
-            raise CustomPermissionError('No permissions to view this chat')
+            raise CustomPermissionError('Нет прав для просмотра этого чата')
         return obj
 
     @swagger_auto_schema(
-        operation_description="Get detailed chat information by ID",
+        operation_description="Получить детальную информацию о чате",
         responses={
-            200: openapi.Response('Chat information', ChatSerializer),
-            404: 'Chat not found',
+            200: openapi.Response('Информация о чате', ChatSerializer),
+            404: 'Чат не найден',
         },
         tags=['Chats and Messages']
     )
-    def retrieve(self, request, *args, **kwargs):
+    def get(self, request, *args, **kwargs):
         try:
             instance = self.get_object()
-            
-            serializer = self.get_serializer(instance)
+            serializer = self.get_serializer(instance, context={'request': request})
             
             return self.success_response(
                 data=serializer.data,
-                message='Chat information retrieved successfully'
+                message='Информация о чате получена успешно'
             )
             
         except Chat.DoesNotExist:
             return self.error_response(
                 error_number='CHAT_NOT_FOUND',
-                error_message='Chat not found',
+                error_message='Чат не найден',
                 status_code=404
             )
         except Exception as e:
             return self.error_response(
                 error_number='CHAT_RETRIEVE_ERROR',
-                error_message=f'Error retrieving chat information: {str(e)}',
+                error_message=f'Ошибка получения информации о чате: {str(e)}',
+                status_code=500
+            )
+
+class MessageListView(BaseAPIView, generics.ListAPIView):
+    """Список сообщений в чате с пагинацией"""
+    serializer_class = MessageSerializer
+    permission_classes = [IsAuthenticated]
+    pagination_class = MessagePagination
+    http_method_names = ['get']
+
+    def get_queryset(self):
+        chat_id = self.kwargs.get('chat_id')
+        try:
+            chat = Chat.objects.get(id=chat_id)
+            if self.request.user not in chat.participants.all():
+                raise CustomPermissionError('Нет прав для просмотра сообщений в этом чате')
+            return Message.objects.filter(chat=chat, is_deleted=False).order_by('-timestamp')
+        except Chat.DoesNotExist:
+            return Message.objects.none()
+
+    @swagger_auto_schema(
+        operation_description="Получить список сообщений в чате с пагинацией",
+        manual_parameters=[
+            openapi.Parameter('page', openapi.IN_QUERY, description="Номер страницы", type=openapi.TYPE_INTEGER),
+            openapi.Parameter('page_size', openapi.IN_QUERY, description="Размер страницы", type=openapi.TYPE_INTEGER),
+        ],
+        responses={
+            200: openapi.Response('Список сообщений', MessageSerializer(many=True)),
+            404: 'Чат не найден',
+        },
+        tags=['Chats and Messages']
+    )
+    def get(self, request, *args, **kwargs):
+        try:
+            queryset = self.get_queryset()
+            if not queryset.exists():
+                return self.error_response(
+                    error_number='CHAT_NOT_FOUND',
+                    error_message='Чат не найден или у вас нет прав доступа',
+                    status_code=404
+                )
+            
+            page = self.paginate_queryset(queryset)
+            if page is not None:
+                serializer = self.get_serializer(page, many=True)
+                return self.get_paginated_response(serializer.data)
+            
+            serializer = self.get_serializer(queryset, many=True)
+            return self.success_response(
+                data=serializer.data,
+                message='Список сообщений получен успешно'
+            )
+            
+        except Exception as e:
+            return self.error_response(
+                error_number='MESSAGE_LIST_ERROR',
+                error_message=f'Ошибка получения списка сообщений: {str(e)}',
                 status_code=500
             )
 
 class MessageCreateView(BaseAPIView, generics.CreateAPIView):
-    """Create new message"""
-    queryset = Message.objects.all()
-    serializer_class = MessageSerializer
+    """Создание нового сообщения"""
+    serializer_class = MessageCreateSerializer
     permission_classes = [IsAuthenticated]
+    http_method_names = ['post']
     
     @transaction.atomic
     def perform_create(self, serializer):
         serializer.save(sender=self.request.user)
 
     @swagger_auto_schema(
-        operation_description="Send message to chat",
-        request_body=MessageSerializer,
+        operation_description="Отправить сообщение в чат",
+        request_body=MessageCreateSerializer,
         responses={
-            201: openapi.Response('Message sent', MessageSerializer),
-            400: 'Validation error',
-            403: 'No permissions',
-            404: 'Chat not found',
+            201: openapi.Response('Сообщение отправлено', MessageSerializer),
+            400: 'Ошибка валидации',
+            403: 'Нет прав',
+            404: 'Чат не найден',
         },
         tags=['Chats and Messages']
     )
-    @transaction.atomic
-    def create(self, request, *args, **kwargs):
+    def post(self, request, *args, **kwargs):
         try:
             serializer = self.get_serializer(data=request.data)
-            if not serializer.is_valid():
-                field_errors = format_validation_errors(serializer.errors)
-                return self.validation_error_response(field_errors)
+            serializer.is_valid(raise_exception=True)
             
-            # Check chat existence
-            chat_id = serializer.validated_data.get('chat')
-            try:
-                chat = Chat.objects.get(id=chat_id)
-                if self.request.user not in chat.participants.all():
-                    return self.error_response(
-                        error_number='PERMISSION_ERROR',
-                        error_message='No permissions to send messages to this chat',
-                        status_code=403
-                    )
-            except Chat.DoesNotExist:
+            # Проверяем доступ к чату
+            chat_id = serializer.validated_data['chat'].id
+            chat = Chat.objects.get(id=chat_id)
+            if request.user not in chat.participants.all():
                 return self.error_response(
-                    error_number='CHAT_NOT_FOUND',
-                    error_message='Chat not found',
-                    status_code=404
+                    error_number='NO_CHAT_ACCESS',
+                    error_message='Нет прав для отправки сообщений в этот чат',
+                    status_code=403
                 )
             
-            self.perform_create(serializer)
+            message = serializer.save(sender=request.user)
+            
+            # Возвращаем созданное сообщение
+            message_serializer = MessageSerializer(message)
             
             return self.success_response(
-                data=serializer.data,
-                message='Message sent successfully'
+                data=message_serializer.data,
+                message='Сообщение отправлено успешно',
+                status_code=201
             )
             
+        except Chat.DoesNotExist:
+            return self.error_response(
+                error_number='CHAT_NOT_FOUND',
+                error_message='Чат не найден',
+                status_code=404
+            )
         except Exception as e:
             return self.error_response(
                 error_number='MESSAGE_CREATE_ERROR',
-                error_message=f'Error sending message: {str(e)}',
-                status_code=500
+                error_message=f'Ошибка отправки сообщения: {str(e)}',
+                status_code=400
             )
 
-class MessageDetailView(BaseAPIView, generics.RetrieveAPIView):
-    """Detailed message information"""
-    queryset = Message.objects.all()
+class MessageDetailView(BaseAPIView, generics.RetrieveUpdateDestroyAPIView):
+    """Детальная информация о сообщении, редактирование и удаление"""
+    queryset = Message.objects.filter(is_deleted=False)
     serializer_class = MessageSerializer
     permission_classes = [IsAuthenticated]
+    http_method_names = ['get', 'put', 'delete']
+
+    def get_serializer_class(self):
+        if self.request.method in ['PUT', 'PATCH']:
+            return MessageUpdateSerializer
+        return MessageSerializer
 
     def get_object(self):
         obj = super().get_object()
-        if self.request.user not in obj.chat.participants.all():
-            raise CustomPermissionError('No permissions to view this message')
+        # Проверяем права на просмотр/редактирование сообщения
+        if self.request.user != obj.sender:
+            raise CustomPermissionError('Нет прав для работы с этим сообщением')
         return obj
 
     @swagger_auto_schema(
-        operation_description="Get detailed message information by ID",
+        operation_description="Получить информацию о сообщении",
         responses={
-            200: openapi.Response('Message information', MessageSerializer),
-            404: 'Message not found',
+            200: openapi.Response('Информация о сообщении', MessageSerializer),
+            404: 'Сообщение не найдено',
         },
         tags=['Chats and Messages']
     )
-    def retrieve(self, request, *args, **kwargs):
+    def get(self, request, *args, **kwargs):
         try:
             instance = self.get_object()
-            
             serializer = self.get_serializer(instance)
             
             return self.success_response(
                 data=serializer.data,
-                message='Message retrieved successfully'
+                message='Информация о сообщении получена успешно'
             )
             
         except Message.DoesNotExist:
             return self.error_response(
                 error_number='MESSAGE_NOT_FOUND',
-                error_message='Message not found',
+                error_message='Сообщение не найдено',
                 status_code=404
             )
         except Exception as e:
             return self.error_response(
                 error_number='MESSAGE_RETRIEVE_ERROR',
-                error_message=f'Error retrieving message: {str(e)}',
-                status_code=500
-            )
-
-class MessageListCreateView(BaseAPIView, generics.ListCreateAPIView):
-    """List of messages and creation of new ones"""
-    serializer_class = MessageSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        # You can filter messages by user participation in the chat if needed
-        return Message.objects.filter(chat__participants=self.request.user)
-
-    @transaction.atomic
-    def perform_create(self, serializer):
-        chat_id = serializer.validated_data.get('chat')
-        chat = Chat.objects.get(id=chat_id)
-        if self.request.user not in chat.participants.all():
-            raise CustomPermissionError('No permissions to send messages to this chat')
-        serializer.save(sender=self.request.user)
-
-    @swagger_auto_schema(
-        operation_description="Get list of all user chats",
-        responses={
-            200: openapi.Response('Chat list', ChatSerializer(many=True)),
-        },
-        tags=['Chats and Messages']
-    )
-    def list(self, request, *args, **kwargs):
-        try:
-            # Return user chat list (like ChatListView)
-            queryset = Chat.objects.filter(participants=self.request.user)
-            serializer = ChatSerializer(queryset, many=True)
-            return self.success_response(
-                data=serializer.data,
-                message='Chat list retrieved successfully'
-            )
-        except Exception as e:
-            return self.error_response(
-                error_number='CHAT_LIST_ERROR',
-                error_message=f'Error retrieving chat list: {str(e)}',
+                error_message=f'Ошибка получения информации о сообщении: {str(e)}',
                 status_code=500
             )
 
     @swagger_auto_schema(
-        operation_description="Send message to chat",
-        request_body=MessageSerializer,
+        operation_description="Редактировать сообщение",
+        request_body=MessageUpdateSerializer,
         responses={
-            201: openapi.Response('Message sent', MessageSerializer),
-            400: 'Validation error',
-            403: 'No permissions',
-            404: 'Chat not found',
+            200: openapi.Response('Сообщение обновлено', MessageSerializer),
+            400: 'Ошибка валидации',
+            403: 'Нет прав',
+            404: 'Сообщение не найдено',
         },
         tags=['Chats and Messages']
     )
     @transaction.atomic
-    def create(self, request, *args, **kwargs):
+    def put(self, request, *args, **kwargs):
         try:
-            serializer = self.get_serializer(data=request.data)
-            if not serializer.is_valid():
-                field_errors = format_validation_errors(serializer.errors)
-                return self.validation_error_response(field_errors)
-            # Check chat existence
-            chat_id = serializer.validated_data.get('chat')
-            try:
-                chat = Chat.objects.get(id=chat_id)
-                if self.request.user not in chat.participants.all():
-                    return self.error_response(
-                        error_number='PERMISSION_ERROR',
-                        error_message='No permissions to send messages to this chat',
-                        status_code=403
-                    )
-            except Chat.DoesNotExist:
-                return self.error_response(
-                    error_number='CHAT_NOT_FOUND',
-                    error_message='Chat not found',
-                    status_code=404
-                )
-            serializer.save(sender=self.request.user)
+            instance = self.get_object()
+            serializer = self.get_serializer(instance, data=request.data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            
+            # Обновляем сообщение
+            instance.edit_message(serializer.validated_data['text'])
+            
+            # Возвращаем обновленное сообщение
+            message_serializer = MessageSerializer(instance)
+            
             return self.success_response(
-                data=serializer.data,
-                message='Message sent successfully'
+                data=message_serializer.data,
+                message='Сообщение обновлено успешно'
+            )
+            
+        except Message.DoesNotExist:
+            return self.error_response(
+                error_number='MESSAGE_NOT_FOUND',
+                error_message='Сообщение не найдено',
+                status_code=404
             )
         except Exception as e:
             return self.error_response(
-                error_number='MESSAGE_CREATE_ERROR',
-                error_message=f'Error sending message: {str(e)}',
+                error_number='MESSAGE_UPDATE_ERROR',
+                error_message=f'Ошибка обновления сообщения: {str(e)}',
+                status_code=400
+            )
+
+    @swagger_auto_schema(
+        operation_description="Удалить сообщение",
+        responses={
+            200: 'Сообщение удалено',
+            403: 'Нет прав',
+            404: 'Сообщение не найдено',
+        },
+        tags=['Chats and Messages']
+    )
+    @transaction.atomic
+    def delete(self, request, *args, **kwargs):
+        try:
+            instance = self.get_object()
+            instance.delete_message()
+            
+            return self.success_response(
+                data=None,
+                message='Сообщение удалено успешно'
+            )
+            
+        except Message.DoesNotExist:
+            return self.error_response(
+                error_number='MESSAGE_NOT_FOUND',
+                error_message='Сообщение не найдено',
+                status_code=404
+            )
+        except Exception as e:
+            return self.error_response(
+                error_number='MESSAGE_DELETE_ERROR',
+                error_message=f'Ошибка удаления сообщения: {str(e)}',
                 status_code=500
             )

@@ -39,7 +39,6 @@ DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@banister.com')
 # Application definition
 
 INSTALLED_APPS = [
-    'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
@@ -64,6 +63,8 @@ INSTALLED_APPS = [
     'file_storage',
     'cron_tasks',
     'workers',
+    'notifications',
+    'channels',
     
 
     'corsheaders',
@@ -115,6 +116,20 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'banister_backend.wsgi.application'
+
+# Channels configuration
+ASGI_APPLICATION = 'banister_backend.asgi.application'
+
+# Channel layers for WebSocket
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            'hosts': [('redis', 6379)],  # for docker
+            # 'hosts': [('localhost', 6379)],  # for local development
+        },
+    },
+}
 
 
 # Database
