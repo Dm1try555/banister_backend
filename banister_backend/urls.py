@@ -73,6 +73,9 @@ urlpatterns = [
     # File storage
     path('api/v1/files/', include('file_storage.urls')),
 
+    # Workers
+    path('api/v1/workers/', include('workers.urls')),
+
     # swagger
     path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
 ]

@@ -63,6 +63,7 @@ INSTALLED_APPS = [
     'public_core',
     'file_storage',
     'cron_tasks',
+    'workers',
     
 
     'corsheaders',
