@@ -1,6 +1,6 @@
 import os
 import tempfile
-import tarfile
+import zipfile
 from datetime import datetime
 from django.core.management.base import BaseCommand
 from django.conf import settings
@@ -10,7 +10,7 @@ from minio import Minio
 
 
 class Command(BaseCommand):
-    help = 'Backup MinIO storage to Google Drive'
+    help = 'Backup MinIO files to Google Drive'
 
     def handle(self, *args, **options):
         try:
@@ -18,69 +18,28 @@ class Command(BaseCommand):
             
             # Create backup filename with timestamp
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            backup_filename = f'minio_backup_{timestamp}.tar.gz'
+            backup_filename = f'minio_backup_{timestamp}.zip'
             
-            # Get MinIO settings from environment
-            minio_endpoint = os.getenv('MINIO_ENDPOINT', 'localhost:9000')
-            minio_access_key = os.getenv('MINIO_ACCESS_KEY')
-            minio_secret_key = os.getenv('MINIO_SECRET_KEY')
-            minio_secure = os.getenv('MINIO_SECURE', 'False').lower() == 'true'
+            # Create temporary file for backup
+            with tempfile.NamedTemporaryFile(suffix='.zip', delete=False) as temp_file:
+                temp_backup_path = temp_file.name
             
-            if not minio_access_key or not minio_secret_key:
-                raise Exception('MINIO_ACCESS_KEY and MINIO_SECRET_KEY must be set')
-            
-            # Initialize MinIO client
+            # Create MinIO client
             minio_client = Minio(
-                minio_endpoint,
-                access_key=minio_access_key,
-                secret_key=minio_secret_key,
-                secure=minio_secure
+                endpoint=os.getenv('MINIO_ENDPOINT', 'minio:9000').replace('http://', '').replace('https://', ''),
+                access_key=os.getenv('MINIO_ACCESS_KEY', 'minioadmin'),
+                secret_key=os.getenv('MINIO_SECRET_KEY', 'minioadmin123'),
+                secure=False
             )
             
-            # Create temporary directory for backup
-            with tempfile.TemporaryDirectory() as temp_dir:
-                backup_path = os.path.join(temp_dir, backup_filename)
-                
-                # Create tar.gz archive
-                with tarfile.open(backup_path, 'w:gz') as tar:
-                    # List all buckets
-                    buckets = minio_client.list_buckets()
-                    
-                    for bucket in buckets:
-                        bucket_name = bucket.name
-                        self.stdout.write(f'Backing up bucket: {bucket_name}')
-                        
-                        # Create bucket directory in archive
-                        bucket_dir = f'minio_backup/{bucket_name}/'
-                        
-                        # List all objects in bucket
-                        objects = minio_client.list_objects(bucket_name, recursive=True)
-                        
-                        for obj in objects:
-                            try:
-                                # Download object to temporary file
-                                temp_file_path = os.path.join(temp_dir, f'{bucket_name}_{obj.object_name}')
-                                
-                                # Create directory structure
-                                os.makedirs(os.path.dirname(temp_file_path), exist_ok=True)
-                                
-                                # Download object
-                                minio_client.fget_object(bucket_name, obj.object_name, temp_file_path)
-                                
-                                # Add to archive
-                                archive_path = f'minio_backup/{bucket_name}/{obj.object_name}'
-                                tar.add(temp_file_path, arcname=archive_path)
-                                
-                                # Clean up temporary file
-                                os.unlink(temp_file_path)
-                                
-                            except Exception as e:
-                                self.stdout.write(
-                                    self.style.WARNING(f'Failed to backup object {obj.object_name}: {str(e)}')
-                                )
-                
-                # Upload to Google Drive
-                self.upload_to_google_drive(backup_path, backup_filename)
+            # Create zip file with MinIO data
+            self.create_minio_backup(minio_client, temp_backup_path)
+            
+            # Upload to Google Drive
+            self.upload_to_google_drive(temp_backup_path, backup_filename)
+            
+            # Clean up temporary file
+            os.unlink(temp_backup_path)
             
             self.stdout.write(
                 self.style.SUCCESS(f'MinIO backup completed: {backup_filename}')
@@ -91,6 +50,40 @@ class Command(BaseCommand):
                 self.style.ERROR(f'Error during MinIO backup: {str(e)}')
             )
     
+    def create_minio_backup(self, minio_client, backup_path):
+        """Create backup of MinIO files"""
+        try:
+            with zipfile.ZipFile(backup_path, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+                # List all buckets
+                buckets = minio_client.list_buckets()
+                
+                for bucket in buckets:
+                    bucket_name = bucket.name
+                    
+                    # List all objects in bucket
+                    objects = minio_client.list_objects(bucket_name, recursive=True)
+                    
+                    for obj in objects:
+                        try:
+                            # Get object data
+                            data = minio_client.get_object(bucket_name, obj.object_name)
+                            
+                            # Add to zip file
+                            zip_path = f'{bucket_name}/{obj.object_name}'
+                            zip_file.writestr(zip_path, data.read())
+                            
+                            self.stdout.write(f'Added {zip_path} to backup')
+                            
+                        except Exception as e:
+                            self.stdout.write(
+                                self.style.WARNING(f'Failed to backup {obj.object_name}: {str(e)}')
+                            )
+            
+            self.stdout.write('MinIO backup file created successfully')
+            
+        except Exception as e:
+            raise Exception(f'Failed to create MinIO backup: {str(e)}')
+    
     def upload_to_google_drive(self, file_path, filename):
         """Upload file to Google Drive using Google Cloud Storage"""
         try:
@@ -99,8 +92,8 @@ class Command(BaseCommand):
             if not credentials_path:
                 # Try to use local key file
                 local_key_path = os.path.join(
-                    os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-                    'banister-backup-1700feef3b7a.json'
+                    settings.BASE_DIR,
+                    'google-credentials.json'
                 )
                 if os.path.exists(local_key_path):
                     credentials_path = local_key_path

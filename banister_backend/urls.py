@@ -5,7 +5,7 @@ from rest_framework import permissions
 
 schema_view = get_schema_view(
     openapi.Info(
-        title="Banister API",
+        title="Banister API v1",
         default_version='v1',
         description="""
         ## Banister Project API
@@ -24,9 +24,14 @@ schema_view = get_schema_view(
         - **customer** - customers
         - **provider** - service providers  
         - **management** - managers
+        - **admin** - administrators
+        - **super_admin** - super administrators
+        - **accountant** - accountants
+        
+        ### Base URL: localhost:8000/api/v1
         """,
-        terms_of_service="https://www.example.com/terms/",
-        contact=openapi.Contact(email="contact@example.com"),
+        terms_of_service="Terms of service",
+        contact=openapi.Contact(email="Contact the developer"),
         license=openapi.License(name="MIT License"),
     ),
     public=True,

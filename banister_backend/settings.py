@@ -181,6 +181,7 @@ FIREBASE_CONFIG = {
     'appId': os.getenv('FIREBASE_APP_ID', 'your-firebase-app-id')
 }
 
+# Swagger settings
 SWAGGER_SETTINGS = {
     'SECURITY_DEFINITIONS': {
         'Bearer': {
@@ -196,11 +197,11 @@ SWAGGER_SETTINGS = {
             'Bearer': []
         }
     ],
-    'OPERATIONS_SORTER': 'alpha',
     'TAGS_SORTER': 'alpha',
+    'OPERATIONS_SORTER': 'alpha',
     'DOC_EXPANSION': 'list',
     'DEFAULT_MODELS_EXPAND_DEPTH': 1,
-    'DEFAULT_INFO': 'Banister API',
+    'DEFAULT_INFO': 'Banister API v1',
     'SUPPORTED_SUBMIT_METHODS': [
         'get',
         'post',
@@ -210,6 +211,18 @@ SWAGGER_SETTINGS = {
     ],
     'SHOW_REQUEST_HEADERS': True,
     'VALIDATOR_URL': None,
+    'INFO': {
+        'title': 'Banister API v1',
+        'description': 'Banister Project API - Complete payment and booking management system',
+        'version': 'v1',
+        'contact': {
+            'name': 'Contact the developer',
+            'email': 'developer@banister.com'
+        },
+        'license': {
+            'name': 'MIT License'
+        }
+    }
 }
 
 

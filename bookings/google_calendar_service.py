@@ -17,8 +17,8 @@ class GoogleCalendarService:
     def _initialize_service(self):
         """Инициализация Google Calendar API"""
         try:
-            # Путь к файлу сервисного аккаунта
-            service_account_file = os.path.join(settings.BASE_DIR, 'google-service-account.json')
+            # Путь к файлу сервисного аккаунта (общий файл для всех Google сервисов)
+            service_account_file = os.path.join(settings.BASE_DIR, 'google-credentials.json')
             
             if not os.path.exists(service_account_file):
                 print("Файл сервисного аккаунта Google не найден")
@@ -37,7 +37,7 @@ class GoogleCalendarService:
             print(f"Ошибка инициализации Google Calendar API: {str(e)}")
     
     def create_meeting_event(self, booking, calendar_id='primary'):
-        """Создание события встречи в Google Calendar"""
+        """Создание события встречи в Google Calendar с Google Meet"""
         if not self.service:
             return False, "Google Calendar API не инициализирован"
         
@@ -45,10 +45,21 @@ class GoogleCalendarService:
             # Формирование данных события
             event_data = self._prepare_event_data(booking)
             
+            # Добавление Google Meet конференции
+            event_data['conferenceData'] = {
+                'createRequest': {
+                    'requestId': f"meet_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+                    'conferenceSolutionKey': {
+                        'type': 'hangoutsMeet'
+                    }
+                }
+            }
+            
             # Создание события
             event = self.service.events().insert(
                 calendarId=calendar_id,
                 body=event_data,
+                conferenceDataVersion=1,  # Включаем Google Meet
                 sendUpdates='all'  # Отправка уведомлений всем участникам
             ).execute()
             
@@ -59,9 +70,9 @@ class GoogleCalendarService:
     
     def _prepare_event_data(self, booking):
         """Подготовка данных события для Google Calendar"""
-        # Время начала и окончания встречи (по умолчанию 1 час)
+        # Время начала и окончания встречи
         start_time = booking.scheduled_datetime
-        end_time = start_time + timedelta(hours=1)
+        end_time = getattr(booking, 'end_datetime', start_time + timedelta(hours=1))
         
         # Форматирование времени для Google Calendar
         start_time_str = start_time.isoformat()
@@ -72,7 +83,7 @@ class GoogleCalendarService:
 Сервис: {booking.service.title}
 Клиент: {booking.customer.get_full_name() or booking.customer.email}
 Провайдер: {booking.provider.get_full_name() or booking.provider.email}
-Локация: {booking.location or 'Не указана'}
+Локация: {booking.location or 'Google Meet'}
 Примечания: {booking.notes or 'Нет'}
         """.strip()
         
@@ -150,6 +161,23 @@ class GoogleCalendarService:
         try:
             subject = f'Приглашение на встречу: {booking.service.title}'
             
+            # Получение Google Meet ссылки из календаря
+            meet_link = ""
+            if hasattr(booking, 'calendar_event_id') and booking.calendar_event_id:
+                try:
+                    event = self.service.events().get(
+                        calendarId='primary',
+                        eventId=booking.calendar_event_id
+                    ).execute()
+                    
+                    if 'conferenceData' in event and 'entryPoints' in event['conferenceData']:
+                        for entry_point in event['conferenceData']['entryPoints']:
+                            if entry_point['entryPointType'] == 'video':
+                                meet_link = entry_point['uri']
+                                break
+                except Exception as e:
+                    print(f"Ошибка получения Google Meet ссылки: {str(e)}")
+            
             message = f"""
 Здравствуйте, {user.get_full_name() or user.email}!
 
@@ -157,11 +185,13 @@ class GoogleCalendarService:
 
 Сервис: {booking.service.title}
 Дата и время: {booking.scheduled_datetime.strftime('%d.%m.%Y в %H:%M')}
-Локация: {booking.location or 'Не указана'}
+Локация: {booking.location or 'Google Meet'}
 Клиент: {booking.customer.get_full_name() or booking.customer.email}
 Провайдер: {booking.provider.get_full_name() or booking.provider.email}
 
 Примечания: {booking.notes or 'Нет'}
+
+{f'Google Meet ссылка: {meet_link}' if meet_link else ''}
 
 С уважением,
 Команда Banister

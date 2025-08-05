@@ -12,27 +12,80 @@ from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from django.db import transaction
 
-class IsProviderOrReadOnly(permissions.BasePermission):
-    """Permissions for providers or read-only"""
-    def has_permission(self, request, view):
-        if request.method in permissions.SAFE_METHODS:
-            return True
-        return request.user.is_authenticated and getattr(request.user, 'role', None) == 'provider'
+class ServiceListView(BaseAPIView):
+    """Список всех сервисов"""
+    permission_classes = []
+    http_method_names = ['get']  # Только GET
+    
+    @swagger_auto_schema(
+        operation_description="Get list of all services (search and filtering by parameters)",
+        responses={
+            200: openapi.Response('List of services', ServiceSerializer(many=True)),
+            500: 'Server error'
+        },
+        tags=['Services']
+    )
+    def get(self, request):
+        """Получить список сервисов"""
+        try:
+            services = Service.objects.all()
+            serializer = ServiceSerializer(services, many=True)
+            
+            return self.success_response(
+                data=serializer.data,
+                message='Список сервисов получен'
+            )
+            
+        except Exception as e:
+            return self.error_response(
+                error_number='SERVICE_LIST_ERROR',
+                error_message=f'Ошибка получения списка сервисов: {str(e)}',
+                status_code=500
+            )
 
-    def has_object_permission(self, request, view, obj):
-        if request.method in permissions.SAFE_METHODS:
-            return True
-        return obj.provider == request.user
+class ServiceDetailView(BaseAPIView):
+    """Детали сервиса"""
+    permission_classes = []
+    http_method_names = ['get']  # Только GET
+    
+    @swagger_auto_schema(
+        operation_description="Get detailed information about a service by ID",
+        responses={
+            200: openapi.Response('Service information', ServiceSerializer),
+            404: 'Service not found',
+            500: 'Server error'
+        },
+        tags=['Services']
+    )
+    def get(self, request, pk):
+        """Получить детали сервиса"""
+        try:
+            service = Service.objects.get(pk=pk)
+            serializer = ServiceSerializer(service)
+            
+            return self.success_response(
+                data=serializer.data,
+                message='Информация о сервисе получена'
+            )
+            
+        except Service.DoesNotExist:
+            return self.error_response(
+                error_number='SERVICE_NOT_FOUND',
+                error_message='Сервис не найден',
+                status_code=404
+            )
+        except Exception as e:
+            return self.error_response(
+                error_number='SERVICE_DETAIL_ERROR',
+                error_message=f'Ошибка получения информации о сервисе: {str(e)}',
+                status_code=500
+            )
 
-class ServiceViewSet(BaseAPIView, viewsets.ModelViewSet):
-    """ViewSet for service management"""
-    queryset = Service.objects.all()
-    serializer_class = ServiceSerializer
-    permission_classes = []  # Убираем permission class
-    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ['title', 'description']
-    ordering_fields = ['price', 'created_at']
-
+class ServiceCreateView(BaseAPIView):
+    """Создание нового сервиса"""
+    permission_classes = []
+    http_method_names = ['post']  # Только POST
+    
     @swagger_auto_schema(
         operation_description="Create new service (providers only)",
         request_body=openapi.Schema(
@@ -59,8 +112,8 @@ class ServiceViewSet(BaseAPIView, viewsets.ModelViewSet):
         tags=['Services']
     )
     @transaction.atomic
-    def create(self, request, *args, **kwargs):
-        """Create new service"""
+    def post(self, request):
+        """Создать новый сервис"""
         try:
             # Check authentication
             if not request.user.is_authenticated:
@@ -78,7 +131,7 @@ class ServiceViewSet(BaseAPIView, viewsets.ModelViewSet):
                     status_code=403
                 )
             
-            serializer = self.get_serializer(data=request.data)
+            serializer = ServiceSerializer(data=request.data)
             if not serializer.is_valid():
                 field_errors = format_validation_errors(serializer.errors)
                 return self.validation_error_response(field_errors)
@@ -87,7 +140,7 @@ class ServiceViewSet(BaseAPIView, viewsets.ModelViewSet):
             service = serializer.save(provider=request.user)
             
             return self.success_response(
-                data=serializer.data,
+                data=ServiceSerializer(service).data,
                 message='Service created successfully'
             )
             
@@ -98,6 +151,11 @@ class ServiceViewSet(BaseAPIView, viewsets.ModelViewSet):
                 status_code=500
             )
 
+class ServiceUpdateView(BaseAPIView):
+    """Обновление сервиса"""
+    permission_classes = []
+    http_method_names = ['put']  # Только PUT
+    
     @swagger_auto_schema(
         operation_description="Update service data (owner only)",
         request_body=openapi.Schema(
@@ -106,13 +164,11 @@ class ServiceViewSet(BaseAPIView, viewsets.ModelViewSet):
                 'title': openapi.Schema(type=openapi.TYPE_STRING, description='Service title'),
                 'description': openapi.Schema(type=openapi.TYPE_STRING, description='Service description'),
                 'price': openapi.Schema(type=openapi.TYPE_NUMBER, description='Service price'),
-                
             },
             example={
                 'title': 'Updated Web Development',
                 'description': 'Updated web development services',
                 'price': 150.00,
-                
             }
         ),
         responses={
@@ -125,8 +181,8 @@ class ServiceViewSet(BaseAPIView, viewsets.ModelViewSet):
         tags=['Services']
     )
     @transaction.atomic
-    def update(self, request, *args, **kwargs):
-        """Update service"""
+    def put(self, request, pk):
+        """Обновить сервис"""
         try:
             # Check authentication
             if not request.user.is_authenticated:
@@ -136,34 +192,35 @@ class ServiceViewSet(BaseAPIView, viewsets.ModelViewSet):
                     status_code=401
                 )
             
-            instance = self.get_object()
+            try:
+                service = Service.objects.get(pk=pk)
+            except Service.DoesNotExist:
+                return self.error_response(
+                    error_number='SERVICE_NOT_FOUND',
+                    error_message='Service not found',
+                    status_code=404
+                )
             
-            # Check if user owns the service
-            if instance.provider != request.user:
+            # Check if user is the owner of the service
+            if service.provider != request.user:
                 return self.error_response(
                     error_number='PERMISSION_DENIED',
-                    error_message='You do not have permission to modify this service',
+                    error_message='No permissions to update this service',
                     status_code=403
                 )
             
-            serializer = self.get_serializer(instance, data=request.data, partial=False)
+            serializer = ServiceSerializer(service, data=request.data, partial=False)
             if not serializer.is_valid():
                 field_errors = format_validation_errors(serializer.errors)
                 return self.validation_error_response(field_errors)
             
-            serializer.save()
+            updated_service = serializer.save()
             
             return self.success_response(
-                data=serializer.data,
+                data=ServiceSerializer(updated_service).data,
                 message='Service updated successfully'
             )
             
-        except Service.DoesNotExist:
-            return self.error_response(
-                error_number='SERVICE_NOT_FOUND',
-                error_message='Service not found',
-                status_code=404
-            )
         except Exception as e:
             return self.error_response(
                 error_number='SERVICE_UPDATE_ERROR',
@@ -171,77 +228,11 @@ class ServiceViewSet(BaseAPIView, viewsets.ModelViewSet):
                 status_code=500
             )
 
-    @swagger_auto_schema(
-        operation_description="Partially update service data (owner only)",
-        request_body=openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            properties={
-                'title': openapi.Schema(type=openapi.TYPE_STRING, description='Service title'),
-                'description': openapi.Schema(type=openapi.TYPE_STRING, description='Service description'),
-                'price': openapi.Schema(type=openapi.TYPE_NUMBER, description='Service price'),
-                
-            },
-            example={
-                'title': 'Updated Web Development',
-                'price': 150.00
-            }
-        ),
-        responses={
-            200: openapi.Response('Service updated', ServiceSerializer),
-            400: 'Validation error',
-            403: 'No permissions to update this service',
-            404: 'Service not found',
-            500: 'Server error'
-        },
-        tags=['Services']
-    )
-    @transaction.atomic
-    def partial_update(self, request, *args, **kwargs):
-        """Partially update service"""
-        try:
-            # Check authentication
-            if not request.user.is_authenticated:
-                return self.error_response(
-                    error_number='AUTHENTICATION_REQUIRED',
-                    error_message='Authentication required',
-                    status_code=401
-                )
-            
-            instance = self.get_object()
-            
-            # Check if user owns the service
-            if instance.provider != request.user:
-                return self.error_response(
-                    error_number='PERMISSION_DENIED',
-                    error_message='You do not have permission to modify this service',
-                    status_code=403
-                )
-            
-            serializer = self.get_serializer(instance, data=request.data, partial=True)
-            if not serializer.is_valid():
-                field_errors = format_validation_errors(serializer.errors)
-                return self.validation_error_response(field_errors)
-            
-            serializer.save()
-            
-            return self.success_response(
-                data=serializer.data,
-                message='Service updated successfully'
-            )
-            
-        except Service.DoesNotExist:
-            return self.error_response(
-                error_number='SERVICE_NOT_FOUND',
-                error_message='Service not found',
-                status_code=404
-            )
-        except Exception as e:
-            return self.error_response(
-                error_number='SERVICE_UPDATE_ERROR',
-                error_message=f'Error updating service: {str(e)}',
-                status_code=500
-            )
-
+class ServiceDeleteView(BaseAPIView):
+    """Удаление сервиса"""
+    permission_classes = []
+    http_method_names = ['delete']  # Только DELETE
+    
     @swagger_auto_schema(
         operation_description="Delete service (owner only)",
         responses={
@@ -253,8 +244,8 @@ class ServiceViewSet(BaseAPIView, viewsets.ModelViewSet):
         tags=['Services']
     )
     @transaction.atomic
-    def destroy(self, request, *args, **kwargs):
-        """Delete service"""
+    def delete(self, request, pk):
+        """Удалить сервис"""
         try:
             # Check authentication
             if not request.user.is_authenticated:
@@ -264,90 +255,32 @@ class ServiceViewSet(BaseAPIView, viewsets.ModelViewSet):
                     status_code=401
                 )
             
-            instance = self.get_object()
+            try:
+                service = Service.objects.get(pk=pk)
+            except Service.DoesNotExist:
+                return self.error_response(
+                    error_number='SERVICE_NOT_FOUND',
+                    error_message='Service not found',
+                    status_code=404
+                )
             
-            # Check if user owns the service
-            if instance.provider != request.user:
+            # Check if user is the owner of the service
+            if service.provider != request.user:
                 return self.error_response(
                     error_number='PERMISSION_DENIED',
-                    error_message='You do not have permission to delete this service',
+                    error_message='No permissions to delete this service',
                     status_code=403
                 )
             
-            instance.delete()
+            service.delete()
             
             return self.success_response(
                 message='Service deleted successfully'
             )
             
-        except Service.DoesNotExist:
-            return self.error_response(
-                error_number='SERVICE_NOT_FOUND',
-                error_message='Service not found',
-                status_code=404
-            )
         except Exception as e:
             return self.error_response(
                 error_number='SERVICE_DELETE_ERROR',
                 error_message=f'Error deleting service: {str(e)}',
-                status_code=500
-            )
-
-    @swagger_auto_schema(
-        operation_description="Get list of all services (search and filtering by parameters)",
-        responses={
-            200: openapi.Response('List of services', ServiceSerializer(many=True)),
-            500: 'Server error'
-        },
-        tags=['Services']
-    )
-    def list(self, request, *args, **kwargs):
-        """Get list of services"""
-        try:
-            queryset = self.filter_queryset(self.get_queryset())
-            serializer = self.get_serializer(queryset, many=True)
-            
-            return self.success_response(
-                data=serializer.data,
-                message='List of services obtained successfully'
-            )
-            
-        except Exception as e:
-            return self.error_response(
-                error_number='SERVICE_LIST_ERROR',
-                error_message=f'Error getting service list: {str(e)}',
-                status_code=500
-            )
-
-    @swagger_auto_schema(
-        operation_description="Get detailed information about a service by ID",
-        responses={
-            200: openapi.Response('Service information', ServiceSerializer),
-            404: 'Service not found',
-            500: 'Server error'
-        },
-        tags=['Services']
-    )
-    def retrieve(self, request, *args, **kwargs):
-        """Get detailed service information"""
-        try:
-            instance = self.get_object()
-            serializer = self.get_serializer(instance)
-            
-            return self.success_response(
-                data=serializer.data,
-                message='Service information obtained successfully'
-            )
-            
-        except Service.DoesNotExist:
-            return self.error_response(
-                error_number='SERVICE_NOT_FOUND',
-                error_message='Service not found',
-                status_code=404
-            )
-        except Exception as e:
-            return self.error_response(
-                error_number='SERVICE_RETRIEVE_ERROR',
-                error_message=f'Error getting service information: {str(e)}',
                 status_code=500
             )

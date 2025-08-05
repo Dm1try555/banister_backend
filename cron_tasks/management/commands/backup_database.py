@@ -76,8 +76,8 @@ class Command(BaseCommand):
             if not credentials_path:
                 # Try to use local key file
                 local_key_path = os.path.join(
-                    os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-                    'banister-backup-1700feef3b7a.json'
+                    settings.BASE_DIR,
+                    'google-credentials.json'
                 )
                 if os.path.exists(local_key_path):
                     credentials_path = local_key_path

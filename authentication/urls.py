@@ -9,7 +9,7 @@ from .views import (
     CustomTokenRefreshView, email_confirm_request, email_confirm_verify,
     AdminProfileUpdateView, AdminPermissionGrantView, AdminPermissionRevokeView, AdminPermissionListView, AdminPermissionDeleteView, AdminPermissionDetailView,
 
-    CreateAdminView, CreateAccountantView, CreateSupportManagerView, AdminUserListView,
+    CreateAdminView, CreateAccountantView, CreateSupportManagerView,
     AccountantCRUDView, SupportManagerCRUDView
 )
 
@@ -45,7 +45,7 @@ urlpatterns = [
     path('admin/create/', CreateAdminView.as_view(), name='create-admin'),
     path('admin/create-accountant/', CreateAccountantView.as_view(), name='create-accountant'),
     path('admin/create-support/', CreateSupportManagerView.as_view(), name='create-support-manager'),
-    path('admin/list/', AdminUserListView.as_view(), name='admin-list'),
+
     
     # CRUD URLs for each role (Super Admin only)
     path('accountant/', AccountantCRUDView.as_view(), name='accountant-crud'),

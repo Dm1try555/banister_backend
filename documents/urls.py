@@ -1,7 +1,8 @@
 from django.urls import path
-from .views import DocumentListCreateView, DocumentDeleteView
+from .views import DocumentListView, DocumentCreateView, DocumentDeleteView
 
 urlpatterns = [
-    path('', DocumentListCreateView.as_view(), name='document-list-create'),  # GET/POST /api/v1/documents/
-    path('<int:pk>/', DocumentDeleteView.as_view(), name='document-delete'),  # DELETE /api/v1/documents/{id}/
+    path('', DocumentListView.as_view(), name='document-list'),
+    path('create/', DocumentCreateView.as_view(), name='document-create'),
+    path('<int:pk>/', DocumentDeleteView.as_view(), name='document-delete'),
 ] 

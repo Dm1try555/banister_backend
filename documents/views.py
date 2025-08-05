@@ -14,24 +14,11 @@ from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from django.db import transaction
 
-# Create your views here.
-
-class DocumentListCreateView(BaseAPIView, generics.ListCreateAPIView):
-    serializer_class = DocumentSerializer
+class DocumentListView(BaseAPIView):
+    """Список документов пользователя"""
     permission_classes = [permissions.IsAuthenticated]
-
-    def get_queryset(self):
-        if getattr(self, 'swagger_fake_view', False):
-            return Document.objects.none()
-        return Document.objects.filter(user=self.request.user)
-
-    @transaction.atomic
-    def perform_create(self, serializer):
-        file = self.request.FILES.get('file')
-        if file and file.size > 10 * 1024 * 1024:
-            raise ValidationError('File size exceeds 10MB')
-        serializer.save(user=self.request.user)
-
+    http_method_names = ['get']  # Только GET
+    
     @swagger_auto_schema(
         operation_description="Get list of all user documents",
         responses={
@@ -39,10 +26,14 @@ class DocumentListCreateView(BaseAPIView, generics.ListCreateAPIView):
         },
         tags=['Documents']
     )
-    def list(self, request, *args, **kwargs):
+    def get(self, request):
+        """Получить список документов"""
         try:
-            queryset = self.get_queryset()
-            serializer = self.get_serializer(queryset, many=True)
+            if getattr(self, 'swagger_fake_view', False):
+                return self.success_response(data=[], message='Document list retrieved successfully')
+            
+            documents = Document.objects.filter(user=request.user)
+            serializer = DocumentSerializer(documents, many=True)
             
             return self.success_response(
                 data=serializer.data,
@@ -56,6 +47,11 @@ class DocumentListCreateView(BaseAPIView, generics.ListCreateAPIView):
                 status_code=500
             )
 
+class DocumentCreateView(BaseAPIView):
+    """Загрузка нового документа"""
+    permission_classes = [permissions.IsAuthenticated]
+    http_method_names = ['post']  # Только POST
+    
     @transaction.atomic
     @swagger_auto_schema(
         operation_description="Upload new user document",
@@ -67,17 +63,26 @@ class DocumentListCreateView(BaseAPIView, generics.ListCreateAPIView):
         },
         tags=['Documents']
     )
-    def create(self, request, *args, **kwargs):
+    def post(self, request):
+        """Загрузить новый документ"""
         try:
-            serializer = self.get_serializer(data=request.data)
+            serializer = DocumentSerializer(data=request.data)
             if not serializer.is_valid():
                 field_errors = format_validation_errors(serializer.errors)
                 return self.validation_error_response(field_errors)
             
-            self.perform_create(serializer)
+            file = request.FILES.get('file')
+            if file and file.size > 10 * 1024 * 1024:
+                return self.error_response(
+                    error_number='FILE_TOO_LARGE',
+                    error_message='File size exceeds 10MB',
+                    status_code=400
+                )
+            
+            document = serializer.save(user=request.user)
             
             return self.success_response(
-                data=serializer.data,
+                data=DocumentSerializer(document).data,
                 message='Document uploaded successfully'
             )
             
@@ -88,18 +93,15 @@ class DocumentListCreateView(BaseAPIView, generics.ListCreateAPIView):
                 status_code=500
             )
 
-class DocumentDeleteView(BaseAPIView, generics.DestroyAPIView):
-    serializer_class = DocumentSerializer
+class DocumentDeleteView(BaseAPIView):
+    """Удаление документа"""
     permission_classes = [permissions.IsAuthenticated]
-
+    http_method_names = ['delete']  # Только DELETE
+    
     def get_queryset(self):
         if getattr(self, 'swagger_fake_view', False):
             return Document.objects.none()
         return Document.objects.filter(user=self.request.user)
-
-    def perform_destroy(self, instance):
-        # Delete the file from storage if needed
-        instance.delete()
 
     @transaction.atomic
     @swagger_auto_schema(
@@ -111,10 +113,11 @@ class DocumentDeleteView(BaseAPIView, generics.DestroyAPIView):
         },
         tags=['Documents']
     )
-    def destroy(self, request, *args, **kwargs):
+    def delete(self, request, pk):
+        """Удалить документ"""
         try:
-            instance = self.get_object()
-            self.perform_destroy(instance)
+            document = self.get_queryset().get(pk=pk)
+            document.delete()
             
             return self.success_response(
                 message='Document deleted successfully'

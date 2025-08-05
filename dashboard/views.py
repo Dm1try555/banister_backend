@@ -19,16 +19,21 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-class DashboardOverviewView(BaseAPIView):
-    """User dashboard overview"""
-    serializer_class = DashboardStatsSerializer
+class DashboardView(BaseAPIView):
+    """User dashboard overview and statistics"""
     permission_classes = [IsAuthenticated]
-    http_method_names = ['get']
-
+    http_method_names = ['get']  # Только GET
+    
+    @swagger_auto_schema(
+        operation_description="Get dashboard overview and statistics",
+        responses={200: openapi.Response('Dashboard data', DashboardStatsSerializer)},
+        tags=['Dashboard']
+    )
     @transaction.atomic
-    def get(self, request, *args, **kwargs):
+    def get(self, request):
+        """Получить данные дашборда"""
         try:
-            logger.info(f"Dashboard overview requested by user: {request.user.email} with role: {request.user.role}")
+            logger.info(f"Dashboard requested by user: {request.user.email} with role: {request.user.role}")
             
             # Calculate current statistics
             if request.user.role == 'customer':
@@ -43,7 +48,11 @@ class DashboardOverviewView(BaseAPIView):
                 earnings = sum(p.amount for p in Payment.objects.filter(status='completed'))
             else:
                 logger.error(f"Unknown user role: {request.user.role}")
-                raise CustomPermissionError('Unknown user role')
+                return self.error_response(
+                    error_number='UNKNOWN_ROLE',
+                    error_message='Unknown user role',
+                    status_code=400
+                )
             
             logger.info(f"Calculated stats - bookings: {bookings}, earnings: {earnings}")
             
@@ -53,52 +62,17 @@ class DashboardOverviewView(BaseAPIView):
             stats.total_earnings = earnings
             stats.save()
             
-            serializer = self.get_serializer(stats)
-            logger.info("Dashboard overview response prepared successfully")
-            return self.success_response(data=serializer.data)
+            serializer = DashboardStatsSerializer(stats)
+            logger.info("Dashboard response prepared successfully")
+            return self.success_response(
+                data=serializer.data,
+                message='Данные дашборда получены'
+            )
             
         except Exception as e:
-            logger.error(f"Error in dashboard overview: {str(e)}", exc_info=True)
-            raise
-
-class DashboardStatisticsView(BaseAPIView):
-    """Dashboard statistics with booking and earnings calculation"""
-    serializer_class = DashboardStatsSerializer
-    permission_classes = [IsAuthenticated]
-    http_method_names = ['get']
-
-# Удалены все тестовые views
-
-    @transaction.atomic
-    def get(self, request, *args, **kwargs):
-        try:
-            logger.info(f"Dashboard statistics requested by user: {request.user.email} with role: {request.user.role}")
-            
-            if request.user.role == 'customer':
-                bookings = Booking.objects.filter(customer=request.user).count()
-                earnings = 0
-            elif request.user.role == 'provider':
-                bookings = Booking.objects.filter(provider=request.user).count()
-                earnings = sum(p.amount for p in Payment.objects.filter(user=request.user, status='completed'))
-            elif request.user.role == 'management':
-                # Management can see all bookings and total earnings
-                bookings = Booking.objects.count()
-                earnings = sum(p.amount for p in Payment.objects.filter(status='completed'))
-            else:
-                logger.error(f"Unknown user role: {request.user.role}")
-                raise CustomPermissionError('Unknown user role')
-            
-            logger.info(f"Calculated stats - bookings: {bookings}, earnings: {earnings}")
-            
-            stats, _ = DashboardStats.objects.get_or_create(user=request.user)
-            stats.total_bookings = bookings
-            stats.total_earnings = earnings
-            stats.save()
-            
-            serializer = self.get_serializer(stats)
-            logger.info("Dashboard statistics response prepared successfully")
-            return self.success_response(data=serializer.data)
-            
-        except Exception as e:
-            logger.error(f"Error in dashboard statistics: {str(e)}", exc_info=True)
-            raise
+            logger.error(f"Error in dashboard: {str(e)}", exc_info=True)
+            return self.error_response(
+                error_number='DASHBOARD_ERROR',
+                error_message=f'Ошибка получения данных дашборда: {str(e)}',
+                status_code=500
+            )

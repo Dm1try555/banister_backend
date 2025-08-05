@@ -2,13 +2,19 @@ import firebase_admin
 from firebase_admin import credentials, auth
 from django.conf import settings
 from error_handling.exceptions import AuthenticationError
-
+import os
 
 
 def initialize_firebase():
     if not firebase_admin._apps:
-        cred = credentials.Certificate(settings.FIREBASE_CONFIG)
-        firebase_admin.initialize_app(cred)
+        # Путь к файлу сервисного аккаунта Firebase
+        service_account_path = os.path.join(settings.BASE_DIR, 'firebase-service-account.json')
+        
+        if os.path.exists(service_account_path):
+            cred = credentials.Certificate(service_account_path)
+            firebase_admin.initialize_app(cred)
+        else:
+            raise AuthenticationError("Firebase service account file not found")
 
 def verify_firebase_token(id_token):
     try:

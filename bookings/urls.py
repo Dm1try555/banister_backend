@@ -2,7 +2,7 @@ from django.urls import path
 from .views import (
     BookingListView, BookingCreateView, BookingDetailView, 
     BookingStatusUpdateView, ProviderSearchView,
-    SendMeetingInvitationView, AdminSendMeetingInvitationView
+    GoogleMeetInvitationView
 )
 
 urlpatterns = [
@@ -15,7 +15,6 @@ urlpatterns = [
     path('<int:pk>/', BookingDetailView.as_view(), name='booking-detail'),
     path('<int:booking_id>/status/', BookingStatusUpdateView.as_view(), name='booking-status-update'),
     
-    # Отправка приглашений на встречи
-    path('<int:booking_id>/send-invitation/', SendMeetingInvitationView.as_view(), name='send-meeting-invitation'),
-    path('<int:booking_id>/admin/send-invitation/', AdminSendMeetingInvitationView.as_view(), name='admin-send-meeting-invitation'),
+    # Тестовый эндпоинт для Google Meet приглашений
+    path('google-meet-invitation/', GoogleMeetInvitationView.as_view(), name='google-meet-invitation'),
 ]

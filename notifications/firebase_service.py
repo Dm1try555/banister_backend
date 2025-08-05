@@ -20,7 +20,7 @@ class FirebaseService:
             # Проверяем, инициализировано ли уже Firebase
             if not firebase_admin._apps:
                 # Путь к файлу сервисного аккаунта Firebase
-                service_account_path = os.getenv('FIREBASE_SERVICE_ACCOUNT_PATH', 'firebase-service-account.json')
+                service_account_path = os.path.join(settings.BASE_DIR, 'firebase-service-account.json')
                 
                 if os.path.exists(service_account_path):
                     cred = credentials.Certificate(service_account_path)
