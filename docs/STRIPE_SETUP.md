@@ -1,239 +1,410 @@
-# Настройка Stripe для платежей
+# Stripe Payment Integration
 
-## Обзор
+Полная документация по интеграции платежной системы Stripe в Banister Backend.
 
-Интеграция со Stripe позволяет безопасно обрабатывать платежи с кредитных карт и других методов оплаты, получая средства на вашу банковскую карту.
+## 📋 Содержание
 
-## Функциональность
+1. [Настройка Stripe](#настройка-stripe)
+2. [Эндпоинты платежей](#эндпоинты-платежей)
+3. [Финансовые операции](#финансовые-операции)
+4. [Модели данных](#модели-данных)
+5. [Обработка ошибок](#обработка-ошибок)
+6. [Тестирование](#тестирование)
 
-### Эндпоинты Stripe:
+## 🔧 Настройка Stripe
 
-1. **Создание Payment Intent:**
-   ```
-   POST /api/v1/payments/stripe/create-intent/
-   ```
-
-2. **Подтверждение платежа:**
-   ```
-   POST /api/v1/payments/stripe/confirm-payment/
-   ```
-
-3. **Создание клиента:**
-   ```
-   POST /api/v1/payments/stripe/create-customer/
-   ```
-
-4. **Привязка метода оплаты:**
-   ```
-   POST /api/v1/payments/stripe/attach-payment-method/
-   ```
-
-5. **Проверка статуса платежа:**
-   ```
-   POST /api/v1/payments/stripe/payment-status/
-   ```
-
-6. **Возврат средств:**
-   ```
-   POST /api/v1/payments/stripe/refund/
-   ```
-
-## Настройка Stripe
-
-### 1. Создание аккаунта Stripe
-
-1. Зарегистрируйтесь на [stripe.com](https://stripe.com)
-2. Подтвердите email и заполните информацию о бизнесе
-3. Добавьте банковскую карту для получения платежей
-
-### 2. Получение API ключей
-
-1. Войдите в [Dashboard Stripe](https://dashboard.stripe.com)
-2. Перейдите в "Developers" > "API keys"
-3. Скопируйте:
-   - **Publishable key** (начинается с `pk_test_` или `pk_live_`)
-   - **Secret key** (начинается с `sk_test_` или `sk_live_`)
-
-### 3. Настройка переменных окружения
-
-Добавьте в `.env` файл:
+### Переменные окружения
 
 ```env
-# Stripe API Keys
-STRIPE_PUBLISHABLE_KEY=pk_test_your_publishable_key_here
-STRIPE_SECRET_KEY=sk_test_your_secret_key_here
-
-# Stripe Webhook Secret (опционально)
-STRIPE_WEBHOOK_SECRET=whsec_your_webhook_secret_here
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_PUBLISHABLE_KEY=pk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+STRIPE_CONNECT_CLIENT_ID=ca_...
 ```
 
-### 4. Настройка вебхуков (опционально)
-
-1. В Dashboard Stripe перейдите в "Developers" > "Webhooks"
-2. Нажмите "Add endpoint"
-3. URL: `https://yourdomain.com/api/v1/payments/stripe/webhook/`
-4. Выберите события:
-   - `payment_intent.succeeded`
-   - `payment_intent.payment_failed`
-   - `payment_intent.canceled`
-
-## Использование API
-
-### Пример создания Payment Intent:
+### Установка зависимостей
 
 ```bash
-curl -X POST \
-  http://localhost:8000/api/v1/payments/stripe/create-intent/ \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "amount": 99.99,
-    "currency": "usd",
-    "booking_id": 1,
-    "description": "Оплата за услугу"
-  }'
+pip install stripe
 ```
 
-### Пример ответа:
+### Конфигурация в settings.py
 
+```python
+# Stripe settings
+STRIPE_SECRET_KEY = os.getenv('STRIPE_SECRET_KEY')
+STRIPE_PUBLISHABLE_KEY = os.getenv('STRIPE_PUBLISHABLE_KEY')
+STRIPE_WEBHOOK_SECRET = os.getenv('STRIPE_WEBHOOK_SECRET')
+STRIPE_CONNECT_CLIENT_ID = os.getenv('STRIPE_CONNECT_CLIENT_ID')
+```
+
+## 💳 Эндпоинты платежей
+
+### 1. Создание Payment Intent
+
+**Эндпоинт:** `POST /api/payments/create-payment-intent/`
+
+**Описание:** Создает платежное намерение в Stripe для обработки платежа.
+
+**Запрос:**
 ```json
 {
-  "success": true,
-  "data": {
-    "client_secret": "pi_xxx_secret_xxx",
-    "payment_intent_id": "pi_xxx",
-    "amount": 99.99,
+    "amount": 1000,
     "currency": "usd",
-    "payment_id": 1
-  },
-  "message": "Payment Intent создан успешно"
+    "booking_id": 123,
+    "description": "Payment for service"
 }
 ```
 
-### Пример подтверждения платежа:
+**Ответ:**
+```json
+{
+    "success": true,
+    "data": {
+        "client_secret": "pi_..._secret_...",
+        "payment_intent_id": "pi_...",
+        "amount": 1000,
+        "currency": "usd"
+    }
+}
+```
+
+### 2. Подтверждение платежа
+
+**Эндпоинт:** `POST /api/payments/confirm-payment/`
+
+**Описание:** Подтверждает успешный платеж и обновляет статус в базе данных.
+
+**Запрос:**
+```json
+{
+    "payment_intent_id": "pi_...",
+    "booking_id": 123
+}
+```
+
+**Ответ:**
+```json
+{
+    "success": true,
+    "data": {
+        "payment_id": 1,
+        "status": "completed",
+        "amount": 1000,
+        "currency": "usd"
+    }
+}
+```
+
+### 3. История платежей
+
+**Эндпоинт:** `GET /api/payments/payment-history/`
+
+**Описание:** Получает историю платежей пользователя с пагинацией.
+
+**Параметры:**
+- `page` - Номер страницы (по умолчанию 1)
+- `page_size` - Размер страницы (по умолчанию 10)
+- `status` - Фильтр по статусу (опционально)
+
+**Ответ:**
+```json
+{
+    "success": true,
+    "data": {
+        "payments": [
+            {
+                "id": 1,
+                "amount": 1000,
+                "currency": "usd",
+                "status": "completed",
+                "created_at": "2024-01-01T12:00:00Z",
+                "booking_id": 123
+            }
+        ],
+        "pagination": {
+            "current_page": 1,
+            "total_pages": 5,
+            "total_count": 50
+        }
+    }
+}
+```
+
+### 4. Возврат средств
+
+**Эндпоинт:** `POST /api/payments/refund/`
+
+**Описание:** Выполняет возврат средств за платеж.
+
+**Запрос:**
+```json
+{
+    "payment_id": 1,
+    "amount": 1000,
+    "reason": "customer_request"
+}
+```
+
+**Ответ:**
+```json
+{
+    "success": true,
+    "data": {
+        "refund_id": "re_...",
+        "amount": 1000,
+        "status": "succeeded"
+    }
+}
+```
+
+### 5. Статус платежа
+
+**Эндпоинт:** `GET /api/payments/{payment_id}/status/`
+
+**Описание:** Получает текущий статус платежа.
+
+**Ответ:**
+```json
+{
+    "success": true,
+    "data": {
+        "payment_id": 1,
+        "status": "completed",
+        "amount": 1000,
+        "currency": "usd",
+        "stripe_payment_intent_id": "pi_..."
+    }
+}
+```
+
+## 💰 Финансовые операции
+
+### Получение финансов на карту системы
+
+Система автоматически получает комиссию с каждого платежа:
+
+```python
+# Пример расчета комиссии
+def calculate_platform_fee(amount):
+    """Рассчитывает комиссию платформы (5%)"""
+    return int(amount * 0.05)
+
+def calculate_provider_payout(amount):
+    """Рассчитывает выплату провайдеру (95%)"""
+    return amount - calculate_platform_fee(amount)
+```
+
+### Отправка средств провайдерам
+
+**Эндпоинт:** `POST /api/withdrawals/`
+
+**Описание:** Создает запрос на вывод средств для провайдера.
+
+**Запрос:**
+```json
+{
+    "amount": 5000,
+    "bank_account": {
+        "account_number": "1234567890",
+        "routing_number": "021000021"
+    }
+}
+```
+
+### Автоматические выплаты
+
+Система поддерживает автоматические выплаты провайдерам:
+
+1. **Еженедельные выплаты** - каждую пятницу
+2. **Минимальная сумма** - $50
+3. **Автоматическое одобрение** - для проверенных провайдеров
+
+## 📊 Модели данных
+
+### Payment Model
+
+```python
+class Payment(models.Model):
+    PAYMENT_STATUS_CHOICES = (
+        ('pending', 'Pending'),
+        ('processing', 'Processing'),
+        ('completed', 'Completed'),
+        ('failed', 'Failed'),
+        ('refunded', 'Refunded'),
+        ('cancelled', 'Cancelled'),
+    )
+    
+    customer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='payments')
+    provider = models.ForeignKey(User, on_delete=models.CASCADE, related_name='received_payments')
+    booking = models.ForeignKey('bookings.Booking', on_delete=models.CASCADE, related_name='payments')
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    currency = models.CharField(max_length=3, default='usd')
+    status = models.CharField(max_length=20, choices=PAYMENT_STATUS_CHOICES, default='pending')
+    stripe_payment_intent_id = models.CharField(max_length=255, unique=True)
+    stripe_charge_id = models.CharField(max_length=255, blank=True, null=True)
+    platform_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    provider_payout = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+```
+
+### Withdrawal Model
+
+```python
+class Withdrawal(models.Model):
+    WITHDRAWAL_STATUS_CHOICES = (
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('processing', 'Processing'),
+        ('completed', 'Completed'),
+        ('rejected', 'Rejected'),
+    )
+    
+    provider = models.ForeignKey(User, on_delete=models.CASCADE, related_name='withdrawals')
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    status = models.CharField(max_length=20, choices=WITHDRAWAL_STATUS_CHOICES, default='pending')
+    bank_account_info = models.JSONField()
+    stripe_transfer_id = models.CharField(max_length=255, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    processed_at = models.DateTimeField(blank=True, null=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+```
+
+## ⚠️ Обработка ошибок
+
+### Типичные ошибки Stripe
+
+```python
+ERROR_CODES = {
+    'card_declined': 'Карта отклонена',
+    'insufficient_funds': 'Недостаточно средств',
+    'expired_card': 'Карта истекла',
+    'invalid_cvc': 'Неверный CVC код',
+    'processing_error': 'Ошибка обработки платежа',
+    'rate_limit': 'Превышен лимит запросов',
+}
+```
+
+### Обработка в коде
+
+```python
+try:
+    payment_intent = stripe.PaymentIntent.create(
+        amount=amount,
+        currency=currency,
+        metadata={'booking_id': booking_id}
+    )
+except stripe.error.CardError as e:
+    return error_response(
+        error_number='CARD_ERROR',
+        error_message=str(e),
+        status_code=400
+    )
+except stripe.error.RateLimitError as e:
+    return error_response(
+        error_number='RATE_LIMIT',
+        error_message='Превышен лимит запросов',
+        status_code=429
+    )
+```
+
+## 🧪 Тестирование
+
+### Тестовые карты Stripe
 
 ```bash
-curl -X POST \
-  http://localhost:8000/api/v1/payments/stripe/confirm-payment/ \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "payment_intent_id": "pi_xxx",
-    "booking_id": 1
-  }'
+# Успешный платеж
+4242 4242 4242 4242
+
+# Недостаточно средств
+4000 0000 0000 0002
+
+# Карта отклонена
+4000 0000 0000 0002
+
+# Требует аутентификацию
+4000 0025 0000 3155
 ```
 
-## Интеграция с фронтендом
+### Тестовые команды
 
-### 1. Подключение Stripe.js
+```bash
+# Создание тестового платежа
+python manage.py shell
+>>> from payments.stripe_service import stripe_service
+>>> stripe_service.create_test_payment(1000, 'usd')
 
-```html
-<script src="https://js.stripe.com/v3/"></script>
+# Проверка статуса платежа
+>>> stripe_service.get_payment_status('pi_test_...')
 ```
 
-### 2. Инициализация Stripe
+## 🔒 Безопасность
 
-```javascript
-const stripe = Stripe('pk_test_your_publishable_key_here');
+### Меры безопасности
+
+1. **Валидация данных** - все входные данные проверяются
+2. **Транзакции БД** - все операции обернуты в транзакции
+3. **Логирование** - все платежные операции логируются
+4. **Webhook проверка** - подпись webhook'ов проверяется
+5. **Rate limiting** - ограничение частоты запросов
+
+### Переменные окружения для продакшена
+
+```env
+STRIPE_SECRET_KEY=sk_live_...
+STRIPE_PUBLISHABLE_KEY=pk_live_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+STRIPE_CONNECT_CLIENT_ID=ca_...
 ```
 
-### 3. Создание Payment Intent
+## 📈 Мониторинг
 
-```javascript
-// Создание Payment Intent на бэкенде
-const response = await fetch('/api/v1/payments/stripe/create-intent/', {
-  method: 'POST',
-  headers: {
-    'Authorization': `Bearer ${token}`,
-    'Content-Type': 'application/json'
-  },
-  body: JSON.stringify({
-    amount: 99.99,
-    currency: 'usd',
-    booking_id: 1
-  })
-});
+### Метрики для отслеживания
 
-const { client_secret } = await response.json();
+- Общий объем платежей
+- Успешность платежей
+- Среднее время обработки
+- Количество возвратов
+- Комиссия платформы
+
+### Логирование
+
+```python
+import logging
+
+logger = logging.getLogger('stripe_payments')
+
+def log_payment_event(event_type, payment_id, amount):
+    logger.info(f"Payment {event_type}: {payment_id}, Amount: {amount}")
 ```
 
-### 4. Подтверждение платежа
+## 🚀 Развертывание
 
-```javascript
-// Подтверждение платежа
-const { error } = await stripe.confirmCardPayment(client_secret, {
-  payment_method: {
-    card: elements.getElement('card'),
-    billing_details: {
-      name: 'Иван Иванов',
-      email: 'ivan@example.com'
-    }
-  }
-});
+### Продакшен чек-лист
 
-if (error) {
-  console.error('Ошибка платежа:', error);
-} else {
-  // Платеж успешен
-  await fetch('/api/v1/payments/stripe/confirm-payment/', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      payment_intent_id: paymentIntent.id,
-      booking_id: 1
-    })
-  });
-}
-```
+- [ ] Настроены live ключи Stripe
+- [ ] Настроены webhook'и
+- [ ] Проверена обработка ошибок
+- [ ] Настроено логирование
+- [ ] Проверены тестовые сценарии
+- [ ] Настроен мониторинг
+- [ ] Проверена безопасность
 
-## Безопасность
+### Команды для развертывания
 
-- ✅ Все платежи обрабатываются через Stripe (PCI DSS compliant)
-- ✅ Секретные ключи хранятся в переменных окружения
-- ✅ Проверка аутентификации для всех платежных операций
-- ✅ Валидация данных на сервере
-- ✅ Логирование всех платежных операций
+```bash
+# Применение миграций
+python manage.py migrate
 
-## Поддерживаемые методы оплаты
+# Создание индексов
+python manage.py create_indexes
 
-- 💳 Кредитные и дебетовые карты (Visa, MasterCard, American Express)
-- 🏦 Банковские переводы (ACH)
-- 📱 Apple Pay, Google Pay
-- 💰 PayPal (через Stripe)
-
-## Комиссии Stripe
-
-- **Стандартная комиссия:** 2.9% + $0.30 за успешный платеж
-- **Международные платежи:** +1% за валютную конвертацию
-- **Возвраты:** Комиссия не возвращается
-
-## Тестирование
-
-### Тестовые карты:
-
-- **Успешный платеж:** `4242 4242 4242 4242`
-- **Недостаточно средств:** `4000 0000 0000 0002`
-- **Карта отклонена:** `4000 0000 0000 0002`
-- **3D Secure:** `4000 0025 0000 3155`
-
-### Тестовые данные:
-
-- **CVV:** Любые 3 цифры
-- **Дата:** Любая будущая дата
-- **Почтовый индекс:** Любой
-
-## Мониторинг платежей
-
-1. **Stripe Dashboard:** Просмотр всех транзакций
-2. **Webhooks:** Автоматические уведомления о событиях
-3. **Логи:** Детальная информация о платежах в базе данных
-4. **Email уведомления:** Подтверждения платежей пользователям
-
-## Поддержка
-
-- 📧 **Stripe Support:** [support.stripe.com](https://support.stripe.com)
-- 📚 **Документация:** [stripe.com/docs](https://stripe.com/docs)
-- 🐛 **Отладка:** Проверьте логи Stripe в Dashboard 
+# Проверка конфигурации
+python manage.py check_stripe_config
+``` 
