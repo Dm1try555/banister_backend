@@ -12,6 +12,7 @@ services:
     depends_on:
       - db
       - minio
+      - redis
     environment:
       - POSTGRES_DB=${POSTGRES_DB}
       - POSTGRES_USER=${POSTGRES_USER}
@@ -76,6 +77,49 @@ services:
     labels:
       - "traefik.enable=true"
 
+  redis:
+    image: redis:7-alpine
+    container_name: redis_banister
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+
+  celery:
+    build: .
+    container_name: celery_banister
+    command: celery -A banister_backend worker -l info -Q email,notifications,workers
+    volumes:
+      - .:/app
+    depends_on:
+      - db
+      - redis
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - DB_HOST=${DB_HOST}
+      - DJANGO_DEBUG=${DJANGO_DEBUG}
+      - REDIS_URL=redis://redis:6379/0
+
+  celery-beat:
+    build: .
+    container_name: celery_beat_banister
+    command: celery -A banister_backend beat -l info
+    volumes:
+      - .:/app
+    depends_on:
+      - db
+      - redis
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - DB_HOST=${DB_HOST}
+      - DJANGO_DEBUG=${DJANGO_DEBUG}
+      - REDIS_URL=redis://redis:6379/0
+
   pgadmin:
     image: dpage/pgadmin4
     container_name: pgadmin_banister
@@ -90,3 +134,4 @@ services:
 volumes:
   postgres_data:
   minio_data:
+  redis_data:

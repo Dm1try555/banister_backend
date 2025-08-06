@@ -20,21 +20,21 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
 
 
-DEBUG = os.getenv('DJANGO_DEBUG', 'True') == 'True'
+DEBUG = os.getenv('DJANGO_DEBUG') == 'True'
 
 ALLOWED_HOSTS = ['localhost', '127.0.0.1']
 
 # Frontend URL for email confirmation links
-FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:3000')
+FRONTEND_URL = os.getenv('FRONTEND_URL')
 
 # Email settings
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
-EMAIL_PORT = int(os.getenv('EMAIL_PORT', 587))
-EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True') == 'True'
-EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', 'your-email@gmail.com')
-EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', 'your-app-password')
-DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@banister.com')
+EMAIL_HOST = os.getenv('EMAIL_HOST')
+EMAIL_PORT = int(os.getenv('EMAIL_PORT'))
+EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS') == 'True'
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL')
 
 # Application definition
 
@@ -47,26 +47,31 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework_simplejwt',
     'drf_yasg',
-    'error_handling',
-    'authentication',
-    'providers',
-    'bookings',
-    'services',
-    'payments',
-    'withdrawals',
-    'message',
-    'schedules',
-    'documents',
-    'admin_panel',
-    'dashboard',
-    'public_core',
-    'file_storage',
-    'cron_tasks',
-    'workers',
-    'notifications',
-    'channels',
     
-
+    # Core applications
+    'core.error_handling',
+    'core.authentication',
+    'core.file_storage',
+    'core.cron_tasks',
+    'core.workers',
+    'core.mail',
+    
+    # Business applications
+    'apps.providers',
+    'apps.bookings',
+    'apps.services',
+    'apps.payments',
+    'apps.withdrawals',
+    'apps.message',
+    'apps.schedules',
+    'apps.documents',
+    'apps.admin_panel',
+    'apps.dashboard',
+    'apps.notifications',
+    'public_core',
+    
+    'channels',
+    'django_celery_beat',
     'corsheaders',
 ]
 
@@ -79,8 +84,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'authentication.middleware.SwaggerAuthMiddleware',
-    'error_handling.middleware.ErrorHandlingMiddleware',
+    'core.authentication.middleware.SwaggerAuthMiddleware',
+    'core.error_handling.middleware.ErrorHandlingMiddleware',
 ]
 
 CORS_ALLOW_ALL_ORIGINS = True
@@ -138,11 +143,11 @@ CHANNEL_LAYERS = {
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('POSTGRES_DB', 'banister_db'),
-        'USER': os.getenv('POSTGRES_USER', 'banister_user'),
-        'PASSWORD': os.getenv('POSTGRES_PASSWORD', 'banister_pass'),
-        # 'HOST': os.getenv('DB_HOST', 'localhost'), #for local
-        'HOST': os.getenv('DB_HOST', 'db'), #for docker
+        'NAME': os.getenv('POSTGRES_DB'),
+        'USER': os.getenv('POSTGRES_USER'),
+        'PASSWORD': os.getenv('POSTGRES_PASSWORD'),
+        # 'HOST': os.getenv('DB_HOST'), #for local
+        'HOST': os.getenv('DB_HOST'), #for docker
         'PORT': '5432',
     }
 }
@@ -166,19 +171,19 @@ REST_FRAMEWORK = {
 }
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=int(os.getenv('JWT_ACCESS_TOKEN_LIFETIME_MINUTES', 60))),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=int(os.getenv('JWT_REFRESH_TOKEN_LIFETIME_DAYS', 1))),
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=int(os.getenv('JWT_ACCESS_TOKEN_LIFETIME_MINUTES'))),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=int(os.getenv('JWT_REFRESH_TOKEN_LIFETIME_DAYS'))),
 }
 
 AUTH_USER_MODEL = 'authentication.User'
 
 FIREBASE_CONFIG = {
-    'apiKey': os.getenv('FIREBASE_API_KEY', 'your-firebase-api-key'),
-    'authDomain': os.getenv('FIREBASE_AUTH_DOMAIN', 'your-firebase-auth-domain'),
-    'projectId': os.getenv('FIREBASE_PROJECT_ID', 'your-firebase-project-id'),
-    'storageBucket': os.getenv('FIREBASE_STORAGE_BUCKET', 'your-firebase-storage-bucket'),
-    'messagingSenderId': os.getenv('FIREBASE_MESSAGING_SENDER_ID', 'your-firebase-messaging-sender-id'),
-    'appId': os.getenv('FIREBASE_APP_ID', 'your-firebase-app-id')
+    'apiKey': os.getenv('FIREBASE_API_KEY'),
+    'authDomain': os.getenv('FIREBASE_AUTH_DOMAIN'),
+    'projectId': os.getenv('FIREBASE_PROJECT_ID'),
+    'storageBucket': os.getenv('FIREBASE_STORAGE_BUCKET'),
+    'messagingSenderId': os.getenv('FIREBASE_MESSAGING_SENDER_ID'),
+    'appId': os.getenv('FIREBASE_APP_ID')
 }
 
 # Swagger settings
@@ -303,7 +308,35 @@ LOGGING = {
 
 # Cron jobs configuration
 CRONJOBS = [
-    ('0 0 * * *', 'cron_tasks.cron.database_backup_cron_job'),  # Daily at midnight
-    ('0 0 * * *', 'cron_tasks.cron.minio_backup_cron_job'),     # Daily at midnight
-    ('0 0 * * 0', 'cron_tasks.cron.notification_cleanup_cron_job'),  # Weekly on Sunday at midnight
+    (os.getenv('CRON_DATABASE_BACKUP_SCHEDULE'), 'cron_tasks.cron.database_backup_cron_job'),
+    (os.getenv('CRON_MINIO_BACKUP_SCHEDULE'), 'cron_tasks.cron.minio_backup_cron_job'),
+    (os.getenv('CRON_NOTIFICATION_CLEANUP_SCHEDULE'), 'cron_tasks.cron.notification_cleanup_cron_job'),
 ]
+
+# Celery Configuration
+CELERY_BROKER_URL = os.getenv('REDIS_URL')
+CELERY_RESULT_BACKEND = os.getenv('REDIS_URL')
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'UTC'
+CELERY_ENABLE_UTC = True
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 минут
+CELERY_TASK_SOFT_TIME_LIMIT = 25 * 60  # 25 минут
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1
+CELERY_WORKER_MAX_TASKS_PER_CHILD = 1000
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+
+# Redis Configuration
+REDIS_URL = os.getenv('REDIS_URL')
+REDIS_HOST = os.getenv('REDIS_HOST')
+REDIS_PORT = int(os.getenv('REDIS_PORT'))
+REDIS_DB = int(os.getenv('REDIS_DB'))
+REDIS_PASSWORD = os.getenv('REDIS_PASSWORD')
+
+# Email Queue Configuration
+EMAIL_QUEUE_NAME = os.getenv('EMAIL_QUEUE_NAME')
+EMAIL_BATCH_SIZE = int(os.getenv('EMAIL_BATCH_SIZE'))
+EMAIL_RETRY_ATTEMPTS = int(os.getenv('EMAIL_RETRY_ATTEMPTS'))
+EMAIL_RETRY_DELAY = int(os.getenv('EMAIL_RETRY_DELAY'))

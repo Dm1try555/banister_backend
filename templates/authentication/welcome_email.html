@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Добро пожаловать в Banister!</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        .container {
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .logo {
+            font-size: 28px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        .welcome-message {
+            text-align: center;
+            margin: 30px 0;
+        }
+        .welcome-message h1 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+        }
+        .features {
+            margin: 30px 0;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+        }
+        .features h3 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+        }
+        .features ul {
+            list-style: none;
+            padding: 0;
+        }
+        .features li {
+            padding: 8px 0;
+            border-bottom: 1px solid #dee2e6;
+        }
+        .features li:before {
+            content: "✓";
+            color: #28a745;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        .cta-button {
+            text-align: center;
+            margin: 30px 0;
+        }
+        .button {
+            display: inline-block;
+            padding: 15px 30px;
+            background-color: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+            font-size: 16px;
+        }
+        .button:hover {
+            background-color: #0056b3;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #dee2e6;
+            color: #6c757d;
+            font-size: 14px;
+        }
+        .highlight {
+            background-color: #e3f2fd;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            border-left: 4px solid #2196f3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">Banister</div>
+        </div>
+        
+        <div class="welcome-message">
+            <h1>Добро пожаловать, {{ username }}! 🎉</h1>
+            <p>Мы рады приветствовать вас в Banister - вашей платформе для управления услугами и бронированиями.</p>
+        </div>
+        
+        <div class="highlight">
+            <h3>🚀 Что вы можете делать:</h3>
+            <ul>
+                <li>Бронировать услуги у проверенных поставщиков</li>
+                <li>Управлять своими заказами и расписанием</li>
+                <li>Безопасно оплачивать услуги онлайн</li>
+                <li>Получать уведомления о статусе заказов</li>
+                <li>Оставлять отзывы и оценки</li>
+            </ul>
+        </div>
+        
+        <div class="features">
+            <h3>✨ Наши преимущества:</h3>
+            <ul>
+                <li>Безопасные платежи через Stripe</li>
+                <li>Мгновенные уведомления</li>
+                <li>Поддержка 24/7</li>
+                <li>Прозрачное ценообразование</li>
+                <li>Гарантия качества услуг</li>
+            </ul>
+        </div>
+        
+        <div class="cta-button">
+            <a href="{{ login_url }}" class="button">Начать работу</a>
+        </div>
+        
+        <div class="footer">
+            <p>Если у вас есть вопросы, наша служба поддержки готова помочь!</p>
+            <p>© 2025 Banister. Все права защищены.</p>
+        </div>
+    </div>
+</body>
+</html> 

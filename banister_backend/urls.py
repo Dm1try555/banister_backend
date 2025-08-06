@@ -40,46 +40,46 @@ schema_view = get_schema_view(
 
 urlpatterns = [
     # Authentication and profile
-    path('api/v1/auth/', include('authentication.urls')),
+    path('api/v1/auth/', include('core.authentication.urls')),
 
     # Bookings
-    path('api/v1/bookings/', include('bookings.urls')),
+    path('api/v1/bookings/', include('apps.bookings.urls')),
 
     # Services
-    path('api/v1/services/', include('services.urls')),
+    path('api/v1/services/', include('apps.services.urls')),
 
     # Payments
-    path('api/v1/payments/', include('payments.urls')),
+    path('api/v1/payments/', include('apps.payments.urls')),
 
     # Withdrawals
-    path('api/v1/withdrawals/', include('withdrawals.urls')),
+    path('api/v1/withdrawals/', include('apps.withdrawals.urls')),
 
     # Messages and chats
-    path('api/v1/message/', include('message.urls')),
+    path('api/v1/message/', include('apps.message.urls')),
 
     # Schedule
-    path('api/v1/schedules/', include('schedules.urls')),
+    path('api/v1/schedules/', include('apps.schedules.urls')),
 
     # Documents
-    path('api/v1/documents/', include('documents.urls')),
+    path('api/v1/documents/', include('apps.documents.urls')),
 
     # Admin panel
-    path('api/v1/users/', include('admin_panel.urls')),
+    path('api/v1/users/', include('apps.admin_panel.urls')),
 
     # Dashboard
-    path('api/v1/dashboard/', include('dashboard.urls')),
+    path('api/v1/dashboard/', include('apps.dashboard.urls')),
 
     # Public services
     path('api/v1/public/', include('public_core.urls')),
 
     # File storage
-    path('api/v1/files/', include('file_storage.urls')),
+    path('api/v1/files/', include('core.file_storage.urls')),
 
     # Workers
-    path('api/v1/workers/', include('workers.urls')),
+    path('api/v1/workers/', include('core.workers.urls')),
 
     # Notifications
-    path('api/v1/notifications/', include('notifications.urls')),
+    path('api/v1/notifications/', include('apps.notifications.urls')),
 
     # swagger
     path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
