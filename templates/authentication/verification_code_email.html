@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Код подтверждения - Banister</title>
+    <title>Verification Code - Banister</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -83,12 +83,12 @@
     <div class="container">
         <div class="header">
             <div class="logo">Banister</div>
-            <h1>Код подтверждения</h1>
+            <h1>Verification Code</h1>
         </div>
         
         <div class="message">
-            <p>Здравствуйте!</p>
-            <p>Для завершения регистрации или входа в систему используйте следующий код подтверждения:</p>
+            <p>Hello!</p>
+            <p>To complete registration or login, use the following verification code:</p>
         </div>
         
         <div class="code-container">
@@ -96,21 +96,21 @@
         </div>
         
         <div class="warning">
-            <strong>⚠️ Важно:</strong>
+            <strong>⚠️ Important:</strong>
             <ul style="margin: 10px 0; padding-left: 20px;">
-                <li>Код действителен в течение {{ expires_in }}</li>
-                <li>Не передавайте код третьим лицам</li>
-                <li>Если вы не запрашивали код, проигнорируйте это письмо</li>
+                <li>The code is valid for {{ expires_in }}</li>
+                <li>Don't share the code with third parties</li>
+                <li>If you didn't request the code, ignore this email</li>
             </ul>
         </div>
         
         <div class="message">
-            <p>Если у вас возникли вопросы, обратитесь в службу поддержки.</p>
+            <p>If you have any questions, contact our support team.</p>
         </div>
         
         <div class="footer">
-            <p>© 2025 Banister. Все права защищены.</p>
-            <p>Это автоматическое сообщение, не отвечайте на него.</p>
+            <p>© 2025 Banister. All rights reserved.</p>
+            <p>This is an automated message, please do not reply.</p>
         </div>
     </div>
 </body>

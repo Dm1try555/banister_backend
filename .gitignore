@@ -48,7 +48,7 @@ service-account-*.json
 *.pid
 docker-compose.override.yml
 
-# Миграции теперь не игнорируются
+# Migrations are no longer ignored
 */migrations/*
 !*/migrations/__init__.py
 

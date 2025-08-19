@@ -1,35 +1,34 @@
-import logging
-from django.http import JsonResponse
-from django.utils import timezone
-
-logger = logging.getLogger(__name__)
-
-
-class ErrorHandlingMiddleware:
-    
-    def __init__(self, get_response):
-        self.get_response = get_response
-
-    def __call__(self, request):
-        response = self.get_response(request)
-        return response
-
-    def process_exception(self, request, exception):
-        """
-        Обработка исключений - оставляем стандартную обработку Django
-        """
-        # Логирование ошибки
-        logger.error(f"Error occurred: {exception}", exc_info=True)
-        
-        # Возвращаем None, чтобы Django обработал ошибку стандартным способом
-        return None
+from rest_framework.views import exception_handler
+from rest_framework.response import Response
+from ..exceptions import CustomAPIException
 
 
 def custom_exception_handler(exc, context):
-    """
-    Обработчик исключений для DRF
-    """
-    from rest_framework.views import exception_handler
+    response = exception_handler(exc, context)
     
-    # Используем стандартный обработчик DRF без изменений
-    return exception_handler(exc, context) 
+    if isinstance(exc, CustomAPIException):
+        custom_response_data = {
+            'error': {
+                'code': exc.error_code.code,
+                'title': exc.error_code.title,
+                'description': str(exc.detail),
+                'timestamp': None
+            }
+        }
+        
+        return Response(custom_response_data, status=exc.status_code)
+    
+    # For standard DRF exceptions, format them consistently
+    if response is not None:
+        custom_response_data = {
+            'error': {
+                'code': response.status_code,
+                'title': exc.__class__.__name__,
+                'description': str(response.data.get('detail', response.data)) if hasattr(response.data, 'get') else str(response.data),
+                'timestamp': None
+            }
+        }
+        
+        response.data = custom_response_data
+    
+    return response

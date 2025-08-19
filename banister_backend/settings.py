@@ -29,16 +29,17 @@ FRONTEND_URL = os.getenv('FRONTEND_URL')
 
 # Email settings
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = os.getenv('EMAIL_HOST')
-EMAIL_PORT = int(os.getenv('EMAIL_PORT'))
-EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS') == 'True'
-EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
-EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
-DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL')
+EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
+EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True') == 'True'
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@banister.com')
 
 # Application definition
 
 INSTALLED_APPS = [
+    'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
@@ -47,28 +48,18 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework_simplejwt',
     'drf_yasg',
-    
-    # Core applications
-    'core.error_handling',
-    'core.authentication',
-    'core.file_storage',
-    'core.cron_tasks',
-    'core.workers',
-    'core.mail',
+    'django_filters',
     
     # Business applications
-    'apps.providers',
+    'apps.authentication',
     'apps.bookings',
     'apps.services',
     'apps.payments',
     'apps.withdrawals',
-    'apps.message',
-    'apps.schedules',
     'apps.documents',
-    'apps.admin_panel',
     'apps.dashboard',
     'apps.notifications',
-    'public_core',
+    'apps.message',
     
     'channels',
     'django_celery_beat',
@@ -84,8 +75,6 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'core.authentication.middleware.SwaggerAuthMiddleware',
-    'core.error_handling.middleware.ErrorHandlingMiddleware',
 ]
 
 CORS_ALLOW_ALL_ORIGINS = True
@@ -146,8 +135,7 @@ DATABASES = {
         'NAME': os.getenv('POSTGRES_DB'),
         'USER': os.getenv('POSTGRES_USER'),
         'PASSWORD': os.getenv('POSTGRES_PASSWORD'),
-        # 'HOST': os.getenv('DB_HOST'), #for local
-        'HOST': os.getenv('DB_HOST'), #for docker
+        'HOST': os.getenv('DB_HOST'),
         'PORT': '5432',
     }
 }
@@ -159,7 +147,14 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
-    'EXCEPTION_HANDLER': 'error_handling.middleware.custom_exception_handler',
+    'DEFAULT_FILTER_BACKENDS': [
+        'django_filters.rest_framework.DjangoFilterBackend',
+        'rest_framework.filters.SearchFilter',
+        'rest_framework.filters.OrderingFilter',
+    ],
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 20,
+    'EXCEPTION_HANDLER': 'core.error_handling.error_handling.middleware.custom_exception_handler',
     'DEFAULT_THROTTLE_CLASSES': [
         'rest_framework.throttling.AnonRateThrottle',
         'rest_framework.throttling.UserRateThrottle'
@@ -283,35 +278,22 @@ LOGGING = {
         'console': {
             'class': 'logging.StreamHandler',
         },
-        'file': {
-            'class': 'logging.FileHandler',
-            'filename': 'debug.log',
-        },
     },
     'root': {
-        'handlers': ['console', 'file'],
+        'handlers': ['console'],
         'level': 'INFO',
     },
     'loggers': {
         'django': {
-            'handlers': ['console', 'file'],
+            'handlers': ['console'],
             'level': 'INFO',
-            'propagate': False,
-        },
-        'dashboard': {
-            'handlers': ['console', 'file'],
-            'level': 'DEBUG',
             'propagate': False,
         },
     },
 }
 
-# Cron jobs configuration
-CRONJOBS = [
-    (os.getenv('CRON_DATABASE_BACKUP_SCHEDULE'), 'cron_tasks.cron.database_backup_cron_job'),
-    (os.getenv('CRON_MINIO_BACKUP_SCHEDULE'), 'cron_tasks.cron.minio_backup_cron_job'),
-    (os.getenv('CRON_NOTIFICATION_CLEANUP_SCHEDULE'), 'cron_tasks.cron.notification_cleanup_cron_job'),
-]
+# Cron jobs configuration (disabled for now)
+# CRONJOBS = []
 
 # Celery Configuration
 CELERY_BROKER_URL = os.getenv('REDIS_URL')
@@ -322,8 +304,8 @@ CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = 'UTC'
 CELERY_ENABLE_UTC = True
 CELERY_TASK_TRACK_STARTED = True
-CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 минут
-CELERY_TASK_SOFT_TIME_LIMIT = 25 * 60  # 25 минут
+CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutes
+CELERY_TASK_SOFT_TIME_LIMIT = 25 * 60  # 25 minutes
 CELERY_WORKER_PREFETCH_MULTIPLIER = 1
 CELERY_WORKER_MAX_TASKS_PER_CHILD = 1000
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True

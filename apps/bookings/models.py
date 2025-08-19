@@ -1,5 +1,5 @@
 from django.db import models
-from core.authentication.models import User
+from apps.authentication.models import User
 from apps.services.models import Service
 
 class Booking(models.Model):
@@ -19,7 +19,7 @@ class Booking(models.Model):
     
     created_at = models.DateTimeField(auto_now_add=True)
     customer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='bookings')
-    service = models.ForeignKey('services.Service', on_delete=models.CASCADE, related_name='bookings')
+    service = models.ForeignKey(Service, on_delete=models.CASCADE, related_name='bookings')
     provider = models.ForeignKey(User, on_delete=models.CASCADE, related_name='provider_bookings')
     
     # Booking details from UI
