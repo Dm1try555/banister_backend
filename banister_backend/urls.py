@@ -31,7 +31,7 @@ urlpatterns = [
         path('', include('apps.documents.urls')),
         path('', include('apps.dashboard.urls')),
         path('', include('apps.notifications.urls')),
-        path('', include('apps.message.urls')),
+        path('chat/', include('apps.chat.urls')),
     ])),
     
     # Swagger documentation

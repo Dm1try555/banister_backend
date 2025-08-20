@@ -59,7 +59,7 @@ INSTALLED_APPS = [
     'apps.documents',
     'apps.dashboard',
     'apps.notifications',
-    'apps.message',
+    'apps.chat',
     
     'channels',
     'django_celery_beat',
@@ -322,3 +322,15 @@ EMAIL_QUEUE_NAME = os.getenv('EMAIL_QUEUE_NAME')
 EMAIL_BATCH_SIZE = int(os.getenv('EMAIL_BATCH_SIZE'))
 EMAIL_RETRY_ATTEMPTS = int(os.getenv('EMAIL_RETRY_ATTEMPTS'))
 EMAIL_RETRY_DELAY = int(os.getenv('EMAIL_RETRY_DELAY'))
+
+# Channels Configuration
+ASGI_APPLICATION = 'banister_backend.asgi.application'
+
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            "hosts": [(os.getenv('REDIS_HOST', 'redis'), int(os.getenv('REDIS_PORT', 6379)))],
+        },
+    },
+}

@@ -1,7 +1,5 @@
 from django.apps import AppConfig
 
-
-class MessageConfig(AppConfig):
+class ChatConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
-    name = 'apps.message'
-    verbose_name = 'Message' 
+    name = 'apps.chat'

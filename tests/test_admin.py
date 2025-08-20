@@ -2,7 +2,8 @@
 import requests
 import json
 
-BASE_URL = "http://localhost:8000/api/v1"
+import os
+BASE_URL = os.getenv('BASE_URL', "http://localhost:8000/api/v1")
 
 def test_admin_login():
     """Тест логина суперадмина"""

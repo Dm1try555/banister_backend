@@ -40,6 +40,7 @@ class User(AbstractUser):
         db_table = 'users'
         verbose_name = 'User'
         verbose_name_plural = 'Users'
+        ordering = ['-created_at']
     
     def __str__(self):
         return f"{self.username} ({self.get_role_display()})"
@@ -76,6 +77,7 @@ class AdminPermission(models.Model):
     
     class Meta:
         unique_together = ['admin_user', 'permission_name']
+        ordering = ['permission_name']
     
     def __str__(self):
         return f"{self.admin_user.username} - {self.permission_name}: {self.can_access}"

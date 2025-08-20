@@ -17,7 +17,7 @@ def run_test(test_file, test_name):
     
     try:
         result = subprocess.run([
-            'python', f'/app/tests/{test_file}'
+            'python', f'tests/{test_file}'
         ], capture_output=True, text=True, timeout=30)
         
         if result.returncode == 0:
@@ -46,7 +46,12 @@ def main():
         ("test_permissions.py", "Система разрешений"),
         ("test_drf_classes.py", "DRF классы и архитектура"),
         ("test_pagination_minio.py", "Пагинация и MinIO"),
-        ("test_cron_smtp.py", "Крон задачи и SMTP")
+        ("test_notifications.py", "Система уведомлений"),
+        ("test_chat.py", "Система чата с WebSocket"),
+        ("test_smtp_only.py", "SMTP отправка email"),
+        ("test_cron_only.py", "Cron задачи и расписание"),
+        ("test_backups.py", "Локальные бекапы"),
+        ("check_backup_files.py", "Проверка бекапов")
     ]
     
     results = []
