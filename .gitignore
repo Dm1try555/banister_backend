@@ -48,9 +48,9 @@ service-account-*.json
 *.pid
 docker-compose.override.yml
 
-# Migrations are no longer ignored
-*/migrations/*
-!*/migrations/__init__.py
+# Migrations - ОБЯЗАТЕЛЬНО отслеживать в Git!
+# */migrations/*
+# !*/migrations/__init__.py
 
 # Logs
 debug.log
