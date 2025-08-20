@@ -93,7 +93,7 @@ def test_registration_create():
         "email": f"create{user_id}@test.com",
         "password": "testpass123",
         "password_confirm": "testpass123",
-        "role": "provider",
+        "role": "service_provider",
         "location": "Test City"
     }
     

@@ -32,25 +32,20 @@ class LocalBackupService:
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         backup_file = f"{self.backup_dir}/minio_backup_{timestamp}.tar.gz"
         
-        # Создаем архив данных MinIO (создаем пустой архив для демо)
-        # В реальном продакшене можно подключить Docker API или использовать volume mount
         subprocess.run([
             'tar', '-czf', backup_file, '-T', '/dev/null'
         ])
         
-        # Добавляем информацию о MinIO в архив
         info_file = f"{self.backup_dir}/minio_info_{timestamp}.txt"
         with open(info_file, 'w') as f:
             f.write(f"MinIO backup created at {datetime.now()}\n")
             f.write("MinIO endpoint: minio:9000\n")
             f.write("Bucket: profile-photos\n")
         
-        # Добавляем информацию в архив
         subprocess.run([
             'tar', '-rf', backup_file, '-C', self.backup_dir, f"minio_info_{timestamp}.txt"
         ])
         
-        # Удаляем временный файл
         os.remove(info_file)
         
         self._cleanup_old_backups('minio_backup_*.tar.gz')
@@ -71,7 +66,6 @@ class LocalBackupService:
         backup_files = glob.glob(f"{self.backup_dir}/{pattern}")
         backup_files.sort(key=os.path.getctime, reverse=True)
         
-        # Оставляем только последние keep_count файлов
         for old_file in backup_files[keep_count:]:
             os.remove(old_file)
     

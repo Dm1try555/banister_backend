@@ -22,7 +22,7 @@ class StripeService:
         """Create payment intent to receive funds"""
         try:
             intent_data = {
-                'amount': int(amount * 100),  # Stripe uses cents
+                'amount': int(amount * 100),
                 'currency': currency,
                 'automatic_payment_methods': {'enabled': True}
             }
@@ -39,7 +39,7 @@ class StripeService:
         """Transfer funds to connected account"""
         try:
             transfer_data = {
-                'amount': int(amount * 100),  # Stripe uses cents
+                'amount': int(amount * 100),
                 'currency': currency,
                 'destination': destination_account
             }
@@ -76,7 +76,7 @@ class StripeService:
             return False, f"Customer creation error: {str(e)}"
     
     def create_account(self, email, country='US', type='express'):
-        """Create connected account for providers"""
+        """Create connected account for service providers"""
         try:
             account = stripe.Account.create(
                 type=type,
@@ -87,5 +87,4 @@ class StripeService:
         except Exception as e:
             return False, f"Account creation error: {str(e)}"
 
-# Global Stripe service instance
 stripe_service = StripeService()

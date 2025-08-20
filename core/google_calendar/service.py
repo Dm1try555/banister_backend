@@ -15,7 +15,6 @@ class GoogleCalendarService:
     def _initialize_service(self):
         """Initialize Google Calendar API"""
         try:
-            # Use google-credentials.json from project root
             service_account_file = os.path.join(settings.BASE_DIR, 'google-credentials.json')
             
             if not os.path.exists(service_account_file):
@@ -41,7 +40,7 @@ class GoogleCalendarService:
         try:
             event_data = {
                 'summary': f'Meeting: {booking.service.title}',
-                'description': f'Service: {booking.service.title}\nCustomer: {booking.customer.email}\nProvider: {booking.provider.email}',
+                'description': f'Service: {booking.service.title}\nCustomer: {booking.customer.email}\nService Provider: {booking.provider.email}',
                 'start': {
                     'dateTime': booking.scheduled_datetime.isoformat(),
                     'timeZone': 'UTC',
@@ -76,5 +75,4 @@ class GoogleCalendarService:
         except Exception as e:
             return False, f"Event creation error: {str(e)}"
 
-# Global service instance
 google_calendar_service = GoogleCalendarService()

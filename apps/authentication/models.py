@@ -4,42 +4,35 @@ from django.db import models
 
 class User(AbstractUser):
     ROLE_CHOICES = (
-        ('customer', 'Customer'),
-        ('provider', 'Provider'),
-        ('management', 'Management'),
-        ('accountant', 'Accountant'),
-        ('admin', 'Admin'),
         ('super_admin', 'Super Admin'),
+        ('admin', 'Admin'),
+        ('hr', 'HR'),
+        ('supervisor', 'Supervisor'),
+        ('customer', 'Customer'),
+        ('service_provider', 'Service Provider'),
     )
     
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='customer')
     
-    # Basic info (first_name, last_name, email, password inherited from AbstractUser)
     phone_number = models.CharField(max_length=15, blank=True, null=True)
-    location = models.CharField(max_length=255, blank=True, null=True)  # Address/City
+    location = models.CharField(max_length=255, blank=True, null=True)
     profile_photo = models.CharField(max_length=255, blank=True, null=True)
     
-    # Email verification
     email_verified = models.BooleanField(default=False)
     email_verification_code = models.CharField(max_length=6, blank=True, null=True)
     
-    # Integration tokens
     firebase_token = models.CharField(max_length=500, blank=True, null=True)
     stripe_account_id = models.CharField(max_length=255, blank=True, null=True)
     
-    # Provider fields (only for providers)
     provider_verified = models.BooleanField(default=False)
     provider_rating = models.FloatField(default=0.0)
     provider_hourly_rate = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     
-    # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
         db_table = 'users'
-        verbose_name = 'User'
-        verbose_name_plural = 'Users'
         ordering = ['-created_at']
     
     def __str__(self):
@@ -50,16 +43,16 @@ class User(AbstractUser):
         return self.role == 'customer'
     
     @property
-    def is_provider(self):
-        return self.role == 'provider'
+    def is_service_provider(self):
+        return self.role == 'service_provider'
     
     @property
-    def is_management(self):
-        return self.role == 'management'
+    def is_hr(self):
+        return self.role == 'hr'
     
     @property 
-    def is_accountant(self):
-        return self.role == 'accountant'
+    def is_supervisor(self):
+        return self.role == 'supervisor'
     
     @property
     def is_admin(self):

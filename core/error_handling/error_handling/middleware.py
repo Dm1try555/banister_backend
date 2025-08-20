@@ -18,7 +18,6 @@ def custom_exception_handler(exc, context):
         
         return Response(custom_response_data, status=exc.status_code)
     
-    # For standard DRF exceptions, format them consistently
     if response is not None:
         custom_response_data = {
             'error': {

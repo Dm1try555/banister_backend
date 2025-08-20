@@ -119,8 +119,7 @@ CHANNEL_LAYERS = {
     'default': {
         'BACKEND': 'channels_redis.core.RedisChannelLayer',
         'CONFIG': {
-            'hosts': [('redis', 6379)],  # for docker
-            # 'hosts': [('localhost', 6379)],  # for local development
+            'hosts': [('redis', 6379)],
         },
     },
 }
@@ -292,9 +291,6 @@ LOGGING = {
     },
 }
 
-# Cron jobs configuration (disabled for now)
-# CRONJOBS = []
-
 # Celery Configuration
 CELERY_BROKER_URL = os.getenv('REDIS_URL')
 CELERY_RESULT_BACKEND = os.getenv('REDIS_URL')
@@ -330,7 +326,7 @@ CHANNEL_LAYERS = {
     'default': {
         'BACKEND': 'channels_redis.core.RedisChannelLayer',
         'CONFIG': {
-            "hosts": [(os.getenv('REDIS_HOST', 'redis'), int(os.getenv('REDIS_PORT', 6379)))],
+            'hosts': [('redis', 6379)],
         },
     },
 }

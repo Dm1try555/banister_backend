@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+
 import requests
 import json
 
@@ -47,7 +47,6 @@ def test_manage_permissions(token, admin_id):
     url = f"{BASE_URL}/auth/admin/manage-permissions/"
     headers = {"Authorization": f"Bearer {token}"}
     
-    # Даем разрешение
     data = {
         "admin_id": admin_id,
         "permission_name": "users_management", 
@@ -62,7 +61,6 @@ def test_manage_permissions(token, admin_id):
     else:
         print(f"❌ Ошибка: {response.text}")
     
-    # Отнимаем разрешение
     data['can_access'] = False
     response = requests.post(url, json=data, headers=headers)
     print(f"🚫 ОТЗЫВ РАЗРЕШЕНИЯ: {response.status_code}")
@@ -74,7 +72,6 @@ def test_manage_permissions(token, admin_id):
 
 def test_email_verification():
     """Тест верификации email"""
-    # Отправка кода
     url = f"{BASE_URL}/auth/send-verification/"
     data = {"email": "admin@regular.com"}
     
@@ -85,7 +82,6 @@ def test_email_verification():
     else:
         print(f"❌ Ошибка: {response.text}")
     
-    # Попытка верификации с неправильным кодом
     url = f"{BASE_URL}/auth/verify-email/"
     data = {
         "email": "admin@regular.com",
@@ -102,7 +98,6 @@ def test_email_verification():
 if __name__ == "__main__":
     print("🔑 ТЕСТИРОВАНИЕ СИСТЕМЫ РАЗРЕШЕНИЙ\n")
     
-    # Получаем токен суперадмина
     token = get_admin_token()
     if not token:
         print("❌ Не удалось получить токен суперадмина")

@@ -18,7 +18,7 @@ class RegisterView(generics.CreateAPIView):
                 'password_confirm': openapi.Schema(type=openapi.TYPE_STRING, description='Confirm password'),
                 'first_name': openapi.Schema(type=openapi.TYPE_STRING, description='First name'),
                 'last_name': openapi.Schema(type=openapi.TYPE_STRING, description='Last name'),
-                'role': openapi.Schema(type=openapi.TYPE_STRING, description='User role', enum=['customer', 'provider', 'management', 'accountant', 'admin', 'super_admin']),
+                'role': openapi.Schema(type=openapi.TYPE_STRING, description='User role', enum=['customer', 'service_provider', 'hr', 'supervisor', 'admin', 'super_admin']),
                 'phone_number': openapi.Schema(type=openapi.TYPE_STRING, description='Phone number'),
                 'location': openapi.Schema(type=openapi.TYPE_STRING, description='Location'),
             }

@@ -63,7 +63,7 @@ docker-compose exec web python tests/run_all_tests.py
 ### **2. Админские функции (test_admin.py):**
 - POST `/api/v1/auth/login/` - Логин суперадмина
 - PATCH `/api/v1/auth/admin/update-profile/` - Обновление профиля админа
-- GET `/api/v1/auth/admin/permissions/` - Получение разрешений
+- GET `/api/v1/auth/admin/permissions/` - Получение разрешений 
 - GET `/api/v1/users/` - Список пользователей (ModelViewSet)
 
 ### **3. Система разрешений (test_permissions.py):**

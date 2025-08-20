@@ -42,15 +42,15 @@ app.conf.task_routes = {
 app.conf.beat_schedule = {
     'database-backup': {
         'task': 'core.backup.tasks.database_backup_task',
-        'schedule': crontab(hour=0, minute=0),  # daily at midnight
+        'schedule': crontab(hour=0, minute=0),
     },
     'minio-backup': {
         'task': 'core.backup.tasks.minio_backup_task',
-        'schedule': crontab(hour=0, minute=0),  # daily at midnight
+        'schedule': crontab(hour=0, minute=0),
     },
     'cleanup-old-notifications': {
         'task': 'core.backup.tasks.cleanup_notifications_task',
-        'schedule': crontab(hour=0, minute=0, day_of_week=0),  # weekly on Sunday at midnight
+        'schedule': crontab(hour=0, minute=0, day_of_week=0),
     },
 }
 

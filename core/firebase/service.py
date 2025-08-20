@@ -13,7 +13,6 @@ class FirebaseService:
     def _initialize_firebase(self):
         """Initialize Firebase app using firebase-service-account.json"""
         try:
-            # Use firebase-service-account.json from project root
             firebase_config_path = os.path.join(settings.BASE_DIR, 'firebase-service-account.json')
             
             if not os.path.exists(firebase_config_path):
@@ -98,5 +97,4 @@ class FirebaseService:
         except Exception as e:
             return False, f"Firebase topic error: {str(e)}"
 
-# Global Firebase service instance
 firebase_service = FirebaseService()

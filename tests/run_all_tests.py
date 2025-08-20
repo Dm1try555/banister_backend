@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+
 """
 🧪 Запуск всех тестов Banister Backend API
 
@@ -64,9 +64,8 @@ def main():
         if not success:
             print(f"\n⚠️ ТЕСТ {test_name} ПРОВАЛЕН!")
         
-        time.sleep(1)  # Небольшая пауза между тестами
+        time.sleep(1)
     
-    # Сводный отчет
     end_time = time.time()
     total_time = end_time - start_time
     
