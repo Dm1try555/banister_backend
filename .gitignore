@@ -2,32 +2,43 @@
 __pycache__/
 *.py[cod]
 *$py.class
+*.pyc
+*.pyo
 
 # Django
 *.log
 *.pot
-*.pyc
-*.pyo
 *.db
 *.sqlite3
 media/
 staticfiles/
+static/
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
 
-# Virtualenv
+# Virtual Environment
 venv/
 ENV/
 env/
+.venv/
 
-# VSCode
+# IDE
 .vscode/
-
-# PyCharm
 .idea/
 *.iml
+*.swp
+*.swo
 
 # OS files
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
+desktop.ini
 
 # Environment variables
 .env
@@ -35,34 +46,36 @@ Thumbs.db
 .env.local
 .env.development
 .env.production
+.env.test
 
-# Google Cloud credentials
-*.json
-cron_tasks/*.json
+# Credentials and sensitive files
 firebase-service-account.json
 google-credentials.json
-google-service-account.json
-service-account-*.json
+*.pem
+*.key
+*.crt
 
 # Docker
 *.pid
 docker-compose.override.yml
 
-# Migrations - ОБЯЗАТЕЛЬНО отслеживать в Git!
-# */migrations/*
-# !*/migrations/__init__.py
-
-# Logs
-debug.log
-*.log
+# Celery
+celerybeat-schedule
+celerybeat-schedule.*
+celerybeat.pid
 
 # Temporary files
 *.tmp
 *.temp
+*.bak
 
-# Celery
-celerybeat-schedule
-celerybeat-schedule.*
+# Coverage reports
+htmlcov/
+.coverage
+.coverage.*
+.cache
+*.cover
+.pytest_cache/
 
 # Tests
 tests/
