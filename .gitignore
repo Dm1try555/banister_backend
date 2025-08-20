@@ -64,3 +64,6 @@ debug.log
 celerybeat-schedule
 celerybeat-schedule.*
 
+# Tests
+tests/
+
