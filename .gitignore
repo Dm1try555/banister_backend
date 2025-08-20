@@ -64,8 +64,3 @@ debug.log
 celerybeat-schedule
 celerybeat-schedule.*
 
-# Reports and documentation
-*ОТЧЕТ*.md
-*отчет*.md
-*REPORT*.md
-*report*.md
