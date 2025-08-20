@@ -59,3 +59,13 @@ debug.log
 # Temporary files
 *.tmp
 *.temp
+
+# Celery
+celerybeat-schedule
+celerybeat-schedule.*
+
+# Reports and documentation
+*ОТЧЕТ*.md
+*отчет*.md
+*REPORT*.md
+*report*.md
