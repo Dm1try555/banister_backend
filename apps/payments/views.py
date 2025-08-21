@@ -1,27 +1,24 @@
-from rest_framework import viewsets, status
+from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
 from django.db import transaction
 from django.utils import timezone
 from .models import Payment
 from .serializers import PaymentSerializer
 from core.stripe.service import stripe_service
+from core.base.views import BaseModelViewSet
 
-class PaymentViewSet(viewsets.ModelViewSet):
+class PaymentViewSet(BaseModelViewSet):
     queryset = Payment.objects.all()
     serializer_class = PaymentSerializer
-    permission_classes = [IsAuthenticated]
     
     @transaction.atomic
     def create(self, request, *args, **kwargs):
-        """Create payment and Stripe payment intent"""
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
         payment = serializer.save()
         
-        # Create Stripe payment intent
         success, result = stripe_service.create_payment_intent(
             amount=payment.amount,
             currency='usd',
@@ -48,7 +45,6 @@ class PaymentViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['post'])
     def confirm_payment(self, request, pk=None):
-        """Confirm payment completion"""
         payment = self.get_object()
         
         if not payment.stripe_payment_intent_id:
@@ -56,7 +52,6 @@ class PaymentViewSet(viewsets.ModelViewSet):
                 'error': 'No payment intent found'
             }, status=status.HTTP_400_BAD_REQUEST)
         
-        # Check payment status with Stripe
         success, result = stripe_service.confirm_payment(payment.stripe_payment_intent_id)
         
         if success:
@@ -76,9 +71,8 @@ class PaymentViewSet(viewsets.ModelViewSet):
                 'error': 'Payment confirmation failed'
             }, status=status.HTTP_400_BAD_REQUEST)
     
-    @action(detail=True, methods=['post'])
+    @action(detail=False, methods=['post'])
     def transfer_to_provider(self, request, pk=None):
-        """Transfer funds to provider"""
         payment = self.get_object()
         
         if payment.status != 'completed':
@@ -92,11 +86,9 @@ class PaymentViewSet(viewsets.ModelViewSet):
                 'error': 'Provider Stripe account required'
             }, status=status.HTTP_400_BAD_REQUEST)
         
-        # Calculate amount after platform fee (e.g., 10%)
         platform_fee = payment.amount * 0.10
         transfer_amount = payment.amount - platform_fee
         
-        # Transfer to provider
         success, result = stripe_service.transfer_to_account(
             amount=transfer_amount,
             destination_account=provider_stripe_account,

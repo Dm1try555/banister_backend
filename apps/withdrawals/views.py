@@ -1,25 +1,18 @@
-from rest_framework import viewsets, status
+from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-from django.db import transaction
 from django.utils import timezone
 from .models import Withdrawal
 from .serializers import WithdrawalSerializer
 from core.stripe.service import stripe_service
+from core.base.views import BaseModelViewSet
 
-class WithdrawalViewSet(viewsets.ModelViewSet):
+class WithdrawalViewSet(BaseModelViewSet):
     queryset = Withdrawal.objects.all()
     serializer_class = WithdrawalSerializer
-    permission_classes = [IsAuthenticated]
-    
-    @transaction.atomic
-    def create(self, request, *args, **kwargs):
-        return super().create(request, *args, **kwargs)
     
     @action(detail=True, methods=['post'])
     def approve(self, request, pk=None):
-        """Approve withdrawal and transfer via Stripe"""
         withdrawal = self.get_object()
         
         if withdrawal.status != 'pending':
@@ -33,7 +26,6 @@ class WithdrawalViewSet(viewsets.ModelViewSet):
                 'error': 'User Stripe account not found'
             }, status=status.HTTP_400_BAD_REQUEST)
         
-        # Transfer via Stripe
         success, result = stripe_service.transfer_to_account(
             amount=withdrawal.amount,
             destination_account=user_stripe_account,
@@ -59,7 +51,6 @@ class WithdrawalViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['post'])
     def reject(self, request, pk=None):
-        """Reject withdrawal"""
         withdrawal = self.get_object()
         withdrawal.status = 'rejected'
         withdrawal.save()

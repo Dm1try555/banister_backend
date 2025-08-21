@@ -5,15 +5,12 @@ from googleapiclient.discovery import build
 from django.conf import settings
 
 class GoogleCalendarService:
-    """Service for working with Google Calendar API"""
-    
     def __init__(self):
         self.credentials = None
         self.service = None
         self._initialize_service()
     
     def _initialize_service(self):
-        """Initialize Google Calendar API"""
         try:
             service_account_file = os.path.join(settings.BASE_DIR, 'google-credentials.json')
             
@@ -33,7 +30,6 @@ class GoogleCalendarService:
             print(f"Google Calendar API initialization error: {str(e)}")
     
     def create_event(self, booking, calendar_id='primary'):
-        """Create calendar event for booking"""
         if not self.service:
             return False, "Google Calendar API not initialized"
         
@@ -74,5 +70,50 @@ class GoogleCalendarService:
             
         except Exception as e:
             return False, f"Event creation error: {str(e)}"
+    
+    def create_interview_event(self, interview=None, user=None, scheduled_datetime=None, calendar_id='primary'):
+        if not self.service:
+            return False, "Google Calendar API not initialized"
+        
+        try:
+            if interview:
+                event_data = {
+                    'summary': f'Interview: {interview.service.title if interview.service else "Service Interview"}',
+                    'description': f'Interview for service\nCustomer: {interview.customer.email}',
+                    'start': {'dateTime': scheduled_datetime.isoformat(), 'timeZone': 'UTC'},
+                    'end': {'dateTime': (scheduled_datetime + timedelta(hours=1)).isoformat(), 'timeZone': 'UTC'},
+                    'attendees': [{'email': interview.customer.email}],
+                    'conferenceData': {
+                        'createRequest': {
+                            'requestId': f"interview_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+                            'conferenceSolutionKey': {'type': 'hangoutsMeet'}
+                        }
+                    }
+                }
+                if interview.provider:
+                    event_data['attendees'].append({'email': interview.provider.email})
+            else:
+                event_data = {
+                    'summary': f'Test Interview: {user.email}',
+                    'description': f'Test interview invitation\nUser: {user.email}',
+                    'start': {'dateTime': scheduled_datetime.isoformat(), 'timeZone': 'UTC'},
+                    'end': {'dateTime': (scheduled_datetime + timedelta(hours=1)).isoformat(), 'timeZone': 'UTC'},
+                    'attendees': [{'email': user.email}],
+                    'conferenceData': {
+                        'createRequest': {
+                            'requestId': f"test_interview_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+                            'conferenceSolutionKey': {'type': 'hangoutsMeet'}
+                        }
+                    }
+                }
+            
+            event = self.service.events().insert(
+                calendarId=calendar_id, body=event_data, conferenceDataVersion=1, sendUpdates='all'
+            ).execute()
+            
+            return True, event.get('id')
+            
+        except Exception as e:
+            return False, f"Interview event creation error: {str(e)}"
 
 google_calendar_service = GoogleCalendarService()
