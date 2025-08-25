@@ -4,7 +4,7 @@ from apps.authentication.models import User
 
 
 def validate_vacation_dates(vacation_start, vacation_end):
-    """Валидация дат отпуска"""
+    """Validate vacation dates"""
     if vacation_start and vacation_end and vacation_start > vacation_end:
         raise ValidationError("Vacation start date cannot be after vacation end date")
 

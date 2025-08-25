@@ -1,25 +1,15 @@
 from core.base.common_imports import *
-from core.base.role_base import RoleBase
 from .models import Document
 from .serializers import (
     DocumentSerializer, DocumentCreateSerializer, DocumentUpdateSerializer,
     DocumentUploadSerializer
 )
+from .permissions import DocumentPermissions
 
 
-class DocumentListCreateView(SwaggerMixin, ListCreateAPIView, RoleBase):
+class DocumentListCreateView(SwaggerMixin, ListCreateAPIView, RoleBasedQuerysetMixin, DocumentPermissions):
     permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        if not self.request.user.is_authenticated:
-            return Document.objects.none()
-            
-        user = self.request.user
-        if user.role == 'customer':
-            return self._get_customer_queryset(Document, user)
-        elif user.role == 'service_provider':
-            return self._get_service_provider_queryset(Document, user)
-        return self._get_admin_queryset(Document, user)
+    queryset = Document.objects.all()
 
     def get_serializer_class(self):
         return DocumentCreateSerializer if self.request.method == 'POST' else DocumentSerializer
@@ -36,19 +26,9 @@ class DocumentListCreateView(SwaggerMixin, ListCreateAPIView, RoleBase):
         serializer.save(uploaded_by=self.request.user)
 
 
-class DocumentDetailView(SwaggerMixin, RetrieveUpdateDestroyAPIView, RoleBase):
+class DocumentDetailView(SwaggerMixin, RetrieveUpdateDestroyAPIView, RoleBasedQuerysetMixin, DocumentPermissions):
     permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        if not self.request.user.is_authenticated:
-            return Document.objects.none()
-            
-        user = self.request.user
-        if user.role == 'customer':
-            return self._get_customer_queryset(Document, user)
-        elif user.role == 'service_provider':
-            return self._get_service_provider_queryset(Document, user)
-        return self._get_admin_queryset(Document, user)
+    queryset = Document.objects.all()
 
     def get_serializer_class(self):
         if self.request.method in ['PUT', 'PATCH']:
@@ -81,7 +61,12 @@ class DocumentDetailView(SwaggerMixin, RetrieveUpdateDestroyAPIView, RoleBase):
 
     @swagger_retrieve_update_destroy(
         description="Delete document",
-        response_schema=openapi.Response(description="Document deleted successfully"),
+        response_schema=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'message': openapi.Schema(type=openapi.TYPE_STRING)
+            }
+        ),
         tags=["Documents"]
     )
     def delete(self, request, *args, **kwargs):

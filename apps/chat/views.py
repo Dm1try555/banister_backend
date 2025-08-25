@@ -1,25 +1,15 @@
 from core.base.common_imports import *
-from core.base.role_base import RoleBase
 from .models import ChatRoom, Message
 from .serializers import (
     ChatRoomSerializer, ChatRoomCreateSerializer, ChatRoomUpdateSerializer,
     MessageSerializer, MessageCreateSerializer, MessageUpdateSerializer
 )
+from .permissions import ChatPermissions
 
 
-class ChatRoomListCreateView(SwaggerMixin, ListCreateAPIView, RoleBase):
+class ChatRoomListCreateView(SwaggerMixin, ListCreateAPIView, RoleBasedQuerysetMixin, ChatPermissions):
     permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        if not self.request.user.is_authenticated:
-            return ChatRoom.objects.none()
-            
-        user = self.request.user
-        if user.role == 'customer':
-            return self._get_customer_queryset(ChatRoom, user)
-        elif user.role == 'service_provider':
-            return self._get_service_provider_queryset(ChatRoom, user)
-        return self._get_admin_queryset(ChatRoom, user)
+    queryset = ChatRoom.objects.all()
 
     def get_serializer_class(self):
         return ChatRoomCreateSerializer if self.request.method == 'POST' else ChatRoomSerializer
@@ -37,19 +27,9 @@ class ChatRoomListCreateView(SwaggerMixin, ListCreateAPIView, RoleBase):
         chat_room.participants.add(self.request.user)
 
 
-class ChatRoomDetailView(SwaggerMixin, RetrieveUpdateDestroyAPIView, RoleBase):
+class ChatRoomDetailView(SwaggerMixin, RetrieveUpdateDestroyAPIView, RoleBasedQuerysetMixin, ChatPermissions):
     permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        if not self.request.user.is_authenticated:
-            return ChatRoom.objects.none()
-            
-        user = self.request.user
-        if user.role == 'customer':
-            return self._get_customer_queryset(ChatRoom, user)
-        elif user.role == 'service_provider':
-            return self._get_service_provider_queryset(ChatRoom, user)
-        return self._get_admin_queryset(ChatRoom, user)
+    queryset = ChatRoom.objects.all()
 
     def get_serializer_class(self):
         if self.request.method in ['PUT', 'PATCH']:
@@ -82,26 +62,21 @@ class ChatRoomDetailView(SwaggerMixin, RetrieveUpdateDestroyAPIView, RoleBase):
 
     @swagger_retrieve_update_destroy(
         description="Delete chat room",
-        response_schema=openapi.Response(description="Chat room deleted successfully"),
+        response_schema=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'message': openapi.Schema(type=openapi.TYPE_STRING)
+            }
+        ),
         tags=["Chat"]
     )
     def delete(self, request, *args, **kwargs):
         return super().delete(request, *args, **kwargs)
 
 
-class MessageListCreateView(SwaggerMixin, ListCreateAPIView, RoleBase):
+class MessageListCreateView(SwaggerMixin, ListCreateAPIView, RoleBasedQuerysetMixin, ChatPermissions):
     permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        if not self.request.user.is_authenticated:
-            return Message.objects.none()
-            
-        user = self.request.user
-        if user.role == 'customer':
-            return self._get_customer_queryset(Message, user)
-        elif user.role == 'service_provider':
-            return self._get_service_provider_queryset(Message, user)
-        return self._get_admin_queryset(Message, user)
+    queryset = Message.objects.all()
 
     def get_serializer_class(self):
         return MessageCreateSerializer if self.request.method == 'POST' else MessageSerializer
@@ -125,19 +100,9 @@ class MessageListCreateView(SwaggerMixin, ListCreateAPIView, RoleBase):
         return queryset.filter(is_deleted=False).order_by('-created_at')
 
 
-class MessageDetailView(SwaggerMixin, RetrieveUpdateDestroyAPIView, RoleBase):
+class MessageDetailView(SwaggerMixin, RetrieveUpdateDestroyAPIView, RoleBasedQuerysetMixin, ChatPermissions):
     permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        if not self.request.user.is_authenticated:
-            return Message.objects.none()
-            
-        user = self.request.user
-        if user.role == 'customer':
-            return self._get_customer_queryset(Message, user)
-        elif user.role == 'service_provider':
-            return self._get_service_provider_queryset(Message, user)
-        return self._get_admin_queryset(Message, user)
+    queryset = Message.objects.all()
 
     def get_serializer_class(self):
         if self.request.method in ['PUT', 'PATCH']:
@@ -170,7 +135,12 @@ class MessageDetailView(SwaggerMixin, RetrieveUpdateDestroyAPIView, RoleBase):
 
     @swagger_retrieve_update_destroy(
         description="Delete message",
-        response_schema=openapi.Response(description="Message deleted successfully"),
+        response_schema=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'message': openapi.Schema(type=openapi.TYPE_STRING)
+            }
+        ),
         tags=["Chat Messages"]
     )
     def delete(self, request, *args, **kwargs):

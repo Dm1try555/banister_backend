@@ -18,7 +18,7 @@ class Document(models.Model):
     
     @property
     def file_path(self):
-        """Возвращает URL файла"""
+        """Returns file URL"""
         return self.file.url if self.file else ''
     
     def get_file_type(self):
@@ -38,7 +38,7 @@ class Document(models.Model):
     
     @property
     def file_size(self):
-        """Возвращает размер файла в байтах"""
+        """Returns file size in bytes"""
         try:
             if self.file and hasattr(self.file, 'size'):
                 return self.file.size
@@ -50,7 +50,7 @@ class Document(models.Model):
     
     @property
     def file_extension(self):
-        """Возвращает расширение файла"""
+        """Returns file extension"""
         import os
         return os.path.splitext(self.file.name)[1].lower() if self.file else ''
     

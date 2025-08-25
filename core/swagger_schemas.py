@@ -2,93 +2,67 @@ from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 
 # ============================================================================
-# БАЗОВЫЕ СХЕМЫ ОШИБОК
+# BASIC ERROR SCHEMAS
 # ============================================================================
 
-ERROR_400_SCHEMA = openapi.Response(
-    description="Validation errors",
-    examples={
-        "application/json": {
-            "1012: Passwords do not match": {
-                "statusCode": 400,
-                "errorCode": 1012,
-                "exceptionType": "ValidationException",
-                "message": "1012: Passwords do not match",
-                "error": "Password and password confirmation do not match",
-                "timestamp": "2025-08-24T07:47:24.123456+00:00",
-                "endpoint": "/api/v1/auth/register/",
-                "method": "POST"
-            },
-            "1013: File too large": {
-                "statusCode": 400,
-                "errorCode": 1013,
-                "exceptionType": "ValidationException",
-                "message": "1013: File too large",
-                "error": "File size exceeds maximum allowed limit",
-                "timestamp": "2025-08-24T07:47:24.123456+00:00",
-                "endpoint": "/api/v1/auth/profile/photo/",
-                "method": "POST"
-            }
-        }
+ERROR_400_SCHEMA = openapi.Schema(
+    type=openapi.TYPE_OBJECT,
+    properties={
+        'statusCode': openapi.Schema(type=openapi.TYPE_INTEGER, example=400),
+        'errorCode': openapi.Schema(type=openapi.TYPE_INTEGER, example=1012),
+        'exceptionType': openapi.Schema(type=openapi.TYPE_STRING, example="ValidationException"),
+        'message': openapi.Schema(type=openapi.TYPE_STRING, example="1012: Passwords do not match"),
+        'error': openapi.Schema(type=openapi.TYPE_STRING, example="Password and password confirmation do not match"),
+        'timestamp': openapi.Schema(type=openapi.TYPE_STRING, example="2025-08-24T07:47:24.123456+00:00"),
+        'endpoint': openapi.Schema(type=openapi.TYPE_STRING, example="/api/v1/auth/register/"),
+        'method': openapi.Schema(type=openapi.TYPE_STRING, example="POST")
     }
 )
 
-ERROR_401_SCHEMA = openapi.Response(
-    description="Authentication required",
-    examples={
-        "application/json": {
-            "1003: Token expired": {
-                "statusCode": 401,
-                "errorCode": 1003,
-                "exceptionType": "AuthenticationException",
-                "message": "1003: Token expired",
-                "error": "Authentication token has expired",
-                "timestamp": "2025-08-24T07:47:24.123456+00:00",
-                "endpoint": "/api/v1/auth/profile/",
-                "method": "GET"
-            }
-        }
+ERROR_401_SCHEMA = openapi.Schema(
+    type=openapi.TYPE_OBJECT,
+    properties={
+        'statusCode': openapi.Schema(type=openapi.TYPE_INTEGER, example=401),
+        'errorCode': openapi.Schema(type=openapi.TYPE_INTEGER, example=1005),
+        'exceptionType': openapi.Schema(type=openapi.TYPE_STRING, example="UnauthorizedException"),
+        'message': openapi.Schema(type=openapi.TYPE_STRING, example="1005: Authentication required"),
+        'error': openapi.Schema(type=openapi.TYPE_STRING, example="Authentication credentials were not provided"),
+        'timestamp': openapi.Schema(type=openapi.TYPE_STRING, example="2025-08-24T07:47:24.123456+00:00"),
+        'endpoint': openapi.Schema(type=openapi.TYPE_STRING, example="/api/v1/documents/"),
+        'method': openapi.Schema(type=openapi.TYPE_STRING, example="POST")
     }
 )
 
-ERROR_403_SCHEMA = openapi.Response(
-    description="Permission denied",
-    examples={
-        "application/json": {
-            "1005: Permission denied": {
-                "statusCode": 403,
-                "errorCode": 1005,
-                "exceptionType": "PermissionException",
-                "message": "1005: Permission denied",
-                "error": "You don't have permission to perform this action",
-                "timestamp": "2025-08-24T07:47:24.123456+00:00",
-                "endpoint": "/api/v1/admin/users/",
-                "method": "POST"
-            }
-        }
+ERROR_403_SCHEMA = openapi.Schema(
+    type=openapi.TYPE_OBJECT,
+    properties={
+        'statusCode': openapi.Schema(type=openapi.TYPE_INTEGER, example=403),
+        'errorCode': openapi.Schema(type=openapi.TYPE_INTEGER, example=1005),
+        'exceptionType': openapi.Schema(type=openapi.TYPE_STRING, example="PermissionException"),
+        'message': openapi.Schema(type=openapi.TYPE_STRING, example="1005: Permission denied"),
+        'error': openapi.Schema(type=openapi.TYPE_STRING, example="You don't have permission to perform this action"),
+        'timestamp': openapi.Schema(type=openapi.TYPE_STRING, example="2025-08-24T07:47:24.123456+00:00"),
+        'endpoint': openapi.Schema(type=openapi.TYPE_STRING, example="/api/v1/admin/users/"),
+        'method': openapi.Schema(type=openapi.TYPE_STRING, example="POST")
     }
 )
 
-ERROR_404_SCHEMA = openapi.Response(
-    description="Resource not found",
-    examples={
-        "application/json": {
-            "2001: Booking not found": {
-                "statusCode": 404,
-                "errorCode": 2001,
-                "exceptionType": "NotFoundException",
-                "message": "2001: Booking not found",
-                "error": "Booking with specified ID does not exist",
-                "timestamp": "2025-08-24T07:47:24.123456+00:00",
-                "endpoint": "/api/v1/bookings/123/",
-                "method": "GET"
-            }
-        }
+ERROR_404_SCHEMA = openapi.Schema(
+    type=openapi.TYPE_OBJECT,
+    properties={
+        'statusCode': openapi.Schema(type=openapi.TYPE_INTEGER, example=404),
+        'errorCode': openapi.Schema(type=openapi.TYPE_INTEGER, example=2001),
+        'exceptionType': openapi.Schema(type=openapi.TYPE_STRING, example="NotFoundException"),
+        'message': openapi.Schema(type=openapi.TYPE_STRING, example="2001: Booking not found"),
+        'error': openapi.Schema(type=openapi.TYPE_STRING, example="Booking with specified ID does not exist"),
+        'timestamp': openapi.Schema(type=openapi.TYPE_STRING, example="2025-08-24T07:47:24.123456+00:00"),
+        'endpoint': openapi.Schema(type=openapi.TYPE_STRING, example="/api/v1/bookings/123/"),
+        'method': openapi.Schema(type=openapi.TYPE_STRING, example="GET")
     }
 )
 
 # ============================================================================
-# ГОТОВЫЕ СХЕМЫ ДЛЯ ОТВЕТОВ
+# READY SCHEMAS FOR RESPONSES
 # ============================================================================
 
 # User schemas
@@ -114,13 +88,7 @@ USER_CREATE_RESPONSE_SCHEMA = openapi.Schema(
     type=openapi.TYPE_OBJECT,
     properties={
         'user': USER_RESPONSE_SCHEMA,
-        'tokens': openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            properties={
-                'refresh': openapi.Schema(type=openapi.TYPE_STRING),
-                'access': openapi.Schema(type=openapi.TYPE_STRING)
-            }
-        )
+        'message': openapi.Schema(type=openapi.TYPE_STRING)
     }
 )
 
@@ -369,8 +337,16 @@ MANAGEMENT_DASHBOARD_RESPONSE_SCHEMA = openapi.Schema(
 )
 
 # ============================================================================
-# УПРОЩЕННЫЕ ДЕКОРАТОРЫ ДЛЯ SWAGGER
+# SIMPLE DECORATORS FOR SWAGGER
 # ============================================================================
+
+# Default error responses for all endpoints
+DEFAULT_ERROR_RESPONSES = {
+    400: ERROR_400_SCHEMA,
+    401: ERROR_401_SCHEMA,
+    403: ERROR_403_SCHEMA,
+    404: ERROR_404_SCHEMA
+}
 
 def swagger_auto_schema_simple(
     operation_description,
@@ -380,15 +356,12 @@ def swagger_auto_schema_simple(
     operation_id=None
 ):
     """
-    Упрощенный декоратор для Swagger документации
+    Simplified decorator for Swagger documentation
     """
     if responses is None:
         responses = {
             200: openapi.Response(description="Success"),
-            400: ERROR_400_SCHEMA,
-            401: ERROR_401_SCHEMA,
-            403: ERROR_403_SCHEMA,
-            404: ERROR_404_SCHEMA
+            **DEFAULT_ERROR_RESPONSES
         }
     
     return swagger_auto_schema(
@@ -399,66 +372,45 @@ def swagger_auto_schema_simple(
         operation_id=operation_id
     )
 
-# Готовые декораторы для разных типов операций
 def swagger_list_create(description, response_schema, tags=None):
-    """Декоратор для ListCreateAPIView"""
+    """Decorator for ListCreateAPIView"""
     return swagger_auto_schema_simple(
         operation_description=description,
         responses={
-            200: openapi.Response(
-                description="List retrieved successfully",
-                schema=openapi.Schema(
-                    type=openapi.TYPE_ARRAY,
-                    items=response_schema
-                )
+            200: openapi.Schema(
+                type=openapi.TYPE_ARRAY,
+                items=response_schema
             ),
-            201: openapi.Response(
-                description="Created successfully",
-                schema=response_schema
-            ),
-            400: ERROR_400_SCHEMA,
-            401: ERROR_401_SCHEMA,
-            403: ERROR_403_SCHEMA
+            201: response_schema,
+            **{k: v for k, v in DEFAULT_ERROR_RESPONSES.items() if k != 404}
         },
         tags=tags
     )
 
 def swagger_retrieve_update_destroy(description, response_schema, tags=None):
-    """Декоратор для RetrieveUpdateDestroyAPIView"""
+    """Decorator for RetrieveUpdateDestroyAPIView"""
     return swagger_auto_schema_simple(
         operation_description=description,
         responses={
-            200: openapi.Response(
-                description="Success",
-                schema=response_schema
-            ),
-            400: ERROR_400_SCHEMA,
-            401: ERROR_401_SCHEMA,
-            403: ERROR_403_SCHEMA,
-            404: ERROR_404_SCHEMA
+            200: response_schema,
+            **DEFAULT_ERROR_RESPONSES
         },
         tags=tags
     )
 
 def swagger_retrieve_update(description, response_schema, tags=None):
-    """Декоратор для RetrieveUpdateAPIView"""
+    """Decorator for RetrieveUpdateAPIView"""
     return swagger_auto_schema_simple(
         operation_description=description,
         responses={
-            200: openapi.Response(
-                description="Success",
-                schema=response_schema
-            ),
-            400: ERROR_400_SCHEMA,
-            401: ERROR_401_SCHEMA,
-            403: ERROR_403_SCHEMA,
-            404: ERROR_404_SCHEMA
+            200: response_schema,
+            **DEFAULT_ERROR_RESPONSES
         },
         tags=tags
     )
 
 # ============================================================================
-# СПИСОК ВСЕХ СХЕМ ДЛЯ ИМПОРТА
+# list of all schemas for import
 # ============================================================================
 
 __all__ = [
@@ -467,6 +419,7 @@ __all__ = [
     'ERROR_401_SCHEMA', 
     'ERROR_403_SCHEMA',
     'ERROR_404_SCHEMA',
+    'DEFAULT_ERROR_RESPONSES',
     
     # User schemas
     'USER_RESPONSE_SCHEMA',

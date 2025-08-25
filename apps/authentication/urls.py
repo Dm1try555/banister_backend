@@ -4,7 +4,7 @@ from .views import (
     RegisterView, LoginView, RefreshTokenView, ProfileView,
     SendVerificationEmailView, VerifyEmailView,
     PasswordResetRequestView, PasswordResetConfirmView,
-    AdminUserViewSet, ProfilePhotoUploadView
+    AdminUserViewSet, ProfilePhotoUploadView, DeleteProfileView
 )
 
 router = DefaultRouter()
@@ -15,6 +15,7 @@ urlpatterns = [
     path('auth/login/', LoginView.as_view(), name='login'),
     path('auth/refresh/', RefreshTokenView.as_view(), name='refresh_token'),
     path('auth/profile/', ProfileView.as_view(), name='profile'),
+    path('auth/profile/delete/', DeleteProfileView.as_view(), name='delete_profile'),
     path('auth/send-verification/', SendVerificationEmailView.as_view(), name='send_verification_email'),
     path('auth/verify-email/', VerifyEmailView.as_view(), name='verify_email'),
     path('auth/password-reset-request/', PasswordResetRequestView.as_view(), name='password_reset_request'),

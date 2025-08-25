@@ -12,65 +12,8 @@ class RegisterView(CreateAPIView):
         operation_description="Register a new user",
         request_body=UserCreateSerializer,
         responses={
-            201: openapi.Response(
-                description="User registered successfully",
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        'user': openapi.Schema(
-                            type=openapi.TYPE_OBJECT,
-                            properties={
-                                'id': openapi.Schema(type=openapi.TYPE_INTEGER),
-                                'username': openapi.Schema(type=openapi.TYPE_STRING),
-                                'email': openapi.Schema(type=openapi.TYPE_STRING),
-                                'first_name': openapi.Schema(type=openapi.TYPE_STRING),
-                                'last_name': openapi.Schema(type=openapi.TYPE_STRING),
-                                'role': openapi.Schema(type=openapi.TYPE_STRING),
-                                'phone': openapi.Schema(type=openapi.TYPE_STRING),
-                                'email_verified': openapi.Schema(type=openapi.TYPE_BOOLEAN),
-                                'provider_verified': openapi.Schema(type=openapi.TYPE_BOOLEAN),
-                                'profile_photo': openapi.Schema(type=openapi.TYPE_STRING),
-                                'date_joined': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_DATETIME),
-                                'last_login': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_DATETIME)
-                            }
-                        ),
-                        'tokens': openapi.Schema(
-                            type=openapi.TYPE_OBJECT,
-                            properties={
-                                'refresh': openapi.Schema(type=openapi.TYPE_STRING),
-                                'access': openapi.Schema(type=openapi.TYPE_STRING)
-                            }
-                        )
-                    }
-                )
-            ),
-            400: openapi.Response(
-                description="Validation errors",
-                examples={
-                    "application/json": {
-                        "1012: Passwords do not match": {
-                            "statusCode": 400,
-                            "errorCode": 1012,
-                            "exceptionType": "ValidationException",
-                            "message": "1012: Passwords do not match",
-                            "error": "Password and password confirmation do not match",
-                            "timestamp": "2025-08-24T07:47:24.123456+00:00",
-                            "endpoint": "/api/v1/auth/register/",
-                            "method": "POST"
-                        },
-                        "1006: User already exists": {
-                            "statusCode": 400,
-                            "errorCode": 1006,
-                            "exceptionType": "ValidationException",
-                            "message": "1006: User already exists",
-                            "error": "User with this email or username already exists",
-                            "timestamp": "2025-08-24T07:47:24.123456+00:00",
-                            "endpoint": "/api/v1/auth/register/",
-                            "method": "POST"
-                        }
-                    }
-                }
-            )
+            201: USER_CREATE_RESPONSE_SCHEMA,
+            400: ERROR_400_SCHEMA
         }
     )
     def post(self, request, *args, **kwargs):
@@ -84,24 +27,19 @@ class RegisterView(CreateAPIView):
         
         # Send welcome email
         try:
-            send_welcome_email(user)
+            self._send_welcome_email(user)
         except Exception as e:
-            # Log error but don't interrupt registration
             logger.error(f"Failed to send welcome email to {user.email}: {e}")
         
-        refresh = RefreshToken.for_user(user)
         return Response({
             'user': UserSerializer(user).data,
-            'tokens': {
-                'refresh': str(refresh),
-                'access': str(refresh.access_token)
-            }
+            'message': 'User registered successfully.'
         }, status=status.HTTP_201_CREATED)
     
     def _send_welcome_email(self, user):
-        """Отправляет приветственное письмо новому пользователю"""
+        """Send welcome email to new user"""
         try:
-            html_message = render_to_string('authentication/welcome_email.html', {
+            html_message = render_to_string('emails/welcome_email.html', {
                 'username': user.username,
                 'login_url': f"{settings.FRONTEND_URL}/login" if hasattr(settings, 'FRONTEND_URL') else '/login'
             })
@@ -115,7 +53,6 @@ class RegisterView(CreateAPIView):
                 fail_silently=False,
             )
         except Exception as e:
-            # Логируем ошибку, но не прерываем регистрацию
             logger.error(f"Failed to send welcome email to {user.email}: {e}")
 
 
@@ -126,33 +63,7 @@ class LoginView(APIView):
         operation_description="Login user with username and password",
         request_body=LoginSerializer,
         responses={
-            200: openapi.Response(
-                description="Login successful",
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        'access': openapi.Schema(type=openapi.TYPE_STRING),
-                        'refresh': openapi.Schema(type=openapi.TYPE_STRING),
-                        'user': openapi.Schema(
-                            type=openapi.TYPE_OBJECT,
-                            properties={
-                                'id': openapi.Schema(type=openapi.TYPE_INTEGER),
-                                'username': openapi.Schema(type=openapi.TYPE_STRING),
-                                'email': openapi.Schema(type=openapi.TYPE_STRING),
-                                'first_name': openapi.Schema(type=openapi.TYPE_STRING),
-                                'last_name': openapi.Schema(type=openapi.TYPE_STRING),
-                                'role': openapi.Schema(type=openapi.TYPE_STRING),
-                                'phone': openapi.Schema(type=openapi.TYPE_STRING),
-                                'email_verified': openapi.Schema(type=openapi.TYPE_BOOLEAN),
-                                'provider_verified': openapi.Schema(type=openapi.TYPE_BOOLEAN),
-                                'profile_photo': openapi.Schema(type=openapi.TYPE_STRING),
-                                'date_joined': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_DATETIME),
-                                'last_login': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_DATETIME)
-                            }
-                        )
-                    }
-                )
-            ),
+            200: LOGIN_RESPONSE_SCHEMA,
             400: ERROR_400_SCHEMA
         }
     )
@@ -165,17 +76,15 @@ class LoginView(APIView):
         
         user = authenticate(username=username, password=password)
         if not user:
-            return Response({
-                'error': 'Invalid credentials'
-            }, status=status.HTTP_400_BAD_REQUEST)
+            ErrorCode.INVALID_CREDENTIALS.raise_error()
         
         refresh = RefreshToken.for_user(user)
         user_serializer = UserSerializer(user)
         
         return Response({
+            'user': user_serializer.data,
             'access': str(refresh.access_token),
-            'refresh': str(refresh),
-            'user': user_serializer.data
+            'refresh': str(refresh)
         })
 
 
@@ -186,14 +95,11 @@ class RefreshTokenView(APIView):
         operation_description="Refresh access token using refresh token",
         request_body=RefreshSerializer,
         responses={
-            200: openapi.Response(
-                description="Token refreshed",
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        'access': openapi.Schema(type=openapi.TYPE_STRING)
-                    }
-                )
+            200: openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'access': openapi.Schema(type=openapi.TYPE_STRING)
+                }
             ),
             400: ERROR_400_SCHEMA
         }
@@ -208,6 +114,4 @@ class RefreshTokenView(APIView):
                 'access': str(refresh.access_token)
             })
         except Exception:
-            return Response({
-                'error': 'Invalid refresh token'
-            }, status=status.HTTP_400_BAD_REQUEST)
+            ErrorCode.INVALID_TOKEN.raise_error()

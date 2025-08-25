@@ -5,7 +5,7 @@ from .models import Payment
 
 
 class PaymentSerializer(serializers.ModelSerializer):
-    # Добавляем вычисляемые поля для service и currency
+    # Add computed fields for service and currency
     service = serializers.SerializerMethodField()
     currency = serializers.SerializerMethodField()
     
@@ -19,11 +19,11 @@ class PaymentSerializer(serializers.ModelSerializer):
         read_only_fields = ['customer', 'provider', 'created_at', 'completed_at']
     
     def get_service(self, obj):
-        """Получаем service через booking"""
+        """Get service through booking"""
         return obj.booking.service.id if obj.booking and obj.booking.service else None
     
     def get_currency(self, obj):
-        """По умолчанию USD для всех платежей"""
+        """Default USD for all payments"""
         return 'USD'
 
 
@@ -42,11 +42,11 @@ class PaymentCreateSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'status', 'stripe_payment_intent_id', 'created_at']
     
     def get_service_title(self, obj):
-        """Получаем service title через booking"""
+        """Get service title through booking"""
         return obj.booking.service.title if obj.booking and obj.booking.service else None
     
     def get_currency(self, obj):
-        """Получаем currency через booking"""
+        """Get currency through booking"""
         return obj.booking.service.currency if obj.booking and obj.booking.service else 'USD'
     
     def validate(self, attrs):

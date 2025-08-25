@@ -1,26 +1,16 @@
 from core.base.common_imports import *
-from core.base.role_base import RoleBase
 from .models import CustomerDashboard, ProviderDashboard, ManagementDashboard
 from .serializers import (
     CustomerDashboardSerializer, CustomerDashboardUpdateSerializer,
     ProviderDashboardSerializer, ProviderDashboardUpdateSerializer,
     ManagementDashboardSerializer, ManagementDashboardUpdateSerializer
 )
+from .permissions import DashboardPermissions
 
 
-class CustomerDashboardView(SwaggerMixin, RetrieveUpdateAPIView, RoleBase):
+class CustomerDashboardView(SwaggerMixin, RetrieveUpdateAPIView, RoleBasedQuerysetMixin, DashboardPermissions):
     permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        if not self.request.user.is_authenticated:
-            return CustomerDashboard.objects.none()
-            
-        user = self.request.user
-        if user.role == 'customer':
-            return self._get_customer_queryset(CustomerDashboard, user)
-        elif user.role == 'service_provider':
-            return self._get_service_provider_queryset(CustomerDashboard, user)
-        return self._get_admin_queryset(CustomerDashboard, user)
+    queryset = CustomerDashboard.objects.all()
 
     def get_serializer_class(self):
         if self.request.method in ['PUT', 'PATCH']:
@@ -52,19 +42,9 @@ class CustomerDashboardView(SwaggerMixin, RetrieveUpdateAPIView, RoleBase):
         return super().patch(request, *args, **kwargs)
 
 
-class ProviderDashboardView(SwaggerMixin, RetrieveUpdateAPIView, RoleBase):
+class ProviderDashboardView(SwaggerMixin, RetrieveUpdateAPIView, RoleBasedQuerysetMixin, DashboardPermissions):
     permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        if not self.request.user.is_authenticated:
-            return ProviderDashboard.objects.none()
-            
-        user = self.request.user
-        if user.role == 'customer':
-            return self._get_customer_queryset(ProviderDashboard, user)
-        elif user.role == 'service_provider':
-            return self._get_service_provider_queryset(ProviderDashboard, user)
-        return self._get_admin_queryset(ProviderDashboard, user)
+    queryset = ProviderDashboard.objects.all()
 
     def get_serializer_class(self):
         if self.request.method in ['PUT', 'PATCH']:
@@ -96,8 +76,9 @@ class ProviderDashboardView(SwaggerMixin, RetrieveUpdateAPIView, RoleBase):
         return super().patch(request, *args, **kwargs)
 
 
-class ManagementDashboardView(SwaggerMixin, RetrieveUpdateAPIView, RoleBase):
+class ManagementDashboardView(SwaggerMixin, RetrieveUpdateAPIView, RoleBasedQuerysetMixin, DashboardPermissions):
     permission_classes = [IsAuthenticated]
+    queryset = ManagementDashboard.objects.all()
 
     def get_queryset(self):
         if not self.request.user.is_authenticated:

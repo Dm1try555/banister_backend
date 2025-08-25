@@ -1,28 +1,28 @@
 from core.base.common_imports import *
-from core.utils import generate_verification_code
-from ..models import User
+from ..models import User, VerificationCode
 from ..serializers import SendVerificationEmailSerializer, VerifyEmailSerializer
 from django.template.loader import render_to_string
+from django.core.mail import send_mail
+from django.conf import settings
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class SendVerificationEmailView(APIView):
     permission_classes = [AllowAny]
     
     @swagger_auto_schema(
-        operation_description="Send verification code to user email",
+        operation_description="Send verification email to user",
         request_body=SendVerificationEmailSerializer,
         responses={
-            200: openapi.Response(
-                description="Verification code sent",
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        'message': openapi.Schema(type=openapi.TYPE_STRING)
-                    }
-                )
+            200: openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'message': openapi.Schema(type=openapi.TYPE_STRING)
+                }
             ),
-            400: ERROR_400_SCHEMA,
-            404: ERROR_404_SCHEMA
+            400: ERROR_400_SCHEMA
         }
     )
     def post(self, request):
@@ -35,49 +35,57 @@ class SendVerificationEmailView(APIView):
             user = User.objects.get(email=email)
             
             if user.email_verified:
-                return Response({'error': 'User already verified'}, status=status.HTTP_400_BAD_REQUEST)
+                ErrorCode.EMAIL_ALREADY_VERIFIED.raise_error()
             
-            code = generate_verification_code()
-            user.email_verification_code = code
-            user.save()
+            # Generate and save verification code
+            verification_code = VerificationCode.create_code(
+                user=user,
+                code_type='email_verification',
+                expiry_minutes=10
+            )
             
-            html_message = render_to_string('authentication/verification_code_email.html', {
-                'code': code,
-                'expires_in': '10 minutes'
+            # Send verification email
+            html_message = render_to_string('emails/verification_email.html', {
+                'username': user.username,
+                'verification_code': verification_code.code,
+                'verification_url': f"{settings.FRONTEND_URL}/verify-email" if hasattr(settings, 'FRONTEND_URL') else '/verify-email',
+                'support_url': f"{settings.FRONTEND_URL}/support" if hasattr(settings, 'FRONTEND_URL') else '/support'
             })
             
             send_mail(
-                subject='Email Verification Code - Banister',
-                message=f'Your verification code is: {code}',
+                subject='Verify Your Email - Banister',
+                message=f'Your verification code is: {verification_code.code}',
                 from_email=settings.DEFAULT_FROM_EMAIL,
                 recipient_list=[email],
                 html_message=html_message,
                 fail_silently=False,
             )
             
-            return Response({'message': 'Verification code sent'})
+            return Response({
+                'message': 'Verification email sent successfully. Code expires in 10 minutes.'
+            })
+            
         except User.DoesNotExist:
-            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+            ErrorCode.USER_NOT_FOUND.raise_error()
+        except Exception as e:
+            logger.error(f"Failed to send verification email to {email}: {e}")
+            ErrorCode.EMAIL_SEND_FAILED.raise_error()
 
 
 class VerifyEmailView(APIView):
     permission_classes = [AllowAny]
     
     @swagger_auto_schema(
-        operation_description="Verify user email with verification code",
+        operation_description="Verify user email with code",
         request_body=VerifyEmailSerializer,
         responses={
-            200: openapi.Response(
-                description="Email verified successfully",
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        'message': openapi.Schema(type=openapi.TYPE_STRING)
-                    }
-                )
+            200: openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'message': openapi.Schema(type=openapi.TYPE_STRING)
+                }
             ),
-            400: ERROR_400_SCHEMA,
-            404: ERROR_404_SCHEMA
+            400: ERROR_400_SCHEMA
         }
     )
     def post(self, request):
@@ -90,15 +98,37 @@ class VerifyEmailView(APIView):
         try:
             user = User.objects.get(email=email)
             
-            if user.email_verification_code == code:
-                user.email_verified = True
-                user.email_verification_code = None
-                user.save()
-                return Response({'message': 'Email verified successfully'})
-            else:
-                return Response({'error': 'Invalid verification code'}, status=status.HTTP_400_BAD_REQUEST)
+            if user.email_verified:
+                ErrorCode.EMAIL_ALREADY_VERIFIED.raise_error()
+            
+            # Find and validate verification code
+            try:
+                verification_code = VerificationCode.objects.get(
+                    user=user,
+                    code=code,
+                    code_type='email_verification',
+                    is_used=False
+                )
+            except VerificationCode.DoesNotExist:
+                ErrorCode.INVALID_VERIFICATION_CODE.raise_error()
+            
+            if not verification_code.is_valid():
+                ErrorCode.VERIFICATION_CODE_EXPIRED.raise_error()
+            
+            # Mark email as verified and code as used
+            user.email_verified = True
+            user.save()
+            verification_code.mark_as_used()
+            
+            return Response({
+                'message': 'Email verified successfully.'
+            })
+            
         except User.DoesNotExist:
-            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+            ErrorCode.USER_NOT_FOUND.raise_error()
+        except Exception as e:
+            logger.error(f"Failed to verify email for {email}: {e}")
+            ErrorCode.EMAIL_VERIFICATION_FAILED.raise_error()
 
 
 send_verification_email = SendVerificationEmailView.as_view()

@@ -10,15 +10,12 @@ class ProfilePhotoUploadView(APIView):
         operation_description="Upload user profile photo",
         request_body=ProfilePhotoUploadSerializer,
         responses={
-            200: openapi.Response(
-                description="Profile photo uploaded successfully",
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        'message': openapi.Schema(type=openapi.TYPE_STRING),
-                        'profile_photo_url': openapi.Schema(type=openapi.TYPE_STRING)
-                    }
-                )
+            200: openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'message': openapi.Schema(type=openapi.TYPE_STRING),
+                    'profile_photo_url': openapi.Schema(type=openapi.TYPE_STRING)
+                }
             ),
             400: ERROR_400_SCHEMA
         }
@@ -57,9 +54,9 @@ class ProfilePhotoUploadView(APIView):
                 'profile_photo_url': photo_url
             })
         except (OSError, IOError) as e:
-            return Response({'error': 'Failed to save photo file'}, status=status.HTTP_400_BAD_REQUEST)
+            ErrorCode.INVALID_DATA.raise_error()
         except Exception as e:
-            return Response({'error': 'Unexpected error occurred'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            ErrorCode.INTERNAL_SERVER_ERROR.raise_error()
 
 
 upload_profile_photo = ProfilePhotoUploadView.as_view()

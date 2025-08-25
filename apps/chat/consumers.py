@@ -77,7 +77,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def get_user_from_token(self):
         try:
-            # Получаем токен из query параметров
+            # Get token from query parameters
             query_string = self.scope.get('query_string', b'').decode()
             token = None
             
@@ -89,10 +89,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
             if not token:
                 return None
             
-            # Проверяем токен
+            # Check token
             UntypedToken(token)
             
-            # Получаем пользователя из токена
+            # Get user from token
             from rest_framework_simplejwt.authentication import JWTAuthentication
             jwt_auth = JWTAuthentication()
             validated_token = jwt_auth.get_validated_token(token)

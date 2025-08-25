@@ -38,11 +38,29 @@ class UserCreateSerializer(UserBaseSerializer):
         }
 
     def validate(self, attrs):
+        email = attrs.get('email')
         password = attrs.get('password')
         password_confirm = attrs.get('password_confirm')
+        phone_number = attrs.get('phone_number')
 
+        # Validate email format
+        if email and '@' not in email:
+            ErrorCode.INVALID_EMAIL_FORMAT.raise_error()
+
+        # Validate password length
+        if password and len(password) < 8:
+            ErrorCode.PASSWORD_TOO_WEAK.raise_error()
+
+        # Validate password confirmation
         if password and password_confirm and password != password_confirm:
             ErrorCode.PASSWORDS_DO_NOT_MATCH.raise_error()
+
+        # Validate phone number format (only digits and symbols)
+        if phone_number:
+            import re
+            # Allow only digits, spaces, dashes, parentheses, plus sign
+            if not re.match(r'^[\d\s\-\(\)\+]+$', phone_number):
+                ErrorCode.INVALID_PHONE_FORMAT.raise_error()
 
         return attrs
 
@@ -60,6 +78,18 @@ class UserUpdateSerializer(UserBaseSerializer):
     """Serializer for updating user profile"""
     class Meta(UserBaseSerializer.Meta):
         fields = ['first_name', 'last_name', 'phone_number', 'location']
+    
+    def validate(self, attrs):
+        phone_number = attrs.get('phone_number')
+        
+        # Validate phone number format (only digits and symbols)
+        if phone_number:
+            import re
+            # Allow only digits, spaces, dashes, parentheses, plus sign
+            if not re.match(r'^[\d\s\-\(\)\+]+$', phone_number):
+                ErrorCode.INVALID_PHONE_FORMAT.raise_error()
+        
+        return attrs
 
 
 class AdminProfileUpdateSerializer(UserBaseSerializer):
@@ -80,7 +110,32 @@ class SendVerificationEmailSerializer(serializers.Serializer):
 
 class VerifyEmailSerializer(serializers.Serializer):
     email = serializers.EmailField()
-    code = serializers.CharField(max_length=6)
+    code = serializers.CharField(max_length=6, min_length=6)
+
+
+class PasswordResetRequestSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    code = serializers.CharField(min_length=6, max_length=6)
+    new_password = serializers.CharField(min_length=8, write_only=True)
+    new_password_confirm = serializers.CharField(min_length=8, write_only=True)
+    
+    def validate(self, attrs):
+        new_password = attrs.get('new_password')
+        new_password_confirm = attrs.get('new_password_confirm')
+        
+        # Validate password length
+        if new_password and len(new_password) < 8:
+            ErrorCode.PASSWORD_TOO_WEAK.raise_error()
+        
+        # Validate password confirmation
+        if new_password and new_password_confirm and new_password != new_password_confirm:
+            ErrorCode.PASSWORDS_DO_NOT_MATCH.raise_error()
+        
+        return attrs
 
 
 class ProfilePhotoUploadSerializer(serializers.Serializer):
@@ -105,24 +160,7 @@ class ProfilePhotoUploadSerializer(serializers.Serializer):
         return value
 
 
-class PasswordResetRequestSerializer(serializers.Serializer):
-    email = serializers.EmailField()
 
-
-class PasswordResetConfirmSerializer(serializers.Serializer):
-    uid = serializers.CharField()
-    token = serializers.CharField()
-    new_password = serializers.CharField(min_length=8, write_only=True)
-    new_password_confirm = serializers.CharField(min_length=8, write_only=True)
-    
-    def validate(self, attrs):
-        new_password = attrs.get('new_password')
-        new_password_confirm = attrs.get('new_password_confirm')
-        
-        if new_password and new_password_confirm and new_password != new_password_confirm:
-            ErrorCode.PASSWORDS_DO_NOT_MATCH.raise_error()
-        
-        return attrs
 
 
 class LoginSerializer(serializers.Serializer):

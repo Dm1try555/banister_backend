@@ -1,24 +1,14 @@
 from core.base.common_imports import *
-from core.base.role_base import RoleBase
 from .models import Notification
 from .serializers import (
     NotificationSerializer, NotificationCreateSerializer, NotificationUpdateSerializer
 )
+from .permissions import NotificationPermissions
 
 
-class NotificationListCreateView(SwaggerMixin, ListCreateAPIView, RoleBase):
+class NotificationListCreateView(SwaggerMixin, ListCreateAPIView, RoleBasedQuerysetMixin, NotificationPermissions):
     permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        if not self.request.user.is_authenticated:
-            return Notification.objects.none()
-            
-        user = self.request.user
-        if user.role == 'customer':
-            return self._get_customer_queryset(Notification, user)
-        elif user.role == 'service_provider':
-            return self._get_service_provider_queryset(Notification, user)
-        return self._get_admin_queryset(Notification, user)
+    queryset = Notification.objects.all()
 
     def get_serializer_class(self):
         return NotificationCreateSerializer if self.request.method == 'POST' else NotificationSerializer
@@ -35,19 +25,9 @@ class NotificationListCreateView(SwaggerMixin, ListCreateAPIView, RoleBase):
         serializer.save(user=self.request.user)
 
 
-class NotificationDetailView(SwaggerMixin, RetrieveUpdateDestroyAPIView, RoleBase):
+class NotificationDetailView(SwaggerMixin, RetrieveUpdateDestroyAPIView, RoleBasedQuerysetMixin, NotificationPermissions):
     permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        if not self.request.user.is_authenticated:
-            return Notification.objects.none()
-            
-        user = self.request.user
-        if user.role == 'customer':
-            return self._get_customer_queryset(Notification, user)
-        elif user.role == 'service_provider':
-            return self._get_service_provider_queryset(Notification, user)
-        return self._get_admin_queryset(Notification, user)
+    queryset = Notification.objects.all()
 
     def get_serializer_class(self):
         if self.request.method in ['PUT', 'PATCH']:
@@ -80,7 +60,12 @@ class NotificationDetailView(SwaggerMixin, RetrieveUpdateDestroyAPIView, RoleBas
 
     @swagger_retrieve_update_destroy(
         description="Delete notification",
-        response_schema=openapi.Response(description="Notification deleted successfully"),
+        response_schema=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'message': openapi.Schema(type=openapi.TYPE_STRING)
+            }
+        ),
         tags=["Notifications"]
     )
     def delete(self, request, *args, **kwargs):

@@ -1,0 +1,34 @@
+{% extends "emails/base_email.html" %}
+
+{% block content %}
+<div class="welcome-message">
+    <h2>Welcome to Banister, {{ username }}! 🎉</h2>
+    <p>We're thrilled to have you join our community of service providers and customers.</p>
+</div>
+
+<div class="info-box">
+    <h3>🚀 What's Next?</h3>
+    <ul style="margin-left: 20px; margin-top: 10px;">
+        <li>Complete your profile to get started</li>
+        <li>Browse available services or create your own</li>
+        <li>Connect with other users in our platform</li>
+        <li>Start booking or providing services</li>
+    </ul>
+</div>
+
+<div style="text-align: center; margin: 30px 0;">
+    <a href="{{ login_url }}" class="button">Get Started Now</a>
+</div>
+
+<div class="info-box">
+    <h3>💡 Quick Tips</h3>
+    <p>• Keep your profile information up to date</p>
+    <p>• Upload a profile photo to build trust</p>
+    <p>• Set your location for better service matching</p>
+    <p>• Check our FAQ section for common questions</p>
+</div>
+
+<p style="text-align: center; margin-top: 30px; color: #6c757d;">
+    If you have any questions, don't hesitate to reach out to our support team.
+</p>
+{% endblock %} 

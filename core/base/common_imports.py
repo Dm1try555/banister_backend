@@ -47,7 +47,7 @@ from drf_yasg import openapi
 
 # Local imports
 from .swagger_mixin import SwaggerMixin
-from .role_base import RoleBase
+from .permissions import BasePermissionsMixin, RoleBasedQuerysetMixin
 
 # Error handling
 from core.error_handling.enums import ErrorCode

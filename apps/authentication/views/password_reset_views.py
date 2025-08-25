@@ -1,29 +1,28 @@
 from core.base.common_imports import *
-from ..models import User
+from ..models import User, VerificationCode
 from ..serializers import PasswordResetRequestSerializer, PasswordResetConfirmSerializer
 from django.template.loader import render_to_string
-from django.contrib.auth.tokens import default_token_generator
-from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
-from django.utils.encoding import force_bytes, force_str
+from django.core.mail import send_mail
+from django.conf import settings
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class PasswordResetRequestView(APIView):
     permission_classes = [AllowAny]
     
     @swagger_auto_schema(
-        operation_description="Request password reset link",
+        operation_description="Request password reset",
         request_body=PasswordResetRequestSerializer,
         responses={
-            200: openapi.Response(
-                description="Password reset link sent",
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        'message': openapi.Schema(type=openapi.TYPE_STRING)
-                    }
-                )
+            200: openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'message': openapi.Schema(type=openapi.TYPE_STRING)
+                }
             ),
-            404: ERROR_404_SCHEMA
+            400: ERROR_400_SCHEMA
         }
     )
     def post(self, request):
@@ -35,47 +34,56 @@ class PasswordResetRequestView(APIView):
         try:
             user = User.objects.get(email=email)
             
-            # Generate password reset token
-            token = default_token_generator.make_token(user)
+            # Generate and save reset code
+            reset_code = VerificationCode.create_code(
+                user=user,
+                code_type='password_reset',
+                expiry_minutes=10
+            )
             
-            # Form password reset URL
-            uid = urlsafe_base64_encode(force_bytes(user.pk))
-            reset_url = f"{settings.FRONTEND_URL}/reset-password/{uid}/{token}/"
-            
-            html_message = render_to_string('authentication/password_reset_email.html', {
-                'reset_url': reset_url,
-                'expires_in': '24 hours'
+            # Send password reset email
+            html_message = render_to_string('emails/password_reset_email.html', {
+                'username': user.username,
+                'reset_code': reset_code.code,
+                'reset_url': f"{settings.FRONTEND_URL}/reset-password" if hasattr(settings, 'FRONTEND_URL') else '/reset-password',
+                'support_url': f"{settings.FRONTEND_URL}/support" if hasattr(settings, 'FRONTEND_URL') else '/support'
             })
             
             send_mail(
-                subject='Password Reset Request - Banister',
-                message=f'Click the link to reset your password: {reset_url}',
+                subject='Reset Your Password - Banister',
+                message=f'Your password reset code is: {reset_code.code}',
                 from_email=settings.DEFAULT_FROM_EMAIL,
                 recipient_list=[email],
                 html_message=html_message,
                 fail_silently=False,
             )
             
-            return Response({'message': 'Password reset link sent'})
+            return Response({
+                'message': 'Password reset email sent successfully. Code expires in 10 minutes.'
+            })
+            
         except User.DoesNotExist:
-            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+            # Don't reveal if user exists or not
+            return Response({
+                'message': 'If an account with that email exists, a password reset email has been sent.'
+            })
+        except Exception as e:
+            logger.error(f"Failed to send password reset email to {email}: {e}")
+            ErrorCode.EMAIL_SEND_FAILED.raise_error()
 
 
 class PasswordResetConfirmView(APIView):
     permission_classes = [AllowAny]
     
     @swagger_auto_schema(
-        operation_description="Confirm password reset with token",
+        operation_description="Confirm password reset with code",
         request_body=PasswordResetConfirmSerializer,
         responses={
-            200: openapi.Response(
-                description="Password reset successfully",
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        'message': openapi.Schema(type=openapi.TYPE_STRING)
-                    }
-                )
+            200: openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'message': openapi.Schema(type=openapi.TYPE_STRING)
+                }
             ),
             400: ERROR_400_SCHEMA
         }
@@ -84,22 +92,45 @@ class PasswordResetConfirmView(APIView):
         serializer = PasswordResetConfirmSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
-        uidb64 = serializer.validated_data['uid']
-        token = serializer.validated_data['token']
+        email = serializer.validated_data['email']
+        code = serializer.validated_data['code']
         new_password = serializer.validated_data['new_password']
+        new_password_confirm = serializer.validated_data['new_password_confirm']
         
         try:
-            uid = force_str(urlsafe_base64_decode(uidb64))
-            user = User.objects.get(pk=uid)
+            user = User.objects.get(email=email)
             
-            if default_token_generator.check_token(user, token):
-                user.set_password(new_password)
-                user.save()
-                return Response({'message': 'Password reset successfully'})
-            else:
-                return Response({'error': 'Invalid token'}, status=status.HTTP_400_BAD_REQUEST)
-        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
-            return Response({'error': 'Invalid reset link'}, status=status.HTTP_400_BAD_REQUEST)
+            if new_password != new_password_confirm:
+                ErrorCode.PASSWORDS_DO_NOT_MATCH.raise_error()
+            
+            # Find and validate reset code
+            try:
+                reset_code = VerificationCode.objects.get(
+                    user=user,
+                    code=code,
+                    code_type='password_reset',
+                    is_used=False
+                )
+            except VerificationCode.DoesNotExist:
+                ErrorCode.INVALID_VERIFICATION_CODE.raise_error()
+            
+            if not reset_code.is_valid():
+                ErrorCode.VERIFICATION_CODE_EXPIRED.raise_error()
+            
+            # Set new password and mark code as used
+            user.set_password(new_password)
+            user.save()
+            reset_code.mark_as_used()
+            
+            return Response({
+                'message': 'Password reset successfully.'
+            })
+            
+        except User.DoesNotExist:
+            ErrorCode.USER_NOT_FOUND.raise_error()
+        except Exception as e:
+            logger.error(f"Failed to reset password: {e}")
+            ErrorCode.PASSWORD_RESET_FAILED.raise_error()
 
 
 password_reset_request = PasswordResetRequestView.as_view()

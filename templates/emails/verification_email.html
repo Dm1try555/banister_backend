@@ -1,0 +1,43 @@
+{% extends "emails/base_email.html" %}
+
+{% block content %}
+<div class="welcome-message">
+    <h2>Verify Your Email Address 📧</h2>
+    <p>Hi {{ username }}, please verify your email address to complete your account setup.</p>
+</div>
+
+<div class="verification-code">
+    <h3>Your Verification Code</h3>
+    <div class="code">{{ verification_code }}</div>
+    <p>Enter this code in the verification form</p>
+    <div class="expiry-info">
+        ⏰ This code expires in 10 minutes
+    </div>
+</div>
+
+<div class="info-box">
+    <h3>🔐 How to Verify</h3>
+    <ol style="margin-left: 20px; margin-top: 10px;">
+        <li>Copy the 6-digit code above</li>
+        <li>Go to the verification page</li>
+        <li>Enter the code and click "Verify"</li>
+        <li>Your account will be activated immediately</li>
+    </ol>
+</div>
+
+<div style="text-align: center; margin: 30px 0;">
+    <a href="{{ verification_url }}" class="button">Verify Email Now</a>
+</div>
+
+<div class="info-box">
+    <h3>⚠️ Important Notes</h3>
+    <p>• Never share this code with anyone</p>
+    <p>• The code is case-sensitive</p>
+    <p>• If you didn't request this, please ignore this email</p>
+    <p>• Contact support if you need help</p>
+</div>
+
+<p style="text-align: center; margin-top: 30px; color: #6c757d;">
+    Having trouble? <a href="{{ support_url }}" style="color: #667eea;">Contact our support team</a>
+</p>
+{% endblock %} 

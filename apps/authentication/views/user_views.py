@@ -21,23 +21,7 @@ class ProfileView(RetrieveUpdateAPIView):
     @swagger_auto_schema(
         operation_description="Get user profile information",
         responses={
-            200: openapi.Schema(
-                 type=openapi.TYPE_OBJECT,
-                 properties={
-                     'id': openapi.Schema(type=openapi.TYPE_INTEGER),
-                     'username': openapi.Schema(type=openapi.TYPE_STRING),
-                     'email': openapi.Schema(type=openapi.TYPE_STRING),
-                     'first_name': openapi.Schema(type=openapi.TYPE_STRING),
-                     'last_name': openapi.Schema(type=openapi.TYPE_STRING),
-                     'role': openapi.Schema(type=openapi.TYPE_STRING),
-                     'phone': openapi.Schema(type=openapi.TYPE_STRING),
-                     'email_verified': openapi.Schema(type=openapi.TYPE_BOOLEAN),
-                     'provider_verified': openapi.Schema(type=openapi.TYPE_BOOLEAN),
-                     'profile_photo': openapi.Schema(type=openapi.TYPE_STRING),
-                     'date_joined': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_DATETIME),
-                     'last_login': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_DATETIME)
-                 }
-             ),
+            200: USER_RESPONSE_SCHEMA,
             401: ERROR_401_SCHEMA
         }
     )
@@ -48,23 +32,7 @@ class ProfileView(RetrieveUpdateAPIView):
         operation_description="Update user profile information",
         request_body=UserUpdateSerializer,
         responses={
-            200: openapi.Schema(
-                 type=openapi.TYPE_OBJECT,
-                 properties={
-                     'id': openapi.Schema(type=openapi.TYPE_INTEGER),
-                     'username': openapi.Schema(type=openapi.TYPE_STRING),
-                     'email': openapi.Schema(type=openapi.TYPE_STRING),
-                     'first_name': openapi.Schema(type=openapi.TYPE_STRING),
-                     'last_name': openapi.Schema(type=openapi.TYPE_STRING),
-                     'role': openapi.Schema(type=openapi.TYPE_STRING),
-                     'phone': openapi.Schema(type=openapi.TYPE_STRING),
-                     'email_verified': openapi.Schema(type=openapi.TYPE_BOOLEAN),
-                     'provider_verified': openapi.Schema(type=openapi.TYPE_STRING),
-                     'profile_photo': openapi.Schema(type=openapi.TYPE_STRING),
-                     'date_joined': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_DATETIME),
-                     'last_login': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_DATETIME)
-                 }
-             ),
+            200: USER_RESPONSE_SCHEMA,
             400: ERROR_400_SCHEMA,
             401: ERROR_401_SCHEMA
         }
@@ -76,26 +44,38 @@ class ProfileView(RetrieveUpdateAPIView):
         operation_description="Partially update user profile information",
         request_body=UserUpdateSerializer,
         responses={
-            200: openapi.Schema(
-                 type=openapi.TYPE_OBJECT,
-                 properties={
-                     'id': openapi.Schema(type=openapi.TYPE_INTEGER),
-                     'username': openapi.Schema(type=openapi.TYPE_STRING),
-                     'email': openapi.Schema(type=openapi.TYPE_STRING),
-                     'first_name': openapi.Schema(type=openapi.TYPE_STRING),
-                     'last_name': openapi.Schema(type=openapi.TYPE_STRING),
-                     'role': openapi.Schema(type=openapi.TYPE_STRING),
-                     'phone': openapi.Schema(type=openapi.TYPE_STRING),
-                     'email_verified': openapi.Schema(type=openapi.TYPE_BOOLEAN),
-                     'provider_verified': openapi.Schema(type=openapi.TYPE_BOOLEAN),
-                     'profile_photo': openapi.Schema(type=openapi.TYPE_STRING),
-                     'date_joined': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_DATETIME),
-                     'last_login': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_DATETIME)
-                 }
-             ),
+            200: USER_RESPONSE_SCHEMA,
             400: ERROR_400_SCHEMA,
             401: ERROR_401_SCHEMA
         }
     )
     def patch(self, request, *args, **kwargs):
         return super().patch(request, *args, **kwargs)
+
+
+class DeleteProfileView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    @swagger_auto_schema(
+        operation_description="Delete user profile (only own profile)",
+        responses={
+            200: openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'message': openapi.Schema(type=openapi.TYPE_STRING)
+                }
+            ),
+            401: ERROR_401_SCHEMA,
+            403: ERROR_403_SCHEMA
+        }
+    )
+    @transaction.atomic
+    def delete(self, request):
+        user = request.user
+        
+        # Delete user profile
+        user.delete()
+        
+        return Response({
+            'message': 'Profile deleted successfully'
+        }, status=status.HTTP_200_OK)

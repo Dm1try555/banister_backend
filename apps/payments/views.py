@@ -1,26 +1,16 @@
 from core.base.common_imports import *
-from core.base.role_base import RoleBase
 from .models import Payment
 from .serializers import (
     PaymentSerializer, PaymentCreateSerializer, PaymentUpdateSerializer,
     PaymentConfirmSerializer, PaymentTransferSerializer
 )
 from core.stripe.service import stripe_service
+from .permissions import PaymentPermissions
 
 
-class PaymentListCreateView(SwaggerMixin, ListCreateAPIView, RoleBase):
+class PaymentListCreateView(SwaggerMixin, ListCreateAPIView, RoleBasedQuerysetMixin, PaymentPermissions):
     permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        if not self.request.user.is_authenticated:
-            return Payment.objects.none()
-            
-        user = self.request.user
-        if user.role == 'customer':
-            return self._get_customer_queryset(Payment, user)
-        elif user.role == 'service_provider':
-            return self._get_service_provider_queryset(Payment, user)
-        return self._get_admin_queryset(Payment, user)
+    queryset = Payment.objects.all()
 
     def get_serializer_class(self):
         return PaymentCreateSerializer if self.request.method == 'POST' else PaymentSerializer
@@ -40,19 +30,9 @@ class PaymentListCreateView(SwaggerMixin, ListCreateAPIView, RoleBase):
         payment.save()
 
 
-class PaymentDetailView(SwaggerMixin, RetrieveUpdateAPIView, RoleBase):
+class PaymentDetailView(SwaggerMixin, RetrieveUpdateAPIView, RoleBasedQuerysetMixin, PaymentPermissions):
     permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        if not self.request.user.is_authenticated:
-            return Payment.objects.none()
-            
-        user = self.request.user
-        if user.role == 'customer':
-            return self._get_customer_queryset(Payment, user)
-        elif user.role == 'service_provider':
-            return self._get_service_provider_queryset(Payment, user)
-        return self._get_admin_queryset(Payment, user)
+    queryset = Payment.objects.all()
 
     def get_serializer_class(self):
         if self.request.method in ['PUT', 'PATCH']:
@@ -91,16 +71,13 @@ class PaymentConfirmView(APIView):
         operation_description="Confirm payment with Stripe",
         request_body=PaymentConfirmSerializer,
         responses={
-            200: openapi.Response(
-                description="Payment confirmed successfully",
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        'status': openapi.Schema(type=openapi.TYPE_STRING),
-                        'message': openapi.Schema(type=openapi.TYPE_STRING),
-                        'payment_id': openapi.Schema(type=openapi.TYPE_INTEGER)
-                    }
-                )
+            200: openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'status': openapi.Schema(type=openapi.TYPE_STRING),
+                    'message': openapi.Schema(type=openapi.TYPE_STRING),
+                    'payment_id': openapi.Schema(type=openapi.TYPE_INTEGER)
+                }
             ),
             400: ERROR_400_SCHEMA,
             401: ERROR_401_SCHEMA
@@ -130,9 +107,7 @@ class PaymentConfirmView(APIView):
             })
             
         except Payment.DoesNotExist:
-            return Response({
-                'error': 'Payment not found'
-            }, status=status.HTTP_404_NOT_FOUND)
+            ErrorCode.USER_NOT_FOUND.raise_error()
 
 
 class PaymentTransferView(APIView):
@@ -142,16 +117,13 @@ class PaymentTransferView(APIView):
         operation_description="Transfer payment to provider",
         request_body=PaymentTransferSerializer,
         responses={
-            200: openapi.Response(
-                description="Transfer initiated successfully",
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        'status': openapi.Schema(type=openapi.TYPE_STRING),
-                        'message': openapi.Schema(type=openapi.TYPE_STRING),
-                        'transfer_id': openapi.Schema(type=openapi.TYPE_STRING)
-                    }
-                )
+            200: openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'status': openapi.Schema(type=openapi.TYPE_STRING),
+                    'message': openapi.Schema(type=openapi.TYPE_STRING),
+                    'transfer_id': openapi.Schema(type=openapi.TYPE_STRING)
+                }
             ),
             400: ERROR_400_SCHEMA,
             401: ERROR_401_SCHEMA
@@ -182,6 +154,4 @@ class PaymentTransferView(APIView):
             })
             
         except Payment.DoesNotExist:
-            return Response({
-                'error': 'No completed payment found'
-            }, status=status.HTTP_404_NOT_FOUND)
+            ErrorCode.USER_NOT_FOUND.raise_error()

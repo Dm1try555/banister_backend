@@ -7,11 +7,10 @@ from ..serializers import UserSerializer, UserCreateSerializer, UserUpdateSerial
 class AdminUserViewSet(SwaggerMixin, ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsAuthenticated]
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Устанавливаем флаг для Swagger
         if not hasattr(self, 'request') or not self.request:
             self.swagger_fake_view = True
     
@@ -25,41 +24,68 @@ class AdminUserViewSet(SwaggerMixin, ModelViewSet):
         return action_serializers.get(self.action, self.serializer_class)
     
     def get_queryset(self):
-        # Проверка для Swagger - если пользователь не аутентифицирован
         if not self.request.user.is_authenticated:
             return User.objects.none()
-            
-        user = self.request.user
-        if user.role in ['super_admin', 'admin']:
-            return User.objects.all()
-        elif user.role in ['hr', 'supervisor']:
-            return User.objects.filter(role__in=['customer', 'service_provider'])
-        return User.objects.none()
+        
+        return self._get_role_based_queryset(User, self.request.user)
+    
+    def perform_create(self, serializer):
+        """Create user with permission check"""
+        current_user = self.request.user
+        new_user_role = serializer.validated_data.get('role', 'customer')
+        
+        # Check if current user can create users with such role
+        if not self._can_create_user_with_role(current_user, new_user_role):
+            ErrorCode.PERMISSION_DENIED.raise_error()
+        
+        serializer.save()
+    
+    def perform_update(self, serializer):
+        """Update user with permission check"""
+        current_user = self.request.user
+        target_user = serializer.instance
+        
+        # Check if current user can manage target user
+        if not self.can_manage_user(current_user, target_user):
+            ErrorCode.PERMISSION_DENIED.raise_error()
+        
+        serializer.save()
+    
+    def perform_destroy(self, instance):
+        """Delete user with permission check"""
+        current_user = self.request.user
+        
+        # Check if current user can delete target user
+        if not self.can_delete_user(current_user, instance):
+            ErrorCode.PERMISSION_DENIED.raise_error()
+        
+        instance.delete()
+    
+    def _can_create_user_with_role(self, current_user, new_user_role):
+        """Check if current user can create users with specified role"""
+        if current_user.role == 'super_admin':
+            return True  # Super Admin can create all users
+        
+        if current_user.role == 'admin':
+            return new_user_role != 'super_admin'  # Admin cannot create Super Admin
+        
+        if current_user.role == 'hr':
+            return new_user_role in ['supervisor', 'customer', 'service_provider']
+        
+        if current_user.role == 'supervisor':
+            return new_user_role in ['customer', 'service_provider']
+        
+        # Customer and Service Provider cannot create users
+        return False
     
     @swagger_auto_schema(
         operation_description="Update admin profile information",
         request_body=AdminProfileUpdateSerializer,
-                    responses={
-             200: openapi.Schema(
-                 type=openapi.TYPE_OBJECT,
-                 properties={
-                     'id': openapi.Schema(type=openapi.TYPE_INTEGER),
-                     'username': openapi.Schema(type=openapi.TYPE_STRING),
-                     'email': openapi.Schema(type=openapi.TYPE_STRING),
-                     'first_name': openapi.Schema(type=openapi.TYPE_STRING),
-                     'last_name': openapi.Schema(type=openapi.TYPE_STRING),
-                     'role': openapi.Schema(type=openapi.TYPE_STRING),
-                     'phone': openapi.Schema(type=openapi.TYPE_STRING),
-                     'email_verified': openapi.Schema(type=openapi.TYPE_BOOLEAN),
-                     'provider_verified': openapi.Schema(type=openapi.TYPE_BOOLEAN),
-                     'profile_photo': openapi.Schema(type=openapi.TYPE_STRING),
-                     'date_joined': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_DATETIME),
-                     'last_login': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_DATETIME)
-                 }
-             ),
-                400: ERROR_400_SCHEMA,
-                404: ERROR_404_SCHEMA
-            }
+        responses={
+            200: USER_RESPONSE_SCHEMA,
+            400: ERROR_400_SCHEMA,
+            404: ERROR_404_SCHEMA
+        }
     )
     @action(detail=True, methods=['patch'])
     def admin_update(self, request, pk=None):
@@ -72,15 +98,12 @@ class AdminUserViewSet(SwaggerMixin, ModelViewSet):
     @swagger_auto_schema(
         operation_description="Toggle user verification status",
         responses={
-            200: openapi.Response(
-                description="Verification status toggled successfully",
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        'status': openapi.Schema(type=openapi.TYPE_STRING),
-                        'verified': openapi.Schema(type=openapi.TYPE_BOOLEAN)
-                    }
-                )
+            200: openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'status': openapi.Schema(type=openapi.TYPE_STRING),
+                    'verified': openapi.Schema(type=openapi.TYPE_BOOLEAN)
+                }
             ),
             400: ERROR_400_SCHEMA
         }
@@ -95,10 +118,26 @@ class AdminUserViewSet(SwaggerMixin, ModelViewSet):
         elif verification_type == 'provider':
             user.provider_verified = not user.provider_verified
         else:
-            return Response({'error': 'Invalid verification type'}, status=status.HTTP_400_BAD_REQUEST)
+            ErrorCode.INVALID_DATA.raise_error()
         
         user.save()
         return Response({
             'status': f'{verification_type} verification toggled',
             'verified': getattr(user, f'{verification_type}_verified')
-        }) 
+        })
+    
+    def destroy(self, request, *args, **kwargs):
+        """Delete user (only for authorized roles)"""
+        user = self.get_object()
+        current_user = request.user
+        
+        # Check if current user can delete target user
+        if not self.can_delete_user(current_user, user):
+            ErrorCode.PERMISSION_DENIED.raise_error()
+        
+        # Delete user
+        user.delete()
+        
+        return Response({
+            'message': f'User {user.username} deleted successfully'
+        }, status=status.HTTP_200_OK) 

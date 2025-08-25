@@ -7,17 +7,23 @@ class ErrorCode(Enum):
     USER_NOT_FOUND = (1002, "User not found", "User with specified ID does not exist")
     TOKEN_EXPIRED = (1003, "Token expired", "Authentication token has expired")
     INVALID_TOKEN = (1004, "Invalid token", "Authentication token is invalid")
-    PERMISSION_DENIED = (1005, "Permission denied", "You don't have permission to perform this action")
-    USER_ALREADY_EXISTS = (1006, "User already exists", "User with this email or username already exists")
-    EMAIL_NOT_VERIFIED = (1007, "Email not verified", "Please verify your email address first")
-    INVALID_VERIFICATION_CODE = (1008, "Invalid verification code", "Verification code is incorrect or expired")
-    PASSWORD_TOO_WEAK = (1009, "Password too weak", "Password must be at least 8 characters long")
-    INVALID_EMAIL_FORMAT = (1010, "Invalid email format", "Email format is invalid")
-    INVALID_PHONE_FORMAT = (1011, "Invalid phone format", "Phone number format is invalid")
-    PASSWORDS_DO_NOT_MATCH = (1012, "Passwords do not match", "Password and password confirmation do not match")
-    FILE_TOO_LARGE = (1013, "File too large", "File size exceeds maximum allowed limit")
-    INVALID_FILE_TYPE = (1014, "Invalid file type", "File type is not supported")
-    EMPTY_FILE = (1015, "Empty file", "File cannot be empty")
+    AUTHENTICATION_REQUIRED = (1005, "Authentication required", "Authentication credentials were not provided")
+    PERMISSION_DENIED = (1006, "Permission denied", "You don't have permission to perform this action")
+    USER_ALREADY_EXISTS = (1007, "User already exists", "User with this email or username already exists")
+    EMAIL_NOT_VERIFIED = (1008, "Email not verified", "Please verify your email address first")
+    INVALID_VERIFICATION_CODE = (1009, "Invalid verification code", "Verification code is incorrect or expired")
+    EMAIL_ALREADY_VERIFIED = (1010, "Email already verified", "Email address is already verified")
+    VERIFICATION_CODE_EXPIRED = (1011, "Verification code expired", "Verification code has expired")
+    EMAIL_SEND_FAILED = (1012, "Email send failed", "Failed to send email")
+    EMAIL_VERIFICATION_FAILED = (1013, "Email verification failed", "Failed to verify email address")
+    PASSWORD_RESET_FAILED = (1014, "Password reset failed", "Failed to reset password")
+    PASSWORD_TOO_WEAK = (1015, "Password too weak", "Password must be at least 8 characters long")
+    INVALID_EMAIL_FORMAT = (1016, "Invalid email format", "Email format is invalid")
+    INVALID_PHONE_FORMAT = (1017, "Invalid phone format", "Phone number format is invalid")
+    PASSWORDS_DO_NOT_MATCH = (1018, "Passwords do not match", "Password and password confirmation do not match")
+    FILE_TOO_LARGE = (1019, "File too large", "File size exceeds maximum allowed limit")
+    INVALID_FILE_TYPE = (1020, "Invalid file type", "File type is not supported")
+    EMPTY_FILE = (1021, "Empty file", "File cannot be empty")
 
     # Booking errors (2000-2099)
     BOOKING_NOT_FOUND = (2001, "Booking not found", "Booking with specified ID does not exist")
@@ -99,6 +105,7 @@ class ErrorCode(Enum):
     INVALID_DATE_FORMAT = (9003, "Invalid date format", "Date format is invalid")
     INVALID_TIME_FORMAT = (9004, "Invalid time format", "Time format is invalid")
     FIELD_TOO_LONG = (9005, "Field too long", "Field value exceeds maximum length")
+    VALIDATION_ERROR = (9006, "Validation error", "Data validation failed")
     BAD_REQUEST = (9100, "Bad request", "Request format is invalid (e.g. JSON parsing error)")
     METHOD_NOT_ALLOWED = (9101, "Method not allowed", "HTTP method not allowed for this endpoint")
     CONFLICT_ERROR = (9102, "Conflict error", "Request could not be completed due to a data conflict")
@@ -121,10 +128,10 @@ class ErrorCode(Enum):
 
     def raise_error(self, detail=None):
         """
-        Создает и вызывает ValidationError с кодом ошибки
-        Использование: ErrorCode.PASSWORDS_DO_NOT_MATCH.raise_error()
+        Creates and raises a ValidationError with an error code
+        Usage: ErrorCode.PASSWORDS_DO_NOT_MATCH.raise_error()
         """
         from rest_framework import serializers
         error_message = detail or self.description
-        raise serializers.ValidationError(f"{self.code}: {error_message}")
+        raise serializers.ValidationError(f"{self.code}: {self.title}: {error_message}")
 

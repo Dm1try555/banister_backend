@@ -4,51 +4,66 @@ from django.utils.timezone import now
 from .enums import ErrorCode
 
 
+def create_error_response(error_code: ErrorCode = None, detail=None, status_code=None, request=None):
+    """Creates a unified error format for all types"""
+    if error_code:
+        # For our ErrorCode (from serializers)
+        status_code = status_code or get_status_code_from_error_code(error_code)
+        error_code_num = error_code.code
+        title = error_code.title
+        description = detail or error_code.description
+    else:
+        # For standard DRF errors (401, 404, 500, etc.)
+        status_code = status_code or 400
+        error_code = get_error_code_by_status(status_code)
+        error_code_num = error_code.code
+        title = error_code.title
+        description = detail or error_code.description
+    
+    exception_type = get_exception_type(status_code)
+    
+    error_response = {
+        "statusCode": status_code,
+        "errorCode": error_code_num,
+        "title": title,
+        "description": description,
+        "exceptionType": exception_type,
+        "timestamp": now().isoformat(),
+        "endpoint": request.path if request else "",
+        "method": request.method if request else ""
+    }
+    
+    return Response(error_response, status=status_code)
+
+
 def get_status_code_from_error_code(error_code: ErrorCode) -> int:
     """Determines HTTP status code based on ErrorCode"""
-    if error_code.code in range(1000, 2000):
-        return status.HTTP_401_UNAUTHORIZED
-    elif error_code.code in range(2000, 3000):
-        return status.HTTP_409_CONFLICT
-    elif error_code.code in range(3000, 4000):
-        return status.HTTP_404_NOT_FOUND
-    elif error_code.code in range(4000, 4500):
-        return status.HTTP_402_PAYMENT_REQUIRED
-    elif error_code.code in range(4500, 5000):
-        return status.HTTP_400_BAD_REQUEST
-    elif error_code.code in range(5000, 6000):
-        return status.HTTP_400_BAD_REQUEST
-    elif error_code.code in range(6000, 7000):
-        return status.HTTP_404_NOT_FOUND
-    elif error_code.code in range(7000, 8000):
-        return status.HTTP_403_FORBIDDEN
-    elif error_code.code in range(8000, 9000):
-        return status.HTTP_409_CONFLICT
-    elif error_code.code in range(9000, 10000):
-        return status.HTTP_422_UNPROCESSABLE_ENTITY
-    else:
-        return status.HTTP_400_BAD_REQUEST
+    code = error_code.code
+    if 1000 <= code < 2000: return status.HTTP_401_UNAUTHORIZED
+    if 2000 <= code < 3000: return status.HTTP_409_CONFLICT
+    if 3000 <= code < 4000: return status.HTTP_404_NOT_FOUND
+    if 4000 <= code < 9000: return status.HTTP_400_BAD_REQUEST
+    if 9000 <= code < 10000: return status.HTTP_422_UNPROCESSABLE_ENTITY
+    return status.HTTP_400_BAD_REQUEST
 
 
-def create_error_response(error_code: ErrorCode = None, detail=None, status_code=None, request=None):
-    """Creates a standardized error response"""
-    if error_code is None:
-        # For standard DRF errors without ErrorCode
-        if status_code is None:
-            status_code = status.HTTP_400_BAD_REQUEST
-        
-        message = detail or "An error occurred"
-        error_title = "Error"
-        error_code_num = status_code
-    else:
-        # For our custom errors with ErrorCode
-        if status_code is None:
-            status_code = get_status_code_from_error_code(error_code)
-        
-        message = f"{error_code.code}: {detail or error_code.description}"
-        error_title = error_code.title
-        error_code_num = error_code.code
-    
+def get_error_code_by_status(status_code: int) -> ErrorCode:
+    """Returns ErrorCode based on HTTP status code"""
+    status_to_error_map = {
+        400: ErrorCode.BAD_REQUEST,
+        401: ErrorCode.AUTHENTICATION_REQUIRED,
+        402: ErrorCode.PAYMENT_FAILED,
+        403: ErrorCode.PERMISSION_DENIED,
+        404: ErrorCode.INVALID_DATA,
+        409: ErrorCode.BOOKING_CONFLICT,
+        422: ErrorCode.VALIDATION_ERROR,
+        500: ErrorCode.INTERNAL_SERVER_ERROR
+    }
+    return status_to_error_map.get(status_code, ErrorCode.INVALID_DATA)
+
+
+def get_exception_type(status_code: int) -> str:
+    """Returns exception type based on status code"""
     exception_type_map = {
         400: "BadRequestException",
         401: "UnauthorizedException", 
@@ -59,34 +74,61 @@ def create_error_response(error_code: ErrorCode = None, detail=None, status_code
         422: "ValidationException",
         500: "InternalServerException"
     }
-    exception_type = exception_type_map.get(status_code, "APIException")
+    return exception_type_map.get(status_code, "APIException")
+
+
+def handle_validation_error(validation_errors, request=None):
+    """Processes validation errors in a unified format"""
+    # If there is an error code in the format "1001: Title: Description"
+    if isinstance(validation_errors, dict):
+        for field, errors in validation_errors.items():
+            if isinstance(errors, list):
+                for error in errors:
+                    if isinstance(error, str) and error.count(':') >= 2:
+                        try:
+                            parts = error.split(':', 2)
+                            code_str = parts[0].strip()
+                            title = parts[1].strip()
+                            description = parts[2].strip()
+                            code = int(code_str)
+                            # Search for ErrorCode by number
+                            for error_code in ErrorCode:
+                                if error_code.code == code:
+                                    return create_error_response(
+                                        error_code=error_code,
+                                        detail=description,
+                                        request=request
+                                    )
+                        except (ValueError, AttributeError):
+                            pass
     
-    error_response = {
-        "statusCode": status_code,
-        "errorCode": error_code_num,
-        "exceptionType": exception_type,
-        "message": message,
-        "error": error_title,
-        "timestamp": now().isoformat(),
-        "endpoint": request.path if request else "",
-        "method": request.method if request else ""
-    }
+    # Format Django validation errors into readable text
+    if isinstance(validation_errors, dict):
+        error_messages = []
+        for field, errors in validation_errors.items():
+            if isinstance(errors, list):
+                for error in errors:
+                    if hasattr(error, 'message'):
+                        error_messages.append(f"{error.message}")
+                    else:
+                        error_messages.append(f"{str(error)}")
+            else:
+                error_messages.append(f"{str(errors)}")
+        
+        formatted_error = "; ".join(error_messages)
+    else:
+        formatted_error = str(validation_errors)
     
-    return Response(error_response, status=status_code)
+    # If there is no error code, return a general validation error
+    return create_error_response(
+        error_code=ErrorCode.VALIDATION_ERROR,
+        detail=formatted_error,
+        request=request
+    )
 
 
 def create_success_response(data=None, message="Success", status_code=status.HTTP_200_OK):
-    """
-    Создает стандартизированный успешный ответ
-    
-    Args:
-        data: Данные для ответа
-        message: Сообщение об успехе
-        status_code: HTTP статус код
-    
-    Returns:
-        Response с успешным результатом
-    """
+    """Creates a standardized successful response"""
     response_data = {
         'success': True,
         "message": message
@@ -95,24 +137,4 @@ def create_success_response(data=None, message="Success", status_code=status.HTT
     if data is not None:
         response_data['data'] = data
     
-    return Response(response_data, status=status_code)
-
-
-def handle_validation_error(validation_errors, request=None):
-    """
-    Простая функция для обработки ошибок валидации
-    Автоматически определяет код ошибки из сообщения
-    """
-    error_text = str(validation_errors)
-    
-    # Если сообщение уже содержит код ошибки (например: "1012: Passwords do not match")
-    if ':' in error_text and error_text.split(':')[0].strip().isdigit():
-        error_code_num = int(error_text.split(':')[0].strip())
-        
-        # Находим ErrorCode по номеру
-        for error_code in ErrorCode:
-            if error_code.code == error_code_num:
-                return create_error_response(error_code, error_text, request=request)
-    
-    # Если код не найден, используем общий код
-    return create_error_response(ErrorCode.INVALID_DATA, error_text, request=request) 
+    return Response(response_data, status=status_code) 
