@@ -1,58 +1,57 @@
+from rest_framework.views import exception_handler
 from rest_framework.exceptions import APIException
+from rest_framework import status
 from .enums import ErrorCode
+from .utils import get_status_code_from_error_code
 
 
 class CustomAPIException(APIException):
-    def __init__(self, error_code: ErrorCode, detail=None):
-        self.error_code = error_code
-        self.status_code = self._get_status_code(error_code)
-        
-        if detail is None:
-            detail = error_code.description
-            
-        super().__init__(detail)
+    """Базовое исключение для всех кастомных ошибок"""
     
-    def _get_status_code(self, error_code: ErrorCode):
-        code_ranges = {
-            range(1000, 2000): 401,
-            range(2000, 3000): 409,
-            range(3000, 4000): 404,
-            range(4000, 4500): 402,
-            range(4500, 5000): 404,
-            range(5000, 6000): 400,
-            range(6000, 7000): 404,
-            range(7000, 8000): 403,
-            range(8000, 9000): 409,
-            range(9000, 9900): 400,
-            range(9900, 10000): 500,
-        }
-        
-        for code_range, status_code in code_ranges.items():
-            if error_code.code in code_range:
-                return status_code
-        
-        return 400
+    def __init__(self, error_code: ErrorCode, detail=None, status_code=None):
+        self.error_code = error_code
+        self.detail = detail or error_code.description
+        self.status_code = status_code or get_status_code_from_error_code(error_code)
+        super().__init__(detail=self.detail)
 
 
 class AuthenticationError(CustomAPIException):
-    pass
+    """Ошибки аутентификации (401)"""
+    def __init__(self, error_code: ErrorCode = ErrorCode.INVALID_CREDENTIALS, detail=None):
+        super().__init__(error_code, detail)
 
 
 class BookingError(CustomAPIException):
-    pass
+    """Ошибки бронирования (409)"""
+    def __init__(self, error_code: ErrorCode = ErrorCode.BOOKING_NOT_FOUND, detail=None):
+        super().__init__(error_code, detail)
 
 
 class ServiceError(CustomAPIException):
-    pass
+    """Ошибки сервисов (404)"""
+    def __init__(self, error_code: ErrorCode = ErrorCode.SERVICE_NOT_FOUND, detail=None):
+        super().__init__(error_code, detail)
 
 
 class PaymentError(CustomAPIException):
-    pass
+    """Ошибки платежей (402)"""
+    def __init__(self, error_code: ErrorCode = ErrorCode.PAYMENT_FAILED, detail=None):
+        super().__init__(error_code, detail)
+
+
+class DocumentError(CustomAPIException):
+    """Ошибки документов (400)"""
+    def __init__(self, error_code: ErrorCode = ErrorCode.DOCUMENT_NOT_FOUND, detail=None):
+        super().__init__(error_code, detail)
 
 
 class ValidationError(CustomAPIException):
-    pass
+    """Ошибки валидации (422)"""
+    def __init__(self, error_code: ErrorCode = ErrorCode.INVALID_DATA, detail=None):
+        super().__init__(error_code, detail)
 
 
 class SystemError(CustomAPIException):
-    pass
+    """Системные ошибки (500)"""
+    def __init__(self, error_code: ErrorCode = ErrorCode.INTERNAL_SERVER_ERROR, detail=None):
+        super().__init__(error_code, detail)

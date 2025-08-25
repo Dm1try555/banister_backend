@@ -1,93 +1,169 @@
-from rest_framework import status
-from rest_framework.decorators import action
-from rest_framework.response import Response
-from django.utils import timezone
+from core.base.common_imports import *
+from core.base.role_base import RoleBase
 from .models import Booking, Interview
-from .serializers import BookingSerializer, BookingCreateSerializer, InterviewSerializer, InterviewCreateSerializer, InterviewUpdateSerializer
-from apps.authentication.models import User
-from core.base.views import CustomerViewSet, ServiceProviderViewSet, NotificationMixin
-from core.base.interview_views import InterviewMixin
-from core.google_calendar.service import google_calendar_service
+from .serializers import (
+    BookingSerializer, BookingCreateSerializer, BookingUpdateSerializer,
+    InterviewSerializer, InterviewCreateSerializer, InterviewUpdateSerializer
+)
 
-class InterviewViewSet(NotificationMixin, InterviewMixin, ServiceProviderViewSet):
-    queryset = Interview.objects.all()
-    serializer_class = InterviewSerializer
-    
+
+class BookingListCreateView(SwaggerMixin, ListCreateAPIView, RoleBase):
+    permission_classes = [IsAuthenticated]
+
     def get_queryset(self):
+        if not self.request.user.is_authenticated:
+            return Booking.objects.none()
+            
         user = self.request.user
-        if user.is_staff:
-            return Interview.objects.all()
-        if user.role == 'service_provider':
-            return Interview.objects.filter(service__provider=user)
         if user.role == 'customer':
-            return Interview.objects.filter(customer=user)
-        return Interview.objects.none()
-    
-    def check_role_permission(self):
-        user = self.request.user
-        if user.is_staff or user.role in ['service_provider', 'customer']:
-            return
-        from rest_framework.exceptions import PermissionDenied
-        raise PermissionDenied("Access denied")
-    
-    def get_serializer_class(self):
-        if self.action == 'create':
-            return InterviewCreateSerializer
-        elif self.action in ['update', 'partial_update']:
-            return InterviewUpdateSerializer
-        return super().get_serializer_class()
-    
+            return self._get_customer_queryset(Booking, user)
+        elif user.role == 'service_provider':
+            return self._get_service_provider_queryset(Booking, user)
+        return self._get_admin_queryset(Booking, user)
 
-    
+    def get_serializer_class(self):
+        return BookingCreateSerializer if self.request.method == 'POST' else BookingSerializer
+
+    @swagger_list_create(
+        description="Create new booking",
+        response_schema=BOOKING_RESPONSE_SCHEMA,
+        tags=["Bookings"]
+    )
     def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        instance = serializer.save(provider=request.user)
-        self.notify_admins(instance, request.user.email)
-        return Response(self.get_serializer(instance).data, status=status.HTTP_201_CREATED)
-    
-    def update(self, request, *args, **kwargs):
-        interview = self.get_object()
-        serializer = self.get_serializer(interview, data=request.data, partial=True)
-        serializer.is_valid(raise_exception=True)
-        data = self.handle_calendar(interview, serializer.validated_data)
-        interview = serializer.save(**data)
-        self.send_status_notification(interview)
-        return Response(serializer.data)
-    
-    @action(detail=False, methods=['get'])
-    def my_requests(self, request):
-        return Response(self.get_serializer(self.get_queryset(), many=True).data)
-    
-    @action(detail=False, methods=['get'])
-    def admin_requests(self, request):
-        if not request.user.is_staff:
-            return Response({'error': 'Admin access required'}, status=status.HTTP_403_FORBIDDEN)
-        return Response(self.get_serializer(Interview.objects.filter(status='pending'), many=True).data)
-    
-    @action(detail=False, methods=['post'])
-    def send_google_meet(self, request):
-        if not request.user.is_staff:
-            return Response({'error': 'Admin access required'}, status=status.HTTP_403_FORBIDDEN)
-        
-        results = []
-        for user in User.objects.filter(email_verified=True):
-            try:
-                success, event_id = google_calendar_service.create_interview_event(
-                    user=user, scheduled_datetime=timezone.now() + timezone.timedelta(hours=1)
-                )
-                results.append({'user': user.email, 'success': success, 'event_id': event_id})
-            except Exception as e:
-                results.append({'user': user.email, 'success': False, 'error': str(e)})
-        
-        return Response({'message': 'Google Meet invitations sent', 'results': results})
+        return super().create(request, *args, **kwargs)
 
-class BookingViewSet(CustomerViewSet):
-    queryset = Booking.objects.all()
-    serializer_class = BookingSerializer
-    pagination_class = None
-    
+    def perform_create(self, serializer):
+        serializer.save(customer=self.request.user)
+
+
+class BookingDetailView(SwaggerMixin, RetrieveUpdateDestroyAPIView, RoleBase):
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        if not self.request.user.is_authenticated:
+            return Booking.objects.none()
+            
+        user = self.request.user
+        if user.role == 'customer':
+            return self._get_customer_queryset(Booking, user)
+        elif user.role == 'service_provider':
+            return self._get_service_provider_queryset(Booking, user)
+        return self._get_admin_queryset(Booking, user)
+
     def get_serializer_class(self):
-        if self.action == 'create':
-            return BookingCreateSerializer
-        return super().get_serializer_class()
+        if self.request.method in ['PUT', 'PATCH']:
+            return BookingUpdateSerializer
+        return BookingSerializer
+
+    @swagger_retrieve_update_destroy(
+        description="Retrieve, update or delete booking",
+        response_schema=BOOKING_RESPONSE_SCHEMA,
+        tags=["Bookings"]
+    )
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
+    @swagger_retrieve_update_destroy(
+        description="Update booking",
+        response_schema=BOOKING_RESPONSE_SCHEMA,
+        tags=["Bookings"]
+    )
+    def put(self, request, *args, **kwargs):
+        return super().put(request, *args, **kwargs)
+
+    @swagger_retrieve_update_destroy(
+        description="Partially update booking",
+        response_schema=BOOKING_RESPONSE_SCHEMA,
+        tags=["Bookings"]
+    )
+    def patch(self, request, *args, **kwargs):
+        return super().patch(request, *args, **kwargs)
+
+    @swagger_retrieve_update_destroy(
+        description="Delete booking",
+        response_schema=openapi.Response(description="Booking deleted successfully"),
+        tags=["Bookings"]
+    )
+    def delete(self, request, *args, **kwargs):
+        return super().delete(request, *args, **kwargs)
+
+
+class InterviewListCreateView(SwaggerMixin, ListCreateAPIView, RoleBase):
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        if not self.request.user.is_authenticated:
+            return Interview.objects.none()
+            
+        user = self.request.user
+        if user.role == 'customer':
+            return self._get_customer_queryset(Interview, user)
+        elif user.role == 'service_provider':
+            return self._get_service_provider_queryset(Interview, user)
+        return self._get_admin_queryset(Interview, user)
+
+    def get_serializer_class(self):
+        return InterviewCreateSerializer if self.request.method == 'POST' else InterviewSerializer
+
+    @swagger_list_create(
+        description="Create new interview",
+        response_schema=INTERVIEW_RESPONSE_SCHEMA,
+        tags=["Interviews"]
+    )
+    def create(self, request, *args, **kwargs):
+        return super().create(request, *args, **kwargs)
+
+    def perform_create(self, serializer):
+        serializer.save(customer=self.request.user)
+
+
+class InterviewDetailView(SwaggerMixin, RetrieveUpdateDestroyAPIView, RoleBase):
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        if not self.request.user.is_authenticated:
+            return Interview.objects.none()
+            
+        user = self.request.user
+        if user.role == 'customer':
+            return self._get_customer_queryset(Interview, user)
+        elif user.role == 'service_provider':
+            return self._get_service_provider_queryset(Interview, user)
+        return self._get_admin_queryset(Interview, user)
+
+    def get_serializer_class(self):
+        if self.request.method in ['PUT', 'PATCH']:
+            return InterviewUpdateSerializer
+        return InterviewSerializer
+
+    @swagger_retrieve_update_destroy(
+        description="Retrieve, update or delete interview",
+        response_schema=INTERVIEW_RESPONSE_SCHEMA,
+        tags=["Interviews"]
+    )
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
+    @swagger_retrieve_update_destroy(
+        description="Update interview",
+        response_schema=INTERVIEW_RESPONSE_SCHEMA,
+        tags=["Interviews"]
+    )
+    def put(self, request, *args, **kwargs):
+        return super().put(request, *args, **kwargs)
+
+    @swagger_retrieve_update_destroy(
+        description="Partially update interview",
+        response_schema=INTERVIEW_RESPONSE_SCHEMA,
+        tags=["Interviews"]
+    )
+    def patch(self, request, *args, **kwargs):
+        return super().patch(request, *args, **kwargs)
+
+    @swagger_retrieve_update_destroy(
+        description="Delete interview",
+        response_schema=openapi.Response(description="Interview deleted successfully"),
+        tags=["Interviews"]
+    )
+    def delete(self, request, *args, **kwargs):
+        return super().delete(request, *args, **kwargs)

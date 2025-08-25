@@ -1,10 +1,13 @@
-import stripe
 import os
+import logging
+import stripe
+from decimal import Decimal
 from django.conf import settings
-from django.utils import timezone
+
+logger = logging.getLogger(__name__)
 
 class StripeService:
-    """Centralized Stripe service for all payment operations"""
+    """Centralized Stripe service for payment operations"""
     
     def __init__(self):
         self._initialize_stripe()
@@ -12,79 +15,87 @@ class StripeService:
     def _initialize_stripe(self):
         """Initialize Stripe API"""
         try:
+            # Use test key if production key is not specified
             stripe.api_key = os.getenv('STRIPE_SECRET_KEY')
+            
             if not stripe.api_key:
-                print("Stripe API key not found")
+                # Fallback to test key
+                stripe.api_key = os.getenv('STRIPE_TEST_SECRET_KEY')
+                if not stripe.api_key:
+                    # Fallback to test key
+                    raise ValueError("Stripe API key not found")
+            
+            # Check mode (test/production)
+            if stripe.api_key.startswith('sk_test_'):
+                self.test_mode = True
+                logger.info("Stripe initialized in TEST mode")
+            elif stripe.api_key.startswith('sk_live_'):
+                self.test_mode = False
+                logger.info("Stripe initialized in PRODUCTION mode")
+            else:
+                logger.warning("Unknown Stripe API key format")
+                self.test_mode = True
+                
         except Exception as e:
-            print(f"Stripe initialization error: {str(e)}")
+            logger.error(f"Stripe initialization error: {str(e)}")
+            raise
     
     def create_payment_intent(self, amount, currency='usd', metadata=None):
         """Create payment intent to receive funds"""
         try:
-            intent_data = {
-                'amount': int(amount * 100),
-                'currency': currency,
-                'automatic_payment_methods': {'enabled': True}
-            }
+            # Ensure amount is Decimal or float
+            if not isinstance(amount, (Decimal, float, int)):
+                raise ValueError("Amount must be a number")
             
-            if metadata:
-                intent_data['metadata'] = metadata
-            
-            intent = stripe.PaymentIntent.create(**intent_data)
-            return True, intent
-        except Exception as e:
+            payment_intent = stripe.PaymentIntent.create(
+                amount=int(amount * 100),  # Stripe requires cents
+                currency=currency,
+                metadata=metadata or {}
+            )
+            logger.info(f"Payment intent created: {payment_intent.id} for ${amount}")
+            return True, payment_intent
+        except stripe.error.StripeError as e:
+            logger.error(f"Stripe payment intent error: {str(e)}")
             return False, f"Payment intent creation error: {str(e)}"
+        except Exception as e:
+            logger.error(f"Unexpected error in create_payment_intent: {str(e)}")
+            return False, f"Unexpected error: {str(e)}"
     
-    def transfer_to_account(self, amount, destination_account, currency='usd', metadata=None):
+    def transfer_to_account(self, amount, destination_account, currency='usd'):
         """Transfer funds to connected account"""
         try:
+            # Ensure amount is Decimal or float
+            if not isinstance(amount, (Decimal, float, int)):
+                raise ValueError("Amount must be a number")
+            
             transfer_data = {
-                'amount': int(amount * 100),
+                'amount': int(amount * 100),  # Stripe requires cents
                 'currency': currency,
                 'destination': destination_account
             }
             
-            if metadata:
-                transfer_data['metadata'] = metadata
-            
             transfer = stripe.Transfer.create(**transfer_data)
+            logger.info(f"Transfer created: {transfer.id} for ${amount} to {destination_account}")
             return True, transfer
-        except Exception as e:
+        except stripe.error.StripeError as e:
+            logger.error(f"Stripe transfer error: {str(e)}")
             return False, f"Transfer error: {str(e)}"
+        except Exception as e:
+            logger.error(f"Unexpected error in transfer_to_account: {str(e)}")
+            return False, f"Unexpected error: {str(e)}"
     
     def confirm_payment(self, payment_intent_id):
         """Confirm payment status"""
         try:
             intent = stripe.PaymentIntent.retrieve(payment_intent_id)
+            logger.info(f"Payment intent retrieved: {intent.id} - status: {intent.status}")
             return intent.status == 'succeeded', intent
-        except Exception as e:
+        except stripe.error.StripeError as e:
+            logger.error(f"Stripe payment confirmation error: {str(e)}")
             return False, f"Payment confirmation error: {str(e)}"
-    
-    def create_customer(self, email, name=None, metadata=None):
-        """Create Stripe customer"""
-        try:
-            customer_data = {'email': email}
-            
-            if name:
-                customer_data['name'] = name
-            if metadata:
-                customer_data['metadata'] = metadata
-            
-            customer = stripe.Customer.create(**customer_data)
-            return True, customer
         except Exception as e:
-            return False, f"Customer creation error: {str(e)}"
-    
-    def create_account(self, email, country='US', type='express'):
-        """Create connected account for service providers"""
-        try:
-            account = stripe.Account.create(
-                type=type,
-                country=country,
-                email=email
-            )
-            return True, account
-        except Exception as e:
-            return False, f"Account creation error: {str(e)}"
+            logger.error(f"Unexpected error in confirm_payment: {str(e)}")
+            return False, f"Unexpected error: {str(e)}"
+
 
 stripe_service = StripeService()

@@ -1,7 +1,15 @@
-from rest_framework.routers import DefaultRouter
-from .views import ServiceViewSet, ScheduleViewSet
+from django.urls import path
+from .views import (
+    ServiceListCreateView, ServiceDetailView,
+    ScheduleListCreateView, ScheduleDetailView
+)
 
-router = DefaultRouter()
-router.register(r'services', ServiceViewSet)
-router.register(r'schedules', ScheduleViewSet)
-urlpatterns = router.urls
+urlpatterns = [
+    # Service URLs
+    path('services/', ServiceListCreateView.as_view(), name='service-list-create'),
+    path('services/<int:pk>/', ServiceDetailView.as_view(), name='service-detail'),
+    
+    # Schedule URLs
+    path('schedules/', ScheduleListCreateView.as_view(), name='schedule-list-create'),
+    path('schedules/<int:pk>/', ScheduleDetailView.as_view(), name='schedule-detail'),
+]

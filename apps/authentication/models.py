@@ -16,7 +16,7 @@ class User(AbstractUser):
     
     phone_number = models.CharField(max_length=15, blank=True, null=True)
     location = models.CharField(max_length=255, blank=True, null=True)
-    profile_photo = models.CharField(max_length=255, blank=True, null=True)
+    profile_photo = models.ImageField(upload_to='profile_photos/', blank=True, null=True)
     
     email_verified = models.BooleanField(default=False)
     email_verification_code = models.CharField(max_length=6, blank=True, null=True)

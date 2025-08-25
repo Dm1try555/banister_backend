@@ -1,89 +1,140 @@
-from rest_framework import viewsets
-from rest_framework.permissions import IsAuthenticated
-from django.db import transaction
-from .models import CustomerDashboard, ProviderDashboard, ManagementDashboard, Issue
-from .serializers import CustomerDashboardSerializer, ProviderDashboardSerializer, ManagementDashboardSerializer, IssueSerializer
+from core.base.common_imports import *
+from core.base.role_base import RoleBase
+from .models import CustomerDashboard, ProviderDashboard, ManagementDashboard
+from .serializers import (
+    CustomerDashboardSerializer, CustomerDashboardUpdateSerializer,
+    ProviderDashboardSerializer, ProviderDashboardUpdateSerializer,
+    ManagementDashboardSerializer, ManagementDashboardUpdateSerializer
+)
 
-class CustomerDashboardViewSet(viewsets.ModelViewSet):
-    queryset = CustomerDashboard.objects.all()
-    serializer_class = CustomerDashboardSerializer
-    permission_classes = [IsAuthenticated]
-    
-    @transaction.atomic
-    def create(self, request, *args, **kwargs):
-        return super().create(request, *args, **kwargs)
-    
-    @transaction.atomic
-    def update(self, request, *args, **kwargs):
-        return super().update(request, *args, **kwargs)
-    
-    @transaction.atomic
-    def partial_update(self, request, *args, **kwargs):
-        return super().partial_update(request, *args, **kwargs)
-    
-    @transaction.atomic
-    def destroy(self, request, *args, **kwargs):
-        return super().destroy(request, *args, **kwargs)
 
-class ProviderDashboardViewSet(viewsets.ModelViewSet):
-    queryset = ProviderDashboard.objects.all()
-    serializer_class = ProviderDashboardSerializer
+class CustomerDashboardView(SwaggerMixin, RetrieveUpdateAPIView, RoleBase):
     permission_classes = [IsAuthenticated]
-    
-    @transaction.atomic
-    def create(self, request, *args, **kwargs):
-        return super().create(request, *args, **kwargs)
-    
-    @transaction.atomic
-    def update(self, request, *args, **kwargs):
-        return super().update(request, *args, **kwargs)
-    
-    @transaction.atomic
-    def partial_update(self, request, *args, **kwargs):
-        return super().partial_update(request, *args, **kwargs)
-    
-    @transaction.atomic
-    def destroy(self, request, *args, **kwargs):
-        return super().destroy(request, *args, **kwargs)
 
-class ManagementDashboardViewSet(viewsets.ModelViewSet):
-    queryset = ManagementDashboard.objects.all()
-    serializer_class = ManagementDashboardSerializer
-    permission_classes = [IsAuthenticated]
-    
-    @transaction.atomic
-    def create(self, request, *args, **kwargs):
-        return super().create(request, *args, **kwargs)
-    
-    @transaction.atomic
-    def update(self, request, *args, **kwargs):
-        return super().update(request, *args, **kwargs)
-    
-    @transaction.atomic
-    def partial_update(self, request, *args, **kwargs):
-        return super().partial_update(request, *args, **kwargs)
-    
-    @transaction.atomic
-    def destroy(self, request, *args, **kwargs):
-        return super().destroy(request, *args, **kwargs)
+    def get_queryset(self):
+        if not self.request.user.is_authenticated:
+            return CustomerDashboard.objects.none()
+            
+        user = self.request.user
+        if user.role == 'customer':
+            return self._get_customer_queryset(CustomerDashboard, user)
+        elif user.role == 'service_provider':
+            return self._get_service_provider_queryset(CustomerDashboard, user)
+        return self._get_admin_queryset(CustomerDashboard, user)
 
-class IssueViewSet(viewsets.ModelViewSet):
-    queryset = Issue.objects.all()
-    serializer_class = IssueSerializer
+    def get_serializer_class(self):
+        if self.request.method in ['PUT', 'PATCH']:
+            return CustomerDashboardUpdateSerializer
+        return CustomerDashboardSerializer
+
+    @swagger_retrieve_update(
+        description="Retrieve or update customer dashboard",
+        response_schema=CUSTOMER_DASHBOARD_RESPONSE_SCHEMA,
+        tags=["Customer Dashboard"]
+    )
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
+    @swagger_retrieve_update(
+        description="Update customer dashboard",
+        response_schema=CUSTOMER_DASHBOARD_RESPONSE_SCHEMA,
+        tags=["Customer Dashboard"]
+    )
+    def put(self, request, *args, **kwargs):
+        return super().put(request, *args, **kwargs)
+
+    @swagger_retrieve_update(
+        description="Partially update customer dashboard",
+        response_schema=CUSTOMER_DASHBOARD_RESPONSE_SCHEMA,
+        tags=["Customer Dashboard"]
+    )
+    def patch(self, request, *args, **kwargs):
+        return super().patch(request, *args, **kwargs)
+
+
+class ProviderDashboardView(SwaggerMixin, RetrieveUpdateAPIView, RoleBase):
     permission_classes = [IsAuthenticated]
-    
-    @transaction.atomic
-    def create(self, request, *args, **kwargs):
-        return super().create(request, *args, **kwargs)
-    
-    @transaction.atomic
-    def update(self, request, *args, **kwargs):
-        return super().update(request, *args, **kwargs)
-    
-    @transaction.atomic
-    def partial_update(self, request, *args, **kwargs):
-        return super().partial_update(request, *args, **kwargs)
-    
-    @transaction.atomic
-    def destroy(self, request, *args, **kwargs):
-        return super().destroy(request, *args, **kwargs)
+
+    def get_queryset(self):
+        if not self.request.user.is_authenticated:
+            return ProviderDashboard.objects.none()
+            
+        user = self.request.user
+        if user.role == 'customer':
+            return self._get_customer_queryset(ProviderDashboard, user)
+        elif user.role == 'service_provider':
+            return self._get_service_provider_queryset(ProviderDashboard, user)
+        return self._get_admin_queryset(ProviderDashboard, user)
+
+    def get_serializer_class(self):
+        if self.request.method in ['PUT', 'PATCH']:
+            return ProviderDashboardUpdateSerializer
+        return ProviderDashboardSerializer
+
+    @swagger_retrieve_update(
+        description="Retrieve or update provider dashboard",
+        response_schema=PROVIDER_DASHBOARD_RESPONSE_SCHEMA,
+        tags=["Provider Dashboard"]
+    )
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
+    @swagger_retrieve_update(
+        description="Update provider dashboard",
+        response_schema=PROVIDER_DASHBOARD_RESPONSE_SCHEMA,
+        tags=["Provider Dashboard"]
+    )
+    def put(self, request, *args, **kwargs):
+        return super().put(request, *args, **kwargs)
+
+    @swagger_retrieve_update(
+        description="Partially update provider dashboard",
+        response_schema=PROVIDER_DASHBOARD_RESPONSE_SCHEMA,
+        tags=["Provider Dashboard"]
+    )
+    def patch(self, request, *args, **kwargs):
+        return super().patch(request, *args, **kwargs)
+
+
+class ManagementDashboardView(SwaggerMixin, RetrieveUpdateAPIView, RoleBase):
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        if not self.request.user.is_authenticated:
+            return ManagementDashboard.objects.none()
+            
+        user = self.request.user
+        if user.role == 'customer':
+            return self._get_customer_queryset(ManagementDashboard, user)
+        elif user.role == 'service_provider':
+            return self._get_service_provider_queryset(ManagementDashboard, user)
+        return self._get_admin_queryset(ManagementDashboard, user)
+
+    def get_serializer_class(self):
+        if self.request.method in ['PUT', 'PATCH']:
+            return ManagementDashboardUpdateSerializer
+        return ManagementDashboardSerializer
+
+    @swagger_retrieve_update(
+        description="Retrieve or update management dashboard",
+        response_schema=MANAGEMENT_DASHBOARD_RESPONSE_SCHEMA,
+        tags=["Management Dashboard"]
+    )
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
+    @swagger_retrieve_update(
+        description="Update management dashboard",
+        response_schema=MANAGEMENT_DASHBOARD_RESPONSE_SCHEMA,
+        tags=["Management Dashboard"]
+    )
+    def put(self, request, *args, **kwargs):
+        return super().put(request, *args, **kwargs)
+
+    @swagger_retrieve_update(
+        description="Partially update management dashboard",
+        response_schema=MANAGEMENT_DASHBOARD_RESPONSE_SCHEMA,
+        tags=["Management Dashboard"]
+    )
+    def patch(self, request, *args, **kwargs):
+        return super().patch(request, *args, **kwargs)

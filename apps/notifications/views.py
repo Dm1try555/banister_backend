@@ -1,53 +1,87 @@
-from rest_framework import status
-from rest_framework.decorators import action
-from rest_framework.response import Response
-from django.db import transaction
+from core.base.common_imports import *
+from core.base.role_base import RoleBase
 from .models import Notification
-from .serializers import NotificationSerializer
-from core.firebase.service import firebase_service
-from core.base.views import CustomerViewSet
+from .serializers import (
+    NotificationSerializer, NotificationCreateSerializer, NotificationUpdateSerializer
+)
 
-class NotificationViewSet(CustomerViewSet):
-    queryset = Notification.objects.all()
-    serializer_class = NotificationSerializer
-    
+
+class NotificationListCreateView(SwaggerMixin, ListCreateAPIView, RoleBase):
+    permission_classes = [IsAuthenticated]
+
     def get_queryset(self):
-        return Notification.objects.filter(user=self.request.user)
-    
+        if not self.request.user.is_authenticated:
+            return Notification.objects.none()
+            
+        user = self.request.user
+        if user.role == 'customer':
+            return self._get_customer_queryset(Notification, user)
+        elif user.role == 'service_provider':
+            return self._get_service_provider_queryset(Notification, user)
+        return self._get_admin_queryset(Notification, user)
+
+    def get_serializer_class(self):
+        return NotificationCreateSerializer if self.request.method == 'POST' else NotificationSerializer
+
+    @swagger_list_create(
+        description="Create new notification",
+        response_schema=NOTIFICATION_RESPONSE_SCHEMA,
+        tags=["Notifications"]
+    )
     def create(self, request, *args, **kwargs):
-        notification_data = super().create(request, *args, **kwargs).data
-        
-        user_token = getattr(request.user, 'firebase_token', None)
-        if user_token:
-            firebase_service.send_notification(
-                user_token=user_token,
-                title=f"New {notification_data['notification_type']}",
-                body=f"You have a new notification: {notification_data['notification_type']}",
-                data=notification_data['data']
-            )
-        
-        return Response(notification_data, status=status.HTTP_201_CREATED)
-    
-    @action(detail=True, methods=['post'])
-    def mark_read(self, request, pk=None):
-        notification = self.get_object()
-        notification.is_read = True
-        notification.save()
-        return Response({'status': 'marked as read'})
-    
-    @action(detail=False, methods=['post'])
-    def mark_all_read(self, request):
-        self.get_queryset().update(is_read=True)
-        return Response({'status': 'all notifications marked as read'})
-    
-    @action(detail=False, methods=['delete'])
-    def delete_all(self, request):
-        count = self.get_queryset().count()
-        self.get_queryset().delete()
-        return Response({'status': f'{count} notifications deleted'})
-    
-    @action(detail=False, methods=['get'])
-    def unread(self, request):
-        unread_notifications = self.get_queryset().filter(is_read=False)
-        serializer = self.get_serializer(unread_notifications, many=True)
-        return Response(serializer.data)
+        return super().create(request, *args, **kwargs)
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+
+class NotificationDetailView(SwaggerMixin, RetrieveUpdateDestroyAPIView, RoleBase):
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        if not self.request.user.is_authenticated:
+            return Notification.objects.none()
+            
+        user = self.request.user
+        if user.role == 'customer':
+            return self._get_customer_queryset(Notification, user)
+        elif user.role == 'service_provider':
+            return self._get_service_provider_queryset(Notification, user)
+        return self._get_admin_queryset(Notification, user)
+
+    def get_serializer_class(self):
+        if self.request.method in ['PUT', 'PATCH']:
+            return NotificationUpdateSerializer
+        return NotificationSerializer
+
+    @swagger_retrieve_update_destroy(
+        description="Retrieve, update or delete notification",
+        response_schema=NOTIFICATION_RESPONSE_SCHEMA,
+        tags=["Notifications"]
+    )
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
+    @swagger_retrieve_update_destroy(
+        description="Update notification",
+        response_schema=NOTIFICATION_RESPONSE_SCHEMA,
+        tags=["Notifications"]
+    )
+    def put(self, request, *args, **kwargs):
+        return super().put(request, *args, **kwargs)
+
+    @swagger_retrieve_update_destroy(
+        description="Partially update notification",
+        response_schema=NOTIFICATION_RESPONSE_SCHEMA,
+        tags=["Notifications"]
+    )
+    def patch(self, request, *args, **kwargs):
+        return super().patch(request, *args, **kwargs)
+
+    @swagger_retrieve_update_destroy(
+        description="Delete notification",
+        response_schema=openapi.Response(description="Notification deleted successfully"),
+        tags=["Notifications"]
+    )
+    def delete(self, request, *args, **kwargs):
+        return super().delete(request, *args, **kwargs)

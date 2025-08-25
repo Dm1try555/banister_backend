@@ -1,41 +1,65 @@
-from .base import *
-from core.minio.client import minio_client
-from django.db import transaction
-import uuid
+from core.base.common_imports import *
+from ..models import User
+from ..serializers import ProfilePhotoUploadSerializer
 
-class UploadProfilePhotoView(APIView):
+
+class ProfilePhotoUploadView(APIView):
     permission_classes = [IsAuthenticated]
     
-    @transaction.atomic
+    @swagger_auto_schema(
+        operation_description="Upload user profile photo",
+        request_body=ProfilePhotoUploadSerializer,
+        responses={
+            200: openapi.Response(
+                description="Profile photo uploaded successfully",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'message': openapi.Schema(type=openapi.TYPE_STRING),
+                        'profile_photo_url': openapi.Schema(type=openapi.TYPE_STRING)
+                    }
+                )
+            ),
+            400: ERROR_400_SCHEMA
+        }
+    )
     def post(self, request):
-        if 'photo' not in request.FILES:
-            return Response({'error': 'No photo provided'}, status=400)
+        serializer = ProfilePhotoUploadSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
         
-        photo = request.FILES['photo']
+        photo = serializer.validated_data['photo']
         
-        if photo.size > 5 * 1024 * 1024:
-            return Response({'error': 'File too large'}, status=400)
-        
-        if not photo.content_type.startswith('image/'):
-            return Response({'error': 'Invalid file type'}, status=400)
-        
-        file_name = f"{request.user.id}_{uuid.uuid4()}.jpg"
-        
-        if request.user.profile_photo:
-            old_file = request.user.profile_photo.split('/')[-1]
-            minio_client.delete_file(old_file)
-        
-        photo_url = minio_client.upload_file(photo, file_name)
-        
-        if photo_url:
-            request.user.profile_photo = photo_url
-            request.user.save()
+        try:
+            user = request.user
+            
+            # Remove old photo if exists
+            if user.profile_photo:
+                old_photo = user.profile_photo
+                user.profile_photo = None
+                user.save()
+                
+                # Delete old file
+                if old_photo:
+                    old_photo.delete(save=False)
+            
+            user.profile_photo = photo
+            user.save()
+            
+            # Get photo URL (works with any storage backend)
+            if hasattr(user.profile_photo, 'url'):
+                photo_url = user.profile_photo.url
+            else:
+                # If storage doesn't support url(), use filename
+                photo_url = user.profile_photo.name if user.profile_photo else ''
             
             return Response({
                 'message': 'Profile photo uploaded successfully',
-                'photo_url': photo_url
+                'profile_photo_url': photo_url
             })
-        
-        return Response({'error': 'Upload failed'}, status=500)
+        except (OSError, IOError) as e:
+            return Response({'error': 'Failed to save photo file'}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({'error': 'Unexpected error occurred'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-upload_profile_photo = UploadProfilePhotoView.as_view()
+
+upload_profile_photo = ProfilePhotoUploadView.as_view()

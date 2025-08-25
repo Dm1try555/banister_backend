@@ -1,11 +1,15 @@
-from django.urls import path, include
-from rest_framework.routers import DefaultRouter
-from .views import BookingViewSet, InterviewViewSet
-
-router = DefaultRouter()
-router.register(r'bookings', BookingViewSet)
-router.register(r'interviews', InterviewViewSet)
+from django.urls import path
+from .views import (
+    InterviewListCreateView, InterviewDetailView,
+    BookingListCreateView, BookingDetailView
+)
 
 urlpatterns = [
-    path('', include(router.urls)),
+    # Interview URLs
+    path('interviews/', InterviewListCreateView.as_view(), name='interview-list-create'),
+    path('interviews/<int:pk>/', InterviewDetailView.as_view(), name='interview-detail'),
+    
+    # Booking URLs
+    path('bookings/', BookingListCreateView.as_view(), name='booking-list-create'),
+    path('bookings/<int:pk>/', BookingDetailView.as_view(), name='booking-detail'),
 ]

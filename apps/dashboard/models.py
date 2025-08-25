@@ -1,5 +1,13 @@
 from django.db import models
+from core.base.common_imports import *
 from apps.authentication.models import User
+
+
+def validate_vacation_dates(vacation_start, vacation_end):
+    """Валидация дат отпуска"""
+    if vacation_start and vacation_end and vacation_start > vacation_end:
+        raise ValidationError("Vacation start date cannot be after vacation end date")
+
 
 class CustomerDashboard(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='customer_dashboard')
@@ -26,6 +34,13 @@ class CustomerDashboard(models.Model):
     class Meta:
         verbose_name = 'Customer Dashboard'
         verbose_name_plural = 'Customer Dashboards'
+    
+    def clean(self):
+        validate_vacation_dates(self.vacation_start, self.vacation_end)
+    
+    def save(self, *args, **kwargs):
+        self.clean()
+        super().save(*args, **kwargs)
     
     def __str__(self):
         return f"Customer Dashboard for {self.user.username}"
@@ -64,6 +79,13 @@ class ProviderDashboard(models.Model):
     class Meta:
         verbose_name = 'Provider Dashboard'
         verbose_name_plural = 'Provider Dashboards'
+    
+    def clean(self):
+        validate_vacation_dates(self.vacation_start, self.vacation_end)
+    
+    def save(self, *args, **kwargs):
+        self.clean()
+        super().save(*args, **kwargs)
     
     def __str__(self):
         return f"Provider Dashboard for {self.user.username}"
@@ -131,6 +153,21 @@ class Issue(models.Model):
         ordering = ['-created_at']
         verbose_name = 'Issue'
         verbose_name_plural = 'Issues'
+    
+    def clean(self):
+        """Validate model data"""
+        super().clean()
+        
+        # Check that resolved_at is set only for resolved status
+        if self.status == 'resolved' and not self.resolved_at:
+            raise ValidationError("Resolved_at must be set when status is 'resolved'")
+        
+        if self.status != 'resolved' and self.resolved_at:
+            raise ValidationError("Resolved_at should not be set for non-resolved status")
+    
+    def save(self, *args, **kwargs):
+        self.clean()
+        super().save(*args, **kwargs)
     
     def __str__(self):
         return f"Issue #{self.id}: {self.title}"

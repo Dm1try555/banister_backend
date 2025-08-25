@@ -1,85 +1,177 @@
-from rest_framework import viewsets, status
-from rest_framework.decorators import action
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-from django.db import transaction
+from core.base.common_imports import *
+from core.base.role_base import RoleBase
 from .models import ChatRoom, Message
-from .serializers import ChatRoomSerializer, MessageSerializer
+from .serializers import (
+    ChatRoomSerializer, ChatRoomCreateSerializer, ChatRoomUpdateSerializer,
+    MessageSerializer, MessageCreateSerializer, MessageUpdateSerializer
+)
 
-class ChatRoomViewSet(viewsets.ModelViewSet):
-    serializer_class = ChatRoomSerializer
+
+class ChatRoomListCreateView(SwaggerMixin, ListCreateAPIView, RoleBase):
     permission_classes = [IsAuthenticated]
-    
+
     def get_queryset(self):
-        return ChatRoom.objects.filter(participants=self.request.user)
-    
-    @transaction.atomic
+        if not self.request.user.is_authenticated:
+            return ChatRoom.objects.none()
+            
+        user = self.request.user
+        if user.role == 'customer':
+            return self._get_customer_queryset(ChatRoom, user)
+        elif user.role == 'service_provider':
+            return self._get_service_provider_queryset(ChatRoom, user)
+        return self._get_admin_queryset(ChatRoom, user)
+
+    def get_serializer_class(self):
+        return ChatRoomCreateSerializer if self.request.method == 'POST' else ChatRoomSerializer
+
+    @swagger_list_create(
+        description="Create new chat room",
+        response_schema=CHAT_ROOM_RESPONSE_SCHEMA,
+        tags=["Chat"]
+    )
     def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        
-        room = serializer.save()
-        room.participants.add(request.user)
-        
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return super().create(request, *args, **kwargs)
 
-class MessageViewSet(viewsets.ModelViewSet):
-    serializer_class = MessageSerializer
+    def perform_create(self, serializer):
+        chat_room = serializer.save()
+        chat_room.participants.add(self.request.user)
+
+
+class ChatRoomDetailView(SwaggerMixin, RetrieveUpdateDestroyAPIView, RoleBase):
     permission_classes = [IsAuthenticated]
-    
+
     def get_queryset(self):
-        room_id = self.kwargs.get('room_id')
+        if not self.request.user.is_authenticated:
+            return ChatRoom.objects.none()
+            
+        user = self.request.user
+        if user.role == 'customer':
+            return self._get_customer_queryset(ChatRoom, user)
+        elif user.role == 'service_provider':
+            return self._get_service_provider_queryset(ChatRoom, user)
+        return self._get_admin_queryset(ChatRoom, user)
+
+    def get_serializer_class(self):
+        if self.request.method in ['PUT', 'PATCH']:
+            return ChatRoomUpdateSerializer
+        return ChatRoomSerializer
+
+    @swagger_retrieve_update_destroy(
+        description="Retrieve, update or delete chat room",
+        response_schema=CHAT_ROOM_RESPONSE_SCHEMA,
+        tags=["Chat"]
+    )
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
+    @swagger_retrieve_update_destroy(
+        description="Update chat room",
+        response_schema=CHAT_ROOM_RESPONSE_SCHEMA,
+        tags=["Chat"]
+    )
+    def put(self, request, *args, **kwargs):
+        return super().put(request, *args, **kwargs)
+
+    @swagger_retrieve_update_destroy(
+        description="Partially update chat room",
+        response_schema=CHAT_ROOM_RESPONSE_SCHEMA,
+        tags=["Chat"]
+    )
+    def patch(self, request, *args, **kwargs):
+        return super().patch(request, *args, **kwargs)
+
+    @swagger_retrieve_update_destroy(
+        description="Delete chat room",
+        response_schema=openapi.Response(description="Chat room deleted successfully"),
+        tags=["Chat"]
+    )
+    def delete(self, request, *args, **kwargs):
+        return super().delete(request, *args, **kwargs)
+
+
+class MessageListCreateView(SwaggerMixin, ListCreateAPIView, RoleBase):
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        if not self.request.user.is_authenticated:
+            return Message.objects.none()
+            
+        user = self.request.user
+        if user.role == 'customer':
+            return self._get_customer_queryset(Message, user)
+        elif user.role == 'service_provider':
+            return self._get_service_provider_queryset(Message, user)
+        return self._get_admin_queryset(Message, user)
+
+    def get_serializer_class(self):
+        return MessageCreateSerializer if self.request.method == 'POST' else MessageSerializer
+
+    @swagger_list_create(
+        description="Create new message",
+        response_schema=MESSAGE_RESPONSE_SCHEMA,
+        tags=["Chat Messages"]
+    )
+    def create(self, request, *args, **kwargs):
+        return super().create(request, *args, **kwargs)
+
+    def perform_create(self, serializer):
+        serializer.save(sender=self.request.user)
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        room_id = self.request.query_params.get('room')
         if room_id:
-            return Message.objects.filter(
-                room_id=room_id,
-                room__participants=self.request.user,
-                is_deleted=False
-            )
-        return Message.objects.none()
-    
-    @transaction.atomic
-    def create(self, request, *args, **kwargs):
-        room_id = self.kwargs.get('room_id')
-        room = ChatRoom.objects.filter(
-            id=room_id, 
-            participants=request.user
-        ).first()
-        
-        if not room:
-            return Response(
-                {'error': 'Room not found or access denied'}, 
-                status=status.HTTP_404_NOT_FOUND
-            )
-        
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        serializer.save(sender=request.user, room=room)
-        
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
-    
-    @transaction.atomic
-    def update(self, request, *args, **kwargs):
-        message = self.get_object()
-        
-        if message.sender != request.user:
-            return Response(
-                {'error': 'You can only edit your own messages'}, 
-                status=status.HTTP_403_FORBIDDEN
-            )
-        
-        return super().update(request, *args, **kwargs)
-    
-    @transaction.atomic
-    def destroy(self, request, *args, **kwargs):
-        message = self.get_object()
-        
-        if message.sender != request.user:
-            return Response(
-                {'error': 'You can only delete your own messages'}, 
-                status=status.HTTP_403_FORBIDDEN
-            )
-        
-        message.is_deleted = True
-        message.save()
-        
-        return Response(status=status.HTTP_204_NO_CONTENT)
+            queryset = queryset.filter(room_id=room_id)
+        return queryset.filter(is_deleted=False).order_by('-created_at')
+
+
+class MessageDetailView(SwaggerMixin, RetrieveUpdateDestroyAPIView, RoleBase):
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        if not self.request.user.is_authenticated:
+            return Message.objects.none()
+            
+        user = self.request.user
+        if user.role == 'customer':
+            return self._get_customer_queryset(Message, user)
+        elif user.role == 'service_provider':
+            return self._get_service_provider_queryset(Message, user)
+        return self._get_admin_queryset(Message, user)
+
+    def get_serializer_class(self):
+        if self.request.method in ['PUT', 'PATCH']:
+            return MessageUpdateSerializer
+        return MessageSerializer
+
+    @swagger_retrieve_update_destroy(
+        description="Retrieve, update or delete message",
+        response_schema=MESSAGE_RESPONSE_SCHEMA,
+        tags=["Chat Messages"]
+    )
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
+    @swagger_retrieve_update_destroy(
+        description="Update message",
+        response_schema=MESSAGE_RESPONSE_SCHEMA,
+        tags=["Chat Messages"]
+    )
+    def put(self, request, *args, **kwargs):
+        return super().put(request, *args, **kwargs)
+
+    @swagger_retrieve_update_destroy(
+        description="Partially update message",
+        response_schema=MESSAGE_RESPONSE_SCHEMA,
+        tags=["Chat Messages"]
+    )
+    def patch(self, request, *args, **kwargs):
+        return super().patch(request, *args, **kwargs)
+
+    @swagger_retrieve_update_destroy(
+        description="Delete message",
+        response_schema=openapi.Response(description="Message deleted successfully"),
+        tags=["Chat Messages"]
+    )
+    def delete(self, request, *args, **kwargs):
+        return super().delete(request, *args, **kwargs)

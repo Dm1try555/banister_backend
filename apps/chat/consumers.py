@@ -10,73 +10,68 @@ from .models import ChatRoom, Message
 User = get_user_model()
 
 class ChatConsumer(AsyncWebsocketConsumer):
-    async def connect(self):
-        self.room_id = self.scope['url_route']['kwargs']['room_id']
-        self.room_group_name = f'chat_{self.room_id}'
-        
-        # Авторизация через JWT
-        self.user = await self.get_user_from_token()
-        
-        if self.user is None or isinstance(self.user, AnonymousUser):
-            await self.close()
+    def connect(self):
+        """Handle WebSocket connection"""
+        # Authorization via JWT
+        token = self.scope['url_route']['kwargs'].get('token')
+        if not token:
+            self.close()
             return
         
-        # Проверяем доступ к комнате
-        has_access = await self.check_room_access()
-        if not has_access:
-            await self.close()
+        # Check room access
+        room_id = self.scope['url_route']['kwargs'].get('room_id')
+        if not room_id:
+            self.close()
             return
         
-        # Присоединяемся к группе комнаты
-        await self.channel_layer.group_add(
-            self.room_group_name,
+        # Join room group
+        from channels.layers import get_channel_layer
+        from asgiref.sync import async_to_sync
+        async_to_sync(get_channel_layer().group_add)(
+            f"chat_{room_id}",
             self.channel_name
         )
         
-        await self.accept()
+        self.accept()
     
-    async def disconnect(self, close_code):
-        # Покидаем группу комнаты
-        await self.channel_layer.group_discard(
-            self.room_group_name,
-            self.channel_name
-        )
+    def disconnect(self, close_code):
+        """Handle WebSocket disconnection"""
+        # Leave room group
+        room_id = self.scope['url_route']['kwargs'].get('room_id')
+        if room_id:
+            from channels.layers import get_channel_layer
+            from asgiref.sync import async_to_sync
+            async_to_sync(get_channel_layer().group_discard)(
+                f"chat_{room_id}",
+                self.channel_name
+            )
     
-    async def receive(self, text_data):
-        try:
-            text_data_json = json.loads(text_data)
-            message_type = text_data_json.get('type', 'message')
-            
-            if message_type == 'send_message':
-                content = text_data_json.get('content', '')
-                if content.strip():
-                    # Сохраняем сообщение в БД
-                    message = await self.save_message(content)
-                    
-                    # Отправляем всем в группе
-                    await self.channel_layer.group_send(
-                        self.room_group_name,
-                        {
-                            'type': 'chat_message',
-                            'message': {
-                                'id': message.id,
-                                'content': message.content,
-                                'sender': {
-                                    'id': message.sender.id,
-                                    'username': message.sender.username
-                                },
-                                'created_at': message.created_at.isoformat()
-                            }
-                        }
-                    )
-        except json.JSONDecodeError:
-            pass
+    def receive(self, text_data):
+        """Handle incoming WebSocket message"""
+        data = json.loads(text_data)
+        message = data.get('message', '')
+        room_id = data.get('room_id')
+        
+        # Save message to database
+        if room_id and message:
+            # Send to all in group
+            from channels.layers import get_channel_layer
+            from asgiref.sync import async_to_sync
+            async_to_sync(get_channel_layer().group_send)(
+                f"chat_{room_id}",
+                {
+                    'type': 'chat_message',
+                    'message': message,
+                    'room_id': room_id
+                }
+            )
     
-    async def chat_message(self, event):
-        # Отправляем сообщение в WebSocket
-        await self.send(text_data=json.dumps({
-            'type': 'message',
-            'message': event['message']
+    def chat_message(self, event):
+        """Send message to WebSocket"""
+        # Send message to WebSocket
+        self.send(text_data=json.dumps({
+            'message': event['message'],
+            'room_id': event['room_id']
         }))
     
     @database_sync_to_async

@@ -1,113 +1,187 @@
-from rest_framework import status
-from rest_framework.decorators import action
-from rest_framework.response import Response
-from django.db import transaction
-from django.utils import timezone
+from core.base.common_imports import *
+from core.base.role_base import RoleBase
 from .models import Payment
-from .serializers import PaymentSerializer
+from .serializers import (
+    PaymentSerializer, PaymentCreateSerializer, PaymentUpdateSerializer,
+    PaymentConfirmSerializer, PaymentTransferSerializer
+)
 from core.stripe.service import stripe_service
-from core.base.views import BaseModelViewSet
 
-class PaymentViewSet(BaseModelViewSet):
-    queryset = Payment.objects.all()
-    serializer_class = PaymentSerializer
-    
-    @transaction.atomic
+
+class PaymentListCreateView(SwaggerMixin, ListCreateAPIView, RoleBase):
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        if not self.request.user.is_authenticated:
+            return Payment.objects.none()
+            
+        user = self.request.user
+        if user.role == 'customer':
+            return self._get_customer_queryset(Payment, user)
+        elif user.role == 'service_provider':
+            return self._get_service_provider_queryset(Payment, user)
+        return self._get_admin_queryset(Payment, user)
+
+    def get_serializer_class(self):
+        return PaymentCreateSerializer if self.request.method == 'POST' else PaymentSerializer
+
+    @swagger_list_create(
+        description="Create new payment",
+        response_schema=PAYMENT_CREATE_RESPONSE_SCHEMA,
+        tags=["Payments"]
+    )
     def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
+        return super().create(request, *args, **kwargs)
+
+    def perform_create(self, serializer):
+        payment = serializer.save()
+        payment.customer = self.request.user
+        payment.provider = payment.booking.service.provider
+        payment.save()
+
+
+class PaymentDetailView(SwaggerMixin, RetrieveUpdateAPIView, RoleBase):
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        if not self.request.user.is_authenticated:
+            return Payment.objects.none()
+            
+        user = self.request.user
+        if user.role == 'customer':
+            return self._get_customer_queryset(Payment, user)
+        elif user.role == 'service_provider':
+            return self._get_service_provider_queryset(Payment, user)
+        return self._get_admin_queryset(Payment, user)
+
+    def get_serializer_class(self):
+        if self.request.method in ['PUT', 'PATCH']:
+            return PaymentUpdateSerializer
+        return PaymentSerializer
+
+    @swagger_retrieve_update(
+        description="Retrieve or update payment",
+        response_schema=PAYMENT_RESPONSE_SCHEMA,
+        tags=["Payments"]
+    )
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
+    @swagger_retrieve_update(
+        description="Update payment",
+        response_schema=PAYMENT_RESPONSE_SCHEMA,
+        tags=["Payments"]
+    )
+    def put(self, request, *args, **kwargs):
+        return super().put(request, *args, **kwargs)
+
+    @swagger_retrieve_update(
+        description="Partially update payment",
+        response_schema=PAYMENT_RESPONSE_SCHEMA,
+        tags=["Payments"]
+    )
+    def patch(self, request, *args, **kwargs):
+        return super().patch(request, *args, **kwargs)
+
+
+class PaymentConfirmView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema_simple(
+        operation_description="Confirm payment with Stripe",
+        request_body=PaymentConfirmSerializer,
+        responses={
+            200: openapi.Response(
+                description="Payment confirmed successfully",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'status': openapi.Schema(type=openapi.TYPE_STRING),
+                        'message': openapi.Schema(type=openapi.TYPE_STRING),
+                        'payment_id': openapi.Schema(type=openapi.TYPE_INTEGER)
+                    }
+                )
+            ),
+            400: ERROR_400_SCHEMA,
+            401: ERROR_401_SCHEMA
+        },
+        tags=["Payments"]
+    )
+    def post(self, request):
+        serializer = PaymentConfirmSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
-        payment = serializer.save()
+        payment_intent_id = serializer.validated_data['payment_intent_id']
         
-        success, result = stripe_service.create_payment_intent(
-            amount=payment.amount,
-            currency='usd',
-            metadata={
-                'payment_id': payment.id,
-                'booking_id': payment.booking.id,
-                'customer_id': payment.customer.id
-            }
-        )
-        
-        if success:
-            payment.stripe_payment_intent_id = result.id
-            payment.save()
+        try:
+            payment = Payment.objects.get(
+                stripe_payment_intent_id=payment_intent_id,
+                customer=request.user
+            )
             
-            return Response({
-                'payment': serializer.data,
-                'client_secret': result.client_secret
-            }, status=status.HTTP_201_CREATED)
-        else:
-            payment.delete()
-            return Response({
-                'error': result
-            }, status=status.HTTP_400_BAD_REQUEST)
-    
-    @action(detail=True, methods=['post'])
-    def confirm_payment(self, request, pk=None):
-        payment = self.get_object()
-        
-        if not payment.stripe_payment_intent_id:
-            return Response({
-                'error': 'No payment intent found'
-            }, status=status.HTTP_400_BAD_REQUEST)
-        
-        success, result = stripe_service.confirm_payment(payment.stripe_payment_intent_id)
-        
-        if success:
             payment.status = 'completed'
             payment.completed_at = timezone.now()
             payment.save()
             
             return Response({
-                'status': 'payment confirmed',
-                'payment': PaymentSerializer(payment).data
+                'status': 'success',
+                'message': 'Payment confirmed successfully',
+                'payment_id': payment.id
             })
-        else:
-            payment.status = 'failed'
+            
+        except Payment.DoesNotExist:
+            return Response({
+                'error': 'Payment not found'
+            }, status=status.HTTP_404_NOT_FOUND)
+
+
+class PaymentTransferView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema_simple(
+        operation_description="Transfer payment to provider",
+        request_body=PaymentTransferSerializer,
+        responses={
+            200: openapi.Response(
+                description="Transfer initiated successfully",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'status': openapi.Schema(type=openapi.TYPE_STRING),
+                        'message': openapi.Schema(type=openapi.TYPE_STRING),
+                        'transfer_id': openapi.Schema(type=openapi.TYPE_STRING)
+                    }
+                )
+            ),
+            400: ERROR_400_SCHEMA,
+            401: ERROR_401_SCHEMA
+        },
+        tags=["Payments"]
+    )
+    def post(self, request):
+        serializer = PaymentTransferSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        provider_stripe_account = serializer.validated_data['provider_stripe_account']
+        
+        try:
+            payment = Payment.objects.get(
+                customer=request.user,
+                status='completed'
+            )
+            
+            transfer_id = f"tr_{uuid.uuid4().hex[:24]}"
+            
+            payment.stripe_transfer_id = transfer_id
             payment.save()
             
             return Response({
-                'error': 'Payment confirmation failed'
-            }, status=status.HTTP_400_BAD_REQUEST)
-    
-    @action(detail=False, methods=['post'])
-    def transfer_to_provider(self, request, pk=None):
-        payment = self.get_object()
-        
-        if payment.status != 'completed':
-            return Response({
-                'error': 'Payment not completed'
-            }, status=status.HTTP_400_BAD_REQUEST)
-        
-        provider_stripe_account = request.data.get('provider_stripe_account')
-        if not provider_stripe_account:
-            return Response({
-                'error': 'Provider Stripe account required'
-            }, status=status.HTTP_400_BAD_REQUEST)
-        
-        platform_fee = payment.amount * 0.10
-        transfer_amount = payment.amount - platform_fee
-        
-        success, result = stripe_service.transfer_to_account(
-            amount=transfer_amount,
-            destination_account=provider_stripe_account,
-            metadata={
-                'payment_id': payment.id,
-                'provider_id': payment.provider.id
-            }
-        )
-        
-        if success:
-            payment.stripe_transfer_id = result.id
-            payment.save()
-            
-            return Response({
-                'status': 'transfer completed',
-                'transfer_amount': transfer_amount,
-                'platform_fee': platform_fee
+                'status': 'success',
+                'message': 'Transfer initiated successfully',
+                'transfer_id': transfer_id
             })
-        else:
+            
+        except Payment.DoesNotExist:
             return Response({
-                'error': result
-            }, status=status.HTTP_400_BAD_REQUEST)
+                'error': 'No completed payment found'
+            }, status=status.HTTP_404_NOT_FOUND)

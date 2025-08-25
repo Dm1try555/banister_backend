@@ -139,6 +139,7 @@ DATABASES = {
     }
 }
 
+# DRF settings для Swagger
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework_simplejwt.authentication.JWTAuthentication',
@@ -153,7 +154,7 @@ REST_FRAMEWORK = {
     ],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
-    'EXCEPTION_HANDLER': 'core.error_handling.error_handling.middleware.custom_exception_handler',
+    'EXCEPTION_HANDLER': 'core.error_handling.middleware.custom_exception_handler',
     'DEFAULT_THROTTLE_CLASSES': [
         'rest_framework.throttling.AnonRateThrottle',
         'rest_framework.throttling.UserRateThrottle'
@@ -161,7 +162,7 @@ REST_FRAMEWORK = {
     'DEFAULT_THROTTLE_RATES': {
         'anon': '100/hour',
         'user': '1000/hour'
-    }
+    },
 }
 
 SIMPLE_JWT = {
@@ -198,30 +199,35 @@ SWAGGER_SETTINGS = {
     ],
     'TAGS_SORTER': 'alpha',
     'OPERATIONS_SORTER': 'alpha',
-    'DOC_EXPANSION': 'list',
-    'DEFAULT_MODELS_EXPAND_DEPTH': 1,
-    'DEFAULT_INFO': 'Banister API v1',
+    'VALIDATOR_URL': None,
     'SUPPORTED_SUBMIT_METHODS': [
         'get',
         'post',
         'put',
+        'patch',
         'delete',
-        'patch'
     ],
-    'SHOW_REQUEST_HEADERS': True,
-    'VALIDATOR_URL': None,
-    'INFO': {
-        'title': 'Banister API v1',
-        'description': 'Banister Project API - Complete payment and booking management system',
-        'version': 'v1',
-        'contact': {
-            'name': 'Contact the developer',
-            'email': 'developer@banister.com'
-        },
-        'license': {
-            'name': 'MIT License'
-        }
-    }
+    'DOC_EXPANSION': 'none',
+    'DEEP_LINKING': True,
+    'DISPLAY_OPERATION_ID': False,
+    'DEFAULT_MODEL_RENDERING': 'model',
+    'DEFAULT_INFO': 'banister_backend.urls.api_info',
+    'DEFAULT_API_URL': None,
+    'SWAGGER_UI_SETTINGS': {
+        'deepLinking': True,
+        'persistAuthorization': True,
+        'displayOperationId': False,
+    },
+    'GENERATOR_CLASS': 'drf_yasg.generators.OpenAPISchemaGenerator',
+    'AUTO_SCHEMA_TYPE': 'swagger',
+}
+
+# drf-yasg settings
+REDOC_SETTINGS = {
+    'LAZY_RENDERING': False,
+    'HIDE_HOSTNAME': False,
+    'EXPAND_RESPONSES': '200,201',
+    'PATH_IN_MIDDLE': True,
 }
 
 

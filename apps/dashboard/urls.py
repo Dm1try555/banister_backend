@@ -1,9 +1,11 @@
-from rest_framework.routers import DefaultRouter
-from .views import CustomerDashboardViewSet, ProviderDashboardViewSet, ManagementDashboardViewSet, IssueViewSet
+from django.urls import path
+from .views import (
+    CustomerDashboardView, ProviderDashboardView, ManagementDashboardView
+)
 
-router = DefaultRouter()
-router.register(r'customer-dashboard', CustomerDashboardViewSet)
-router.register(r'provider-dashboard', ProviderDashboardViewSet)
-router.register(r'management-dashboard', ManagementDashboardViewSet)
-router.register(r'issues', IssueViewSet)
-urlpatterns = router.urls
+urlpatterns = [
+    # Dashboard URLs
+    path('customer-dashboard/', CustomerDashboardView.as_view(), name='customer-dashboard'),
+    path('provider-dashboard/', ProviderDashboardView.as_view(), name='provider-dashboard'),
+    path('management-dashboard/', ManagementDashboardView.as_view(), name='management-dashboard'),
+]
