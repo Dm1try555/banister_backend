@@ -78,6 +78,57 @@ class AdminUserViewSet(SwaggerMixin, ModelViewSet):
         # Customer and Service Provider cannot create users
         return False
     
+    def can_manage_user(self, current_user, target_user):
+        """Check if current user can manage target user"""
+        if current_user.role == 'super_admin':
+            return True  # Super Admin can manage all users
+        
+        if current_user.role == 'admin':
+            return target_user.role != 'super_admin'  # Admin cannot manage Super Admin
+        
+        if current_user.role == 'hr':
+            return target_user.role in ['supervisor', 'customer', 'service_provider']
+        
+        if current_user.role == 'supervisor':
+            return target_user.role in ['customer', 'service_provider']
+        
+        # Customer and Service Provider cannot manage other users
+        return False
+    
+    def can_delete_user(self, current_user, target_user):
+        """Check if current user can delete target user"""
+        # Prevent self-deletion
+        if current_user.id == target_user.id:
+            return False
+        
+        if current_user.role == 'super_admin':
+            return True  # Super Admin can delete all users (except self)
+        
+        if current_user.role == 'admin':
+            return target_user.role not in ['super_admin', 'admin']  # Admin cannot delete Super Admin or other Admins
+        
+        if current_user.role == 'hr':
+            return target_user.role in ['supervisor', 'customer', 'service_provider']
+        
+        if current_user.role == 'supervisor':
+            return target_user.role in ['customer', 'service_provider']
+        
+        # Customer and Service Provider cannot delete users
+        return False
+    
+    def _get_role_based_queryset(self, model, user):
+        """Filter queryset based on user role"""
+        if user.role == 'super_admin':
+            return model.objects.all()
+        elif user.role == 'admin':
+            return model.objects.exclude(role='super_admin')
+        elif user.role == 'hr':
+            return model.objects.filter(role__in=['supervisor', 'customer', 'service_provider'])
+        elif user.role == 'supervisor':
+            return model.objects.filter(role__in=['customer', 'service_provider'])
+        else:
+            return model.objects.filter(id=user.id)
+    
     @swagger_auto_schema(
         operation_description="Update admin profile information",
         request_body=AdminProfileUpdateSerializer,
@@ -111,7 +162,16 @@ class AdminUserViewSet(SwaggerMixin, ModelViewSet):
     )
     @action(detail=True, methods=['post'])
     def toggle_verification(self, request, pk=None):
-        user = self.get_object()
+        # Get user directly without queryset filtering for this admin action
+        try:
+            user = User.objects.get(pk=pk)
+        except User.DoesNotExist:
+            ErrorCode.USER_NOT_FOUND.raise_error()
+        
+        # Check if current user can manage target user
+        if not self.can_manage_user(request.user, user):
+            ErrorCode.PERMISSION_DENIED.raise_error()
+            
         serializer = ToggleVerificationSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         

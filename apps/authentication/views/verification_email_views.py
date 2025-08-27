@@ -26,6 +26,14 @@ class SendVerificationEmailView(APIView):
         }
     )
     def post(self, request):
+        # Check email format before serializer validation
+        email = request.data.get('email', '')
+        if email:
+            import re
+            email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+            if not re.match(email_pattern, email):
+                raise CustomValidationError(ErrorCode.INVALID_EMAIL_FORMAT)
+        
         serializer = SendVerificationEmailSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
@@ -63,10 +71,10 @@ class SendVerificationEmailView(APIView):
             })
             
         except User.DoesNotExist:
-            ErrorCode.USER_NOT_FOUND.raise_error()
+            raise CustomValidationError(ErrorCode.USER_NOT_FOUND)
         except Exception as e:
             logger.error(f"Failed to send verification email to {email}: {e}")
-            ErrorCode.EMAIL_SEND_FAILED.raise_error()
+            raise CustomValidationError(ErrorCode.EMAIL_SEND_FAILED)
 
 
 class VerifyEmailView(APIView):
@@ -86,6 +94,15 @@ class VerifyEmailView(APIView):
         }
     )
     def post(self, request):
+        # Check code length before serializer validation
+        code = request.data.get('code', '')
+        if code and len(code) != 4:
+            raise CustomValidationError(ErrorCode.INVALID_VERIFICATION_CODE)
+        
+        # Check if code contains only digits
+        if code and not code.isdigit():
+            raise CustomValidationError(ErrorCode.INVALID_VERIFICATION_CODE)
+        
         serializer = VerifyEmailSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
@@ -93,6 +110,7 @@ class VerifyEmailView(APIView):
         code = serializer.validated_data['code']
         
         try:
+            # Get user by email (handled by serializer validation)
             user = User.objects.get(email=email)
             
             # Find and validate verification code
@@ -104,10 +122,10 @@ class VerifyEmailView(APIView):
                     is_used=False
                 )
             except VerificationCode.DoesNotExist:
-                ErrorCode.INVALID_VERIFICATION_CODE.raise_error()
+                raise CustomValidationError(ErrorCode.INVALID_VERIFICATION_CODE)
             
             if not verification_code.is_valid():
-                ErrorCode.VERIFICATION_CODE_EXPIRED.raise_error()
+                raise CustomValidationError(ErrorCode.VERIFICATION_CODE_EXPIRED)
             
             # Mark email as verified and code as used
             user.email_verified = True
@@ -118,11 +136,11 @@ class VerifyEmailView(APIView):
                 'message': 'Email verified successfully.'
             })
             
-        except User.DoesNotExist:
-            ErrorCode.USER_NOT_FOUND.raise_error()
+        except CustomValidationError:
+            raise
         except Exception as e:
             logger.error(f"Failed to verify email for {email}: {e}")
-            ErrorCode.EMAIL_VERIFICATION_FAILED.raise_error()
+            raise CustomValidationError(ErrorCode.EMAIL_VERIFICATION_FAILED)
 
 
 send_verification_email = SendVerificationEmailView.as_view()
