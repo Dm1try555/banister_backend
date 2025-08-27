@@ -47,6 +47,7 @@ from .permissions import BasePermissionsMixin, RoleBasedQuerysetMixin
 # Error handling
 from core.error_handling.enums import ErrorCode
 from core.error_handling.utils import create_error_response, handle_validation_error
+from core.error_handling.exceptions import CustomValidationError
 
 # Swagger schemas
 from core.swagger_schemas import *

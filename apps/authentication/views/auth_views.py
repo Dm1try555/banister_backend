@@ -76,7 +76,7 @@ class LoginView(APIView):
         
         user = authenticate(username=username, password=password)
         if not user:
-            ErrorCode.INVALID_CREDENTIALS.raise_error()
+            raise CustomValidationError(ErrorCode.INVALID_CREDENTIALS)
         
         refresh = RefreshToken.for_user(user)
         user_serializer = UserSerializer(user)
@@ -114,4 +114,4 @@ class RefreshTokenView(APIView):
                 'access': str(refresh.access_token)
             })
         except Exception:
-            ErrorCode.INVALID_TOKEN.raise_error()
+            raise CustomValidationError(ErrorCode.INVALID_TOKEN)
