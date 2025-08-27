@@ -62,11 +62,6 @@ class PasswordResetRequestView(APIView):
                 'message': 'Password reset email sent successfully. Code expires in 10 minutes.'
             })
             
-        except User.DoesNotExist:
-            # Don't reveal if user exists or not
-            return Response({
-                'message': 'If an account with that email exists, a password reset email has been sent.'
-            })
         except Exception as e:
             logger.error(f"Failed to send password reset email to {email}: {e}")
             ErrorCode.EMAIL_SEND_FAILED.raise_error()
@@ -127,7 +122,7 @@ class PasswordResetConfirmView(APIView):
             })
             
         except User.DoesNotExist:
-            ErrorCode.USER_NOT_FOUND.raise_error()
+            ErrorCode.EMAIL_NOT_FOUND.raise_error()
         except Exception as e:
             logger.error(f"Failed to reset password: {e}")
             ErrorCode.PASSWORD_RESET_FAILED.raise_error()

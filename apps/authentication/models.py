@@ -16,8 +16,9 @@ class User(AbstractUser):
         ('service_provider', 'Service Provider'),
     ]
     
+    email = models.EmailField(unique=True)
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='customer')
-    phone_number = models.CharField(max_length=20, blank=True, null=True)
+    phone_number = models.CharField(max_length=20, blank=True, null=True, unique=True)
     location = models.CharField(max_length=255, blank=True, null=True)
     profile_photo = models.ImageField(upload_to='profile_photos/', blank=True, null=True)
     email_verified = models.BooleanField(default=False)
@@ -43,7 +44,7 @@ class VerificationCode(models.Model):
     ]
     
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    code = models.CharField(max_length=6)
+    code = models.CharField(max_length=4)
     code_type = models.CharField(max_length=20, choices=CODE_TYPES)
     created_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField()
@@ -61,8 +62,8 @@ class VerificationCode(models.Model):
     
     @classmethod
     def generate_code(cls):
-        """Generate a random 6-digit code"""
-        return ''.join(random.choices(string.digits, k=6))
+        """Generate a random 4-digit code"""
+        return ''.join(random.choices(string.digits, k=4))
     
     @classmethod
     def create_code(cls, user, code_type, expiry_minutes=10):
