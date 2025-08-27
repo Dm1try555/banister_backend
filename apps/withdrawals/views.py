@@ -36,42 +36,7 @@ class WithdrawalDetailView(SwaggerMixin, RetrieveUpdateDestroyAPIView, RoleBased
             return WithdrawalUpdateSerializer
         return WithdrawalSerializer
 
-    @swagger_retrieve_update_destroy(
-        description="Retrieve, update or delete withdrawal",
-        response_schema=WITHDRAWAL_RESPONSE_SCHEMA,
-        tags=["Withdrawals"]
-    )
-    def get(self, request, *args, **kwargs):
-        return super().get(request, *args, **kwargs)
 
-    @swagger_retrieve_update_destroy(
-        description="Update withdrawal",
-        response_schema=WITHDRAWAL_RESPONSE_SCHEMA,
-        tags=["Withdrawals"]
-    )
-    def put(self, request, *args, **kwargs):
-        return super().put(request, *args, **kwargs)
-
-    @swagger_retrieve_update_destroy(
-        description="Partially update withdrawal",
-        response_schema=WITHDRAWAL_RESPONSE_SCHEMA,
-        tags=["Withdrawals"]
-    )
-    def patch(self, request, *args, **kwargs):
-        return super().patch(request, *args, **kwargs)
-
-    @swagger_retrieve_update_destroy(
-        description="Delete withdrawal",
-        response_schema=openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            properties={
-                'message': openapi.Schema(type=openapi.TYPE_STRING)
-            }
-        ),
-        tags=["Withdrawals"]
-    )
-    def delete(self, request, *args, **kwargs):
-        return super().delete(request, *args, **kwargs)
 
 
 class WithdrawalApproveView(SwaggerMixin, UpdateAPIView, RoleBasedQuerysetMixin, WithdrawalPermissions):

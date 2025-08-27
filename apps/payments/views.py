@@ -47,22 +47,6 @@ class PaymentDetailView(SwaggerMixin, RetrieveUpdateAPIView, RoleBasedQuerysetMi
     def get(self, request, *args, **kwargs):
         return super().get(request, *args, **kwargs)
 
-    @swagger_retrieve_update(
-        description="Update payment",
-        response_schema=PAYMENT_RESPONSE_SCHEMA,
-        tags=["Payments"]
-    )
-    def put(self, request, *args, **kwargs):
-        return super().put(request, *args, **kwargs)
-
-    @swagger_retrieve_update(
-        description="Partially update payment",
-        response_schema=PAYMENT_RESPONSE_SCHEMA,
-        tags=["Payments"]
-    )
-    def patch(self, request, *args, **kwargs):
-        return super().patch(request, *args, **kwargs)
-
 
 class PaymentConfirmView(APIView):
     permission_classes = [IsAuthenticated]

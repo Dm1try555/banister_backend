@@ -26,6 +26,8 @@ class User(AbstractUser):
     provider_verified = models.BooleanField(default=False)
     provider_rating = models.DecimalField(max_digits=3, decimal_places=2, default=0.00)
     provider_hourly_rate = models.DecimalField(max_digits=8, decimal_places=2, default=0.00)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
         db_table = 'users'

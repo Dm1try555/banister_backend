@@ -15,7 +15,6 @@ class BookingListCreateView(SwaggerMixin, ListCreateAPIView, RoleBasedQuerysetMi
         return BookingCreateSerializer if self.request.method == 'POST' else BookingSerializer
 
     def perform_create(self, serializer):
-        # Проверяем разрешение на создание
         self.check_permission('create_booking')
         serializer.save(customer=self.request.user)
 
@@ -29,13 +28,7 @@ class BookingDetailView(SwaggerMixin, RetrieveUpdateDestroyAPIView, RoleBasedQue
             return BookingUpdateSerializer
         return BookingSerializer
 
-    @swagger_retrieve_update_destroy(
-        description="Retrieve, update or delete booking",
-        response_schema=BOOKING_RESPONSE_SCHEMA,
-        tags=["Bookings"]
-    )
-    def get(self, request, *args, **kwargs):
-        return super().get(request, *args, **kwargs)
+
 
     def put(self, request, *args, **kwargs):
         self.check_permission('edit_booking')
@@ -72,13 +65,7 @@ class InterviewDetailView(SwaggerMixin, RetrieveUpdateDestroyAPIView, RoleBasedQ
             return InterviewUpdateSerializer
         return InterviewSerializer
 
-    @swagger_retrieve_update_destroy(
-        description="Retrieve, update or delete interview",
-        response_schema=INTERVIEW_RESPONSE_SCHEMA,
-        tags=["Interviews"]
-    )
-    def get(self, request, *args, **kwargs):
-        return super().get(request, *args, **kwargs)
+
 
     def put(self, request, *args, **kwargs):
         self.check_permission('edit_interview')

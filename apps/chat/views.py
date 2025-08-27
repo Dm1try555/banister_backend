@@ -36,42 +36,7 @@ class ChatRoomDetailView(SwaggerMixin, RetrieveUpdateDestroyAPIView, RoleBasedQu
             return ChatRoomUpdateSerializer
         return ChatRoomSerializer
 
-    @swagger_retrieve_update_destroy(
-        description="Retrieve, update or delete chat room",
-        response_schema=CHAT_ROOM_RESPONSE_SCHEMA,
-        tags=["Chat"]
-    )
-    def get(self, request, *args, **kwargs):
-        return super().get(request, *args, **kwargs)
 
-    @swagger_retrieve_update_destroy(
-        description="Update chat room",
-        response_schema=CHAT_ROOM_RESPONSE_SCHEMA,
-        tags=["Chat"]
-    )
-    def put(self, request, *args, **kwargs):
-        return super().put(request, *args, **kwargs)
-
-    @swagger_retrieve_update_destroy(
-        description="Partially update chat room",
-        response_schema=CHAT_ROOM_RESPONSE_SCHEMA,
-        tags=["Chat"]
-    )
-    def patch(self, request, *args, **kwargs):
-        return super().patch(request, *args, **kwargs)
-
-    @swagger_retrieve_update_destroy(
-        description="Delete chat room",
-        response_schema=openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            properties={
-                'message': openapi.Schema(type=openapi.TYPE_STRING)
-            }
-        ),
-        tags=["Chat"]
-    )
-    def delete(self, request, *args, **kwargs):
-        return super().delete(request, *args, **kwargs)
 
 
 class MessageListCreateView(SwaggerMixin, ListCreateAPIView, RoleBasedQuerysetMixin, ChatPermissions):
@@ -109,39 +74,3 @@ class MessageDetailView(SwaggerMixin, RetrieveUpdateDestroyAPIView, RoleBasedQue
             return MessageUpdateSerializer
         return MessageSerializer
 
-    @swagger_retrieve_update_destroy(
-        description="Retrieve, update or delete message",
-        response_schema=MESSAGE_RESPONSE_SCHEMA,
-        tags=["Chat Messages"]
-    )
-    def get(self, request, *args, **kwargs):
-        return super().get(request, *args, **kwargs)
-
-    @swagger_retrieve_update_destroy(
-        description="Update message",
-        response_schema=MESSAGE_RESPONSE_SCHEMA,
-        tags=["Chat Messages"]
-    )
-    def put(self, request, *args, **kwargs):
-        return super().put(request, *args, **kwargs)
-
-    @swagger_retrieve_update_destroy(
-        description="Partially update message",
-        response_schema=MESSAGE_RESPONSE_SCHEMA,
-        tags=["Chat Messages"]
-    )
-    def patch(self, request, *args, **kwargs):
-        return super().patch(request, *args, **kwargs)
-
-    @swagger_retrieve_update_destroy(
-        description="Delete message",
-        response_schema=openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            properties={
-                'message': openapi.Schema(type=openapi.TYPE_STRING)
-            }
-        ),
-        tags=["Chat Messages"]
-    )
-    def delete(self, request, *args, **kwargs):
-        return super().delete(request, *args, **kwargs)

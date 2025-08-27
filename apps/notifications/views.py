@@ -34,39 +34,3 @@ class NotificationDetailView(SwaggerMixin, RetrieveUpdateDestroyAPIView, RoleBas
             return NotificationUpdateSerializer
         return NotificationSerializer
 
-    @swagger_retrieve_update_destroy(
-        description="Retrieve, update or delete notification",
-        response_schema=NOTIFICATION_RESPONSE_SCHEMA,
-        tags=["Notifications"]
-    )
-    def get(self, request, *args, **kwargs):
-        return super().get(request, *args, **kwargs)
-
-    @swagger_retrieve_update_destroy(
-        description="Update notification",
-        response_schema=NOTIFICATION_RESPONSE_SCHEMA,
-        tags=["Notifications"]
-    )
-    def put(self, request, *args, **kwargs):
-        return super().put(request, *args, **kwargs)
-
-    @swagger_retrieve_update_destroy(
-        description="Partially update notification",
-        response_schema=NOTIFICATION_RESPONSE_SCHEMA,
-        tags=["Notifications"]
-    )
-    def patch(self, request, *args, **kwargs):
-        return super().patch(request, *args, **kwargs)
-
-    @swagger_retrieve_update_destroy(
-        description="Delete notification",
-        response_schema=openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            properties={
-                'message': openapi.Schema(type=openapi.TYPE_STRING)
-            }
-        ),
-        tags=["Notifications"]
-    )
-    def delete(self, request, *args, **kwargs):
-        return super().delete(request, *args, **kwargs)
