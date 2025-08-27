@@ -34,9 +34,6 @@ class SendVerificationEmailView(APIView):
         try:
             user = User.objects.get(email=email)
             
-            if user.email_verified:
-                ErrorCode.EMAIL_ALREADY_VERIFIED.raise_error()
-            
             # Generate and save verification code
             verification_code = VerificationCode.create_code(
                 user=user,
@@ -97,9 +94,6 @@ class VerifyEmailView(APIView):
         
         try:
             user = User.objects.get(email=email)
-            
-            if user.email_verified:
-                ErrorCode.EMAIL_ALREADY_VERIFIED.raise_error()
             
             # Find and validate verification code
             try:

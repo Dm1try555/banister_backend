@@ -128,13 +128,21 @@ class SendVerificationEmailSerializer(serializers.Serializer):
     email = serializers.EmailField()
     
     def validate_email(self, value):
-        """Validate email format"""
+        """Validate email format and verification status"""
         import re
         if value:
             # Basic email format validation: must have @ and domain with at least one dot
             email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
             if not re.match(email_pattern, value):
                 ErrorCode.INVALID_EMAIL_FORMAT.raise_error()
+            
+            # Check if email exists and is not already verified
+            try:
+                user = User.objects.get(email=value)
+                if user.email_verified:
+                    ErrorCode.EMAIL_ALREADY_VERIFIED.raise_error()
+            except User.DoesNotExist:
+                ErrorCode.EMAIL_NOT_FOUND.raise_error()
         return value
 
 
@@ -143,13 +151,21 @@ class VerifyEmailSerializer(serializers.Serializer):
     code = serializers.CharField(max_length=4, min_length=4)
     
     def validate_email(self, value):
-        """Validate email format"""
+        """Validate email format and verification status"""
         import re
         if value:
             # Basic email format validation: must have @ and domain with at least one dot
             email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
             if not re.match(email_pattern, value):
                 ErrorCode.INVALID_EMAIL_FORMAT.raise_error()
+            
+            # Check if email exists and is not already verified
+            try:
+                user = User.objects.get(email=value)
+                if user.email_verified:
+                    ErrorCode.EMAIL_ALREADY_VERIFIED.raise_error()
+            except User.DoesNotExist:
+                ErrorCode.EMAIL_NOT_FOUND.raise_error()
         return value
 
 
@@ -192,6 +208,7 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
         return value
     
     def validate(self, attrs):
+        email = attrs.get('email')
         new_password = attrs.get('new_password')
         new_password_confirm = attrs.get('new_password_confirm')
         
@@ -202,6 +219,15 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
         # Validate password confirmation
         if new_password and new_password_confirm and new_password != new_password_confirm:
             ErrorCode.PASSWORDS_DO_NOT_MATCH.raise_error()
+        
+        # Validate that new password is different from current password
+        if email and new_password:
+            try:
+                user = User.objects.get(email=email)
+                if user.check_password(new_password):
+                    ErrorCode.SAME_PASSWORD.raise_error()
+            except User.DoesNotExist:
+                pass  # Email validation already handled in validate_email
         
         return attrs
 
@@ -244,3 +270,13 @@ class AdminPermissionSerializer(serializers.ModelSerializer):
     class Meta:
         model = AdminPermission
         fields = '__all__'
+
+
+class ToggleVerificationSerializer(serializers.Serializer):
+    type = serializers.ChoiceField(choices=['email', 'provider'])
+    
+    def validate_type(self, value):
+        """Validate verification type"""
+        if value not in ['email', 'provider']:
+            ErrorCode.INVALID_DATA.raise_error()
+        return value

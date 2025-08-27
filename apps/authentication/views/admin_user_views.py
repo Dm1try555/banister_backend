@@ -1,7 +1,7 @@
 from core.base.common_imports import *
 from rest_framework.permissions import IsAdminUser
 from ..models import User
-from ..serializers import UserSerializer, UserCreateSerializer, UserUpdateSerializer, AdminProfileUpdateSerializer
+from ..serializers import UserSerializer, UserCreateSerializer, UserUpdateSerializer, AdminProfileUpdateSerializer, ToggleVerificationSerializer
 
 
 class AdminUserViewSet(SwaggerMixin, ModelViewSet):
@@ -97,6 +97,7 @@ class AdminUserViewSet(SwaggerMixin, ModelViewSet):
     
     @swagger_auto_schema(
         operation_description="Toggle user verification status",
+        request_body=ToggleVerificationSerializer,
         responses={
             200: openapi.Schema(
                 type=openapi.TYPE_OBJECT,
@@ -111,14 +112,15 @@ class AdminUserViewSet(SwaggerMixin, ModelViewSet):
     @action(detail=True, methods=['post'])
     def toggle_verification(self, request, pk=None):
         user = self.get_object()
-        verification_type = request.data.get('type')
+        serializer = ToggleVerificationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        verification_type = serializer.validated_data['type']
         
         if verification_type == 'email':
             user.email_verified = not user.email_verified
         elif verification_type == 'provider':
             user.provider_verified = not user.provider_verified
-        else:
-            ErrorCode.INVALID_DATA.raise_error()
         
         user.save()
         return Response({

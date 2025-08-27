@@ -22,9 +22,10 @@ class ErrorCode(Enum):
     EMAIL_NOT_FOUND = (1017, "Email not found", "No account found with this email address")
     INVALID_PHONE_FORMAT = (1018, "Invalid phone format", "Phone number format is invalid")
     PASSWORDS_DO_NOT_MATCH = (1019, "Passwords do not match", "Password and password confirmation do not match")
-    FILE_TOO_LARGE = (1020, "File too large", "File size exceeds maximum allowed limit")
-    INVALID_FILE_TYPE = (1021, "Invalid file type", "File type is not supported")
-    EMPTY_FILE = (1022, "Empty file", "File cannot be empty")
+    SAME_PASSWORD = (1020, "Same password", "New password must be different from current password")
+    FILE_TOO_LARGE = (1021, "File too large", "File size exceeds maximum allowed limit")
+    INVALID_FILE_TYPE = (1022, "Invalid file type", "File type is not supported")
+    EMPTY_FILE = (1023, "Empty file", "File cannot be empty")
 
     # Booking errors (2000-2099)
     BOOKING_NOT_FOUND = (2001, "Booking not found", "Booking with specified ID does not exist")

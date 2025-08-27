@@ -9,6 +9,14 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+class CustomValidationError(Exception):
+    """Custom exception that carries error code information"""
+    def __init__(self, error_code, detail=None):
+        self.error_code = error_code
+        self.detail = detail or error_code.description
+        super().__init__(f"{error_code.code}: {error_code.title}: {self.detail}")
+
+
 class PasswordResetRequestView(APIView):
     permission_classes = [AllowAny]
     
@@ -95,9 +103,6 @@ class PasswordResetConfirmView(APIView):
         try:
             user = User.objects.get(email=email)
             
-            if new_password != new_password_confirm:
-                ErrorCode.PASSWORDS_DO_NOT_MATCH.raise_error()
-            
             # Find and validate reset code
             try:
                 reset_code = VerificationCode.objects.get(
@@ -107,10 +112,10 @@ class PasswordResetConfirmView(APIView):
                     is_used=False
                 )
             except VerificationCode.DoesNotExist:
-                ErrorCode.INVALID_VERIFICATION_CODE.raise_error()
+                raise CustomValidationError(ErrorCode.INVALID_VERIFICATION_CODE)
             
             if not reset_code.is_valid():
-                ErrorCode.VERIFICATION_CODE_EXPIRED.raise_error()
+                raise CustomValidationError(ErrorCode.VERIFICATION_CODE_EXPIRED)
             
             # Set new password and mark code as used
             user.set_password(new_password)
@@ -122,10 +127,12 @@ class PasswordResetConfirmView(APIView):
             })
             
         except User.DoesNotExist:
-            ErrorCode.EMAIL_NOT_FOUND.raise_error()
+            raise CustomValidationError(ErrorCode.EMAIL_NOT_FOUND)
+        except CustomValidationError:
+            raise
         except Exception as e:
             logger.error(f"Failed to reset password: {e}")
-            ErrorCode.PASSWORD_RESET_FAILED.raise_error()
+            raise CustomValidationError(ErrorCode.PASSWORD_RESET_FAILED)
 
 
 password_reset_request = PasswordResetRequestView.as_view()

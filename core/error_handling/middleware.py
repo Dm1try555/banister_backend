@@ -6,6 +6,14 @@ from .utils import create_error_response, handle_validation_error
 def custom_exception_handler(exc, context):
     request = context.get("request")
 
+    # Handle custom validation errors from views
+    if hasattr(exc, 'error_code'):
+        return create_error_response(
+            error_code=exc.error_code,
+            detail=exc.detail,
+            request=request
+        )
+
     # Handling validation errors
     if isinstance(exc, serializers.ValidationError):
         return handle_validation_error(exc.detail, request)
