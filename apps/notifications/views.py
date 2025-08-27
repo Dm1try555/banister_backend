@@ -18,6 +18,7 @@ class NotificationListCreateView(SwaggerMixin, ListCreateAPIView, RoleBasedQuery
         response_schema=NOTIFICATION_RESPONSE_SCHEMA,
         tags=["Notifications"]
     )
+    @transaction.atomic
     def create(self, request, *args, **kwargs):
         return super().create(request, *args, **kwargs)
 

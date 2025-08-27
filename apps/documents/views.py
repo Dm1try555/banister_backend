@@ -19,6 +19,7 @@ class DocumentListCreateView(SwaggerMixin, ListCreateAPIView, RoleBasedQuerysetM
         response_schema=DOCUMENT_RESPONSE_SCHEMA,
         tags=["Documents"]
     )
+    @transaction.atomic
     def create(self, request, *args, **kwargs):
         return super().create(request, *args, **kwargs)
 

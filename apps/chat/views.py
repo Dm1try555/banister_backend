@@ -19,6 +19,7 @@ class ChatRoomListCreateView(SwaggerMixin, ListCreateAPIView, RoleBasedQuerysetM
         response_schema=CHAT_ROOM_RESPONSE_SCHEMA,
         tags=["Chat"]
     )
+    @transaction.atomic
     def create(self, request, *args, **kwargs):
         return super().create(request, *args, **kwargs)
 
@@ -51,6 +52,7 @@ class MessageListCreateView(SwaggerMixin, ListCreateAPIView, RoleBasedQuerysetMi
         response_schema=MESSAGE_RESPONSE_SCHEMA,
         tags=["Chat Messages"]
     )
+    @transaction.atomic
     def create(self, request, *args, **kwargs):
         return super().create(request, *args, **kwargs)
 

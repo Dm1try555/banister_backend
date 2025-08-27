@@ -14,6 +14,7 @@ class BookingListCreateView(SwaggerMixin, ListCreateAPIView, RoleBasedQuerysetMi
     def get_serializer_class(self):
         return BookingCreateSerializer if self.request.method == 'POST' else BookingSerializer
 
+    @transaction.atomic
     def perform_create(self, serializer):
         self.check_permission('create_booking')
         serializer.save(customer=self.request.user)
@@ -30,14 +31,17 @@ class BookingDetailView(SwaggerMixin, RetrieveUpdateDestroyAPIView, RoleBasedQue
 
 
 
+    @transaction.atomic
     def put(self, request, *args, **kwargs):
         self.check_permission('edit_booking')
         return super().put(request, *args, **kwargs)
 
+    @transaction.atomic
     def patch(self, request, *args, **kwargs):
         self.check_permission('edit_booking')
         return super().patch(request, *args, **kwargs)
 
+    @transaction.atomic
     def delete(self, request, *args, **kwargs):
         self.check_permission('delete_booking')
         return super().delete(request, *args, **kwargs)
@@ -50,6 +54,7 @@ class InterviewListCreateView(SwaggerMixin, ListCreateAPIView, RoleBasedQueryset
     def get_serializer_class(self):
         return InterviewCreateSerializer if self.request.method == 'POST' else InterviewSerializer
 
+    @transaction.atomic
     def perform_create(self, serializer):
         # Проверяем разрешение на создание
         self.check_permission('create_interview')
@@ -67,14 +72,17 @@ class InterviewDetailView(SwaggerMixin, RetrieveUpdateDestroyAPIView, RoleBasedQ
 
 
 
+    @transaction.atomic
     def put(self, request, *args, **kwargs):
         self.check_permission('edit_interview')
         return super().put(request, *args, **kwargs)
 
+    @transaction.atomic
     def patch(self, request, *args, **kwargs):
         self.check_permission('edit_interview')
         return super().patch(request, *args, **kwargs)
 
+    @transaction.atomic
     def delete(self, request, *args, **kwargs):
         self.check_permission('delete_interview')
         return super().delete(request, *args, **kwargs)

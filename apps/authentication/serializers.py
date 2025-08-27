@@ -24,7 +24,7 @@ class UserSerializer(UserBaseSerializer):
 
 
 class UserCreateSerializer(UserBaseSerializer):
-    """Serializer for user registration"""
+    """Serializer for user registration (only customer and service_provider)"""
     password_confirm = serializers.CharField(write_only=True, required=True)
     
     class Meta(UserBaseSerializer.Meta):
@@ -36,6 +36,91 @@ class UserCreateSerializer(UserBaseSerializer):
         extra_kwargs = {
             'password': {'write_only': True}
         }
+
+    def validate_role(self, value):
+        """Validate role - only customer and service_provider allowed for public registration"""
+        public_roles = ['customer', 'service_provider']
+        if value not in public_roles:
+            ErrorCode.INVALID_DATA.raise_error()
+        return value
+
+    def validate_email(self, value):
+        """Validate email format and uniqueness"""
+        import re
+        if value:
+            # Basic email format validation: must have @ and domain with at least one dot
+            email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+            if not re.match(email_pattern, value):
+                ErrorCode.INVALID_EMAIL_FORMAT.raise_error()
+            
+            # Check if email already exists
+            if User.objects.filter(email=value).exists():
+                ErrorCode.USER_ALREADY_EXISTS.raise_error()
+        return value
+
+    def validate_username(self, value):
+        """Validate username uniqueness"""
+        if value and User.objects.filter(username=value).exists():
+            ErrorCode.USER_ALREADY_EXISTS.raise_error()
+        return value
+
+    def validate_phone_number(self, value):
+        """Validate phone number format and uniqueness"""
+        if value:
+            import re
+            # Allow only digits, spaces, dashes, parentheses, plus sign
+            if not re.match(r'^[\d\s\-\(\)\+]+$', value):
+                ErrorCode.INVALID_PHONE_FORMAT.raise_error()
+            
+            # Check if phone number already exists
+            if User.objects.filter(phone_number=value).exists():
+                ErrorCode.USER_ALREADY_EXISTS.raise_error()
+        return value
+
+    def validate(self, attrs):
+        password = attrs.get('password')
+        password_confirm = attrs.get('password_confirm')
+
+        # Validate password length
+        if password and len(password) < 8:
+            ErrorCode.PASSWORD_TOO_WEAK.raise_error()
+
+        # Validate password confirmation
+        if password and password_confirm and password != password_confirm:
+            ErrorCode.PASSWORDS_DO_NOT_MATCH.raise_error()
+
+        return attrs
+
+    def create(self, validated_data):
+        validated_data.pop('password_confirm', None)
+        password = validated_data.pop('password', None)
+        user = super().create(validated_data)
+        if password:
+            user.set_password(password)
+            user.save()
+        return user
+
+
+class AdminUserCreateSerializer(UserBaseSerializer):
+    """Serializer for admin user registration (only for super_admin)"""
+    password_confirm = serializers.CharField(write_only=True, required=True)
+    
+    class Meta(UserBaseSerializer.Meta):
+        fields = [
+            'username', 'email', 'first_name', 'last_name',
+            'password', 'password_confirm', 'role', 'phone_number',
+            'location'
+        ]
+        extra_kwargs = {
+            'password': {'write_only': True}
+        }
+
+    def validate_role(self, value):
+        """Validate that only admin roles are allowed"""
+        admin_roles = ['super_admin', 'admin', 'hr', 'supervisor']
+        if value not in admin_roles:
+            ErrorCode.INVALID_DATA.raise_error()
+        return value
 
     def validate_email(self, value):
         """Validate email format and uniqueness"""
@@ -258,8 +343,14 @@ class ProfilePhotoUploadSerializer(serializers.Serializer):
 
 
 class LoginSerializer(serializers.Serializer):
-    username = serializers.CharField()
+    username_or_email = serializers.CharField()
     password = serializers.CharField()
+    
+    def validate_username_or_email(self, value):
+        """Validate that the field contains either username or email"""
+        if not value:
+            ErrorCode.INVALID_DATA.raise_error()
+        return value
 
 
 class RefreshSerializer(serializers.Serializer):

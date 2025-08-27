@@ -60,7 +60,7 @@ class LoginView(APIView):
     permission_classes = [AllowAny]
     
     @swagger_auto_schema(
-        operation_description="Login user with username and password",
+        operation_description="Login user with username/email and password",
         request_body=LoginSerializer,
         responses={
             200: LOGIN_RESPONSE_SCHEMA,
@@ -71,10 +71,19 @@ class LoginView(APIView):
         serializer = LoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
-        username = serializer.validated_data['username']
+        username_or_email = serializer.validated_data['username_or_email']
         password = serializer.validated_data['password']
         
-        user = authenticate(username=username, password=password)
+        # Try to authenticate with username first, then with email
+        user = authenticate(username=username_or_email, password=password)
+        if not user:
+            # If username authentication failed, try email
+            try:
+                user_obj = User.objects.get(email=username_or_email)
+                user = authenticate(username=user_obj.username, password=password)
+            except User.DoesNotExist:
+                pass
+        
         if not user:
             raise CustomValidationError(ErrorCode.INVALID_CREDENTIALS)
         

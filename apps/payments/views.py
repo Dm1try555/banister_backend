@@ -20,9 +20,11 @@ class PaymentListCreateView(SwaggerMixin, ListCreateAPIView, RoleBasedQuerysetMi
         response_schema=PAYMENT_CREATE_RESPONSE_SCHEMA,
         tags=["Payments"]
     )
+    @transaction.atomic
     def create(self, request, *args, **kwargs):
         return super().create(request, *args, **kwargs)
 
+    @transaction.atomic
     def perform_create(self, serializer):
         payment = serializer.save()
         payment.customer = self.request.user
@@ -68,6 +70,7 @@ class PaymentConfirmView(APIView):
         },
         tags=["Payments"]
     )
+    @transaction.atomic
     def post(self, request):
         serializer = PaymentConfirmSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -114,6 +117,7 @@ class PaymentTransferView(APIView):
         },
         tags=["Payments"]
     )
+    @transaction.atomic
     def post(self, request):
         serializer = PaymentTransferSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)

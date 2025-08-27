@@ -18,6 +18,7 @@ class ServiceListCreateView(SwaggerMixin, ListCreateAPIView, RoleBasedQuerysetMi
     def get_serializer_class(self):
         return ServiceCreateSerializer if self.request.method == 'POST' else ServiceSerializer
 
+    @transaction.atomic
     def perform_create(self, serializer):
         # Check permission to create
         self.check_permission('create_service')
@@ -35,14 +36,17 @@ class ServiceDetailView(SwaggerMixin, RetrieveUpdateDestroyAPIView, RoleBasedQue
 
 
 
+    @transaction.atomic
     def put(self, request, *args, **kwargs):
         self.check_permission('edit_service')
         return super().put(request, *args, **kwargs)
 
+    @transaction.atomic
     def patch(self, request, *args, **kwargs):
         self.check_permission('edit_service')
         return super().patch(request, *args, **kwargs)
 
+    @transaction.atomic
     def delete(self, request, *args, **kwargs):
         self.check_permission('delete_service')
         return super().delete(request, *args, **kwargs)
@@ -55,6 +59,7 @@ class ScheduleListCreateView(SwaggerMixin, ListCreateAPIView, RoleBasedQuerysetM
     def get_serializer_class(self):
         return ScheduleCreateSerializer if self.request.method == 'POST' else ScheduleSerializer
 
+    @transaction.atomic
     def perform_create(self, serializer):
         # Check permission to create
         self.check_permission('create_schedule')
@@ -72,14 +77,17 @@ class ScheduleDetailView(SwaggerMixin, RetrieveUpdateDestroyAPIView, RoleBasedQu
 
 
 
+    @transaction.atomic
     def put(self, request, *args, **kwargs):
         self.check_permission('edit_schedule')
         return super().put(request, *args, **kwargs)
 
+    @transaction.atomic
     def patch(self, request, *args, **kwargs):
         self.check_permission('edit_schedule')
         return super().patch(request, *args, **kwargs)
 
+    @transaction.atomic
     def delete(self, request, *args, **kwargs):
         self.check_permission('delete_schedule')
         return super().delete(request, *args, **kwargs)

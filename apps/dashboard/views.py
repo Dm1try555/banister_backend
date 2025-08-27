@@ -30,6 +30,7 @@ class CustomerDashboardView(SwaggerMixin, RetrieveUpdateAPIView, RoleBasedQuerys
         response_schema=CUSTOMER_DASHBOARD_RESPONSE_SCHEMA,
         tags=["Customer Dashboard"]
     )
+    @transaction.atomic
     def put(self, request, *args, **kwargs):
         return super().put(request, *args, **kwargs)
 
@@ -38,6 +39,7 @@ class CustomerDashboardView(SwaggerMixin, RetrieveUpdateAPIView, RoleBasedQuerys
         response_schema=CUSTOMER_DASHBOARD_RESPONSE_SCHEMA,
         tags=["Customer Dashboard"]
     )
+    @transaction.atomic
     def patch(self, request, *args, **kwargs):
         return super().patch(request, *args, **kwargs)
 
@@ -64,6 +66,7 @@ class ProviderDashboardView(SwaggerMixin, RetrieveUpdateAPIView, RoleBasedQuerys
         response_schema=PROVIDER_DASHBOARD_RESPONSE_SCHEMA,
         tags=["Provider Dashboard"]
     )
+    @transaction.atomic
     def put(self, request, *args, **kwargs):
         return super().put(request, *args, **kwargs)
 
@@ -72,6 +75,7 @@ class ProviderDashboardView(SwaggerMixin, RetrieveUpdateAPIView, RoleBasedQuerys
         response_schema=PROVIDER_DASHBOARD_RESPONSE_SCHEMA,
         tags=["Provider Dashboard"]
     )
+    @transaction.atomic
     def patch(self, request, *args, **kwargs):
         return super().patch(request, *args, **kwargs)
 
@@ -109,6 +113,7 @@ class ManagementDashboardView(SwaggerMixin, RetrieveUpdateAPIView, RoleBasedQuer
         response_schema=MANAGEMENT_DASHBOARD_RESPONSE_SCHEMA,
         tags=["Management Dashboard"]
     )
+    @transaction.atomic
     def put(self, request, *args, **kwargs):
         return super().put(request, *args, **kwargs)
 
@@ -117,5 +122,6 @@ class ManagementDashboardView(SwaggerMixin, RetrieveUpdateAPIView, RoleBasedQuer
         response_schema=MANAGEMENT_DASHBOARD_RESPONSE_SCHEMA,
         tags=["Management Dashboard"]
     )
+    @transaction.atomic
     def patch(self, request, *args, **kwargs):
         return super().patch(request, *args, **kwargs)
