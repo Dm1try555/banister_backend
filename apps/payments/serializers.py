@@ -87,4 +87,14 @@ class PaymentConfirmSerializer(serializers.Serializer):
 
 
 class PaymentTransferSerializer(serializers.Serializer):
+    payment_id = serializers.IntegerField()
     provider_stripe_account = serializers.CharField()
+    
+    def validate_payment_id(self, value):
+        try:
+            payment = Payment.objects.get(id=value)
+            if payment.status != 'completed':
+                ErrorCode.INVALID_DATA.raise_error()
+            return value
+        except Payment.DoesNotExist:
+            ErrorCode.USER_NOT_FOUND.raise_error()

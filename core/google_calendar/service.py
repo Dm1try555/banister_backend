@@ -79,10 +79,10 @@ class GoogleCalendarService:
             if interview:
                 event_data = {
                     'summary': f'Interview: {interview.service.title if interview.service else "Service Interview"}',
-                    'description': f'Interview for service\nCustomer: {interview.customer.email}',
+                    'description': f'Interview for service\nProvider: {interview.provider.email}',
                     'start': {'dateTime': scheduled_datetime.isoformat(), 'timeZone': 'UTC'},
                     'end': {'dateTime': (scheduled_datetime + timedelta(hours=1)).isoformat(), 'timeZone': 'UTC'},
-                    'attendees': [{'email': interview.customer.email}],
+                    'attendees': [{'email': interview.provider.email}],
                     'conferenceData': {
                         'createRequest': {
                             'requestId': f"interview_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
@@ -90,8 +90,6 @@ class GoogleCalendarService:
                         }
                     }
                 }
-                if interview.provider:
-                    event_data['attendees'].append({'email': interview.provider.email})
             else:
                 event_data = {
                     'summary': f'Test Interview: {user.email}',
@@ -111,7 +109,18 @@ class GoogleCalendarService:
                 calendarId=calendar_id, body=event_data, conferenceDataVersion=1, sendUpdates='all'
             ).execute()
             
-            return True, event.get('id')
+            # Extract Google Meet link
+            meet_link = None
+            if 'conferenceData' in event and 'entryPoints' in event['conferenceData']:
+                for entry_point in event['conferenceData']['entryPoints']:
+                    if entry_point.get('entryPointType') == 'video':
+                        meet_link = entry_point.get('uri')
+                        break
+            
+            return True, {
+                'event_id': event.get('id'),
+                'meet_link': meet_link
+            }
             
         except Exception as e:
             return False, f"Interview event creation error: {str(e)}"

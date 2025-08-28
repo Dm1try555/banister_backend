@@ -2,41 +2,6 @@ from django.db import models
 from apps.authentication.models import User
 from apps.services.models import Service
 
-class Interview(models.Model):
-    STATUS_CHOICES = (
-        ('pending', 'Pending'),
-        ('scheduled', 'Scheduled'),
-        ('rejected', 'Rejected'),
-        ('completed', 'Completed'),
-    )
-    
-    created_at = models.DateTimeField(auto_now_add=True)
-    customer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='interviews')
-    provider = models.ForeignKey(User, on_delete=models.CASCADE, related_name='provider_interviews', null=True, blank=True)
-    service = models.ForeignKey(Service, on_delete=models.CASCADE, related_name='interviews')
-    
-    preferred_date = models.DateField()
-    preferred_time = models.TimeField()
-    scheduled_datetime = models.DateTimeField(null=True, blank=True)
-    
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
-    notes = models.TextField(blank=True, null=True)
-    admin_notes = models.TextField(blank=True, null=True)
-    
-    google_calendar_event_id = models.CharField(max_length=255, blank=True, null=True)
-    
-    class Meta:
-        indexes = [
-            models.Index(fields=['customer', 'status']),
-            models.Index(fields=['provider', 'status']),
-            models.Index(fields=['service', 'status']),
-            models.Index(fields=['scheduled_datetime']),
-            models.Index(fields=['created_at']),
-        ]
-    
-    def __str__(self):
-        return f"Interview {self.id} - {self.customer.email}"
-
 class Booking(models.Model):
     STATUS_CHOICES = (
         ('pending', 'Pending'),

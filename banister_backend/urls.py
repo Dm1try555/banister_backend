@@ -22,6 +22,7 @@ def get_api_patterns():
         path('', include('apps.dashboard.urls')),
         path('', include('apps.notifications.urls')),
         path('chat/', include('apps.chat.urls')),
+        path('', include('apps.interviews.urls')),
     ]
 
 # Create schema view once

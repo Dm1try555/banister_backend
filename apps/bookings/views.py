@@ -1,10 +1,9 @@
 from core.base.common_imports import *
-from .models import Booking, Interview
+from .models import Booking
 from .serializers import (
-    BookingSerializer, BookingCreateSerializer, BookingUpdateSerializer,
-    InterviewSerializer, InterviewCreateSerializer, InterviewUpdateSerializer
+    BookingSerializer, BookingCreateSerializer, BookingUpdateSerializer
 )
-from .permissions import BookingPermissions, InterviewPermissions
+from .permissions import BookingPermissions
 
 
 class BookingListCreateView(SwaggerMixin, ListCreateAPIView, RoleBasedQuerysetMixin, BookingPermissions):
@@ -47,42 +46,3 @@ class BookingDetailView(SwaggerMixin, RetrieveUpdateDestroyAPIView, RoleBasedQue
         return super().delete(request, *args, **kwargs)
 
 
-class InterviewListCreateView(SwaggerMixin, ListCreateAPIView, RoleBasedQuerysetMixin, InterviewPermissions):
-    permission_classes = [IsAuthenticated]
-    queryset = Interview.objects.select_related('customer', 'provider', 'service').order_by('-created_at')
-
-    def get_serializer_class(self):
-        return InterviewCreateSerializer if self.request.method == 'POST' else InterviewSerializer
-
-    @transaction.atomic
-    def perform_create(self, serializer):
-        # Проверяем разрешение на создание
-        self.check_permission('create_interview')
-        serializer.save(customer=self.request.user)
-
-
-class InterviewDetailView(SwaggerMixin, RetrieveUpdateDestroyAPIView, RoleBasedQuerysetMixin, InterviewPermissions):
-    permission_classes = [IsAuthenticated]
-    queryset = Interview.objects.select_related('customer', 'provider', 'service').order_by('-created_at')
-
-    def get_serializer_class(self):
-        if self.request.method in ['PUT', 'PATCH']:
-            return InterviewUpdateSerializer
-        return InterviewSerializer
-
-
-
-    @transaction.atomic
-    def put(self, request, *args, **kwargs):
-        self.check_permission('edit_interview')
-        return super().put(request, *args, **kwargs)
-
-    @transaction.atomic
-    def patch(self, request, *args, **kwargs):
-        self.check_permission('edit_interview')
-        return super().patch(request, *args, **kwargs)
-
-    @transaction.atomic
-    def delete(self, request, *args, **kwargs):
-        self.check_permission('delete_interview')
-        return super().delete(request, *args, **kwargs)

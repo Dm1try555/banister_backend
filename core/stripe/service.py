@@ -96,6 +96,58 @@ class StripeService:
         except Exception as e:
             logger.error(f"Unexpected error in confirm_payment: {str(e)}")
             return False, f"Unexpected error: {str(e)}"
+    
+    def get_payment_intent(self, payment_intent_id):
+        """Get payment intent details"""
+        try:
+            intent = stripe.PaymentIntent.retrieve(payment_intent_id)
+            logger.info(f"Payment intent retrieved: {intent.id}")
+            return True, intent
+        except stripe.error.StripeError as e:
+            logger.error(f"Stripe payment intent retrieval error: {str(e)}")
+            return False, f"Payment intent retrieval error: {str(e)}"
+        except Exception as e:
+            logger.error(f"Unexpected error in get_payment_intent: {str(e)}")
+            return False, f"Unexpected error: {str(e)}"
+    
+    def create_connected_account(self, email, country='US'):
+        """Create a connected account for providers"""
+        try:
+            account = stripe.Account.create(
+                type='express',
+                country=country,
+                email=email,
+                capabilities={
+                    'card_payments': {'requested': True},
+                    'transfers': {'requested': True},
+                },
+            )
+            logger.info(f"Connected account created: {account.id} for {email}")
+            return True, account
+        except stripe.error.StripeError as e:
+            logger.error(f"Stripe connected account creation error: {str(e)}")
+            return False, f"Connected account creation error: {str(e)}"
+        except Exception as e:
+            logger.error(f"Unexpected error in create_connected_account: {str(e)}")
+            return False, f"Unexpected error: {str(e)}"
+    
+    def create_account_link(self, account_id, refresh_url, return_url):
+        """Create account link for onboarding"""
+        try:
+            account_link = stripe.AccountLink.create(
+                account=account_id,
+                refresh_url=refresh_url,
+                return_url=return_url,
+                type='account_onboarding',
+            )
+            logger.info(f"Account link created for account: {account_id}")
+            return True, account_link
+        except stripe.error.StripeError as e:
+            logger.error(f"Stripe account link creation error: {str(e)}")
+            return False, f"Account link creation error: {str(e)}"
+        except Exception as e:
+            logger.error(f"Unexpected error in create_account_link: {str(e)}")
+            return False, f"Unexpected error: {str(e)}"
 
 
 stripe_service = StripeService()
