@@ -10,7 +10,7 @@ from .permissions import PaymentPermissions
 
 class PaymentListCreateView(SwaggerMixin, ListCreateAPIView, RoleBasedQuerysetMixin, PaymentPermissions):
     permission_classes = [IsAuthenticated]
-    queryset = Payment.objects.all()
+    queryset = Payment.objects.select_related('customer', 'provider', 'booking', 'booking__service').order_by('-created_at')
 
     def get_serializer_class(self):
         return PaymentCreateSerializer if self.request.method == 'POST' else PaymentSerializer
@@ -34,7 +34,7 @@ class PaymentListCreateView(SwaggerMixin, ListCreateAPIView, RoleBasedQuerysetMi
 
 class PaymentDetailView(SwaggerMixin, RetrieveUpdateAPIView, RoleBasedQuerysetMixin, PaymentPermissions):
     permission_classes = [IsAuthenticated]
-    queryset = Payment.objects.all()
+    queryset = Payment.objects.select_related('customer', 'provider', 'booking', 'booking__service').order_by('-created_at')
 
     def get_serializer_class(self):
         if self.request.method in ['PUT', 'PATCH']:

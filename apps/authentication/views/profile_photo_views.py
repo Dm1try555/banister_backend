@@ -1,6 +1,7 @@
 from core.base.common_imports import *
 from ..models import User
 from ..serializers import ProfilePhotoUploadSerializer
+from core.minio.client import minio_client
 
 
 class ProfilePhotoUploadView(APIView):
@@ -31,23 +32,23 @@ class ProfilePhotoUploadView(APIView):
             
             # Remove old photo if exists
             if user.profile_photo:
-                old_photo = user.profile_photo
+                old_photo_name = user.profile_photo.name
                 user.profile_photo = None
                 user.save()
                 
-                # Delete old file
-                if old_photo:
-                    old_photo.delete(save=False)
+                # Delete old file from MinIO
+                if old_photo_name:
+                    minio_client.delete_file(old_photo_name)
             
+            # Save new photo
             user.profile_photo = photo
             user.save()
             
-            # Get photo URL (works with any storage backend)
-            if hasattr(user.profile_photo, 'url'):
-                photo_url = user.profile_photo.url
-            else:
-                # If storage doesn't support url(), use filename
-                photo_url = user.profile_photo.name if user.profile_photo else ''
+            # Get photo URL from MinIO
+            photo_url = minio_client.client.presigned_get_object(
+                minio_client.bucket_name, 
+                user.profile_photo.name
+            ) if user.profile_photo else ''
             
             return Response({
                 'message': 'Profile photo uploaded successfully',

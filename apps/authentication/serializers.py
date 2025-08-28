@@ -1,7 +1,8 @@
 from core.base.common_imports import *
 from core.error_handling import ErrorCode
+from core.base.validation_mixins import EmailValidationMixin, PhoneValidationMixin
 
-from .models import User, AdminPermission
+from .models import User, AdminPermission, UserFCMToken
 
 
 class UserBaseSerializer(serializers.ModelSerializer):
@@ -23,7 +24,7 @@ class UserSerializer(UserBaseSerializer):
         read_only_fields = ['id', 'email_verified', 'provider_verified', 'created_at', 'updated_at']
 
 
-class UserCreateSerializer(UserBaseSerializer):
+class UserCreateSerializer(UserBaseSerializer, EmailValidationMixin, PhoneValidationMixin):
     """Serializer for user registration (only customer and service_provider)"""
     password_confirm = serializers.CharField(write_only=True, required=True)
     
@@ -46,12 +47,9 @@ class UserCreateSerializer(UserBaseSerializer):
 
     def validate_email(self, value):
         """Validate email format and uniqueness"""
-        import re
         if value:
-            # Basic email format validation: must have @ and domain with at least one dot
-            email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-            if not re.match(email_pattern, value):
-                ErrorCode.INVALID_EMAIL_FORMAT.raise_error()
+            # Use centralized email validation
+            self.validate_email_or_raise(value)
             
             # Check if email already exists
             if User.objects.filter(email=value).exists():
@@ -67,10 +65,8 @@ class UserCreateSerializer(UserBaseSerializer):
     def validate_phone_number(self, value):
         """Validate phone number format and uniqueness"""
         if value:
-            import re
-            # Allow only digits, spaces, dashes, parentheses, plus sign
-            if not re.match(r'^[\d\s\-\(\)\+]+$', value):
-                ErrorCode.INVALID_PHONE_FORMAT.raise_error()
+            # Use centralized phone validation
+            self.validate_phone_or_raise(value)
             
             # Check if phone number already exists
             if User.objects.filter(phone_number=value).exists():
@@ -145,10 +141,8 @@ class AdminUserCreateSerializer(UserBaseSerializer):
     def validate_phone_number(self, value):
         """Validate phone number format and uniqueness"""
         if value:
-            import re
-            # Allow only digits, spaces, dashes, parentheses, plus sign
-            if not re.match(r'^[\d\s\-\(\)\+]+$', value):
-                ErrorCode.INVALID_PHONE_FORMAT.raise_error()
+            # Use centralized phone validation
+            self.validate_phone_or_raise(value)
             
             # Check if phone number already exists
             if User.objects.filter(phone_number=value).exists():
@@ -320,7 +314,7 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
 class ProfilePhotoUploadSerializer(serializers.Serializer):
     photo = serializers.ImageField()
     
-    def validate_profile_photo(self, value):
+    def validate_photo(self, value):
         """Validate profile photo"""
         if value:
             # Maximum file size (5MB)
@@ -339,9 +333,6 @@ class ProfilePhotoUploadSerializer(serializers.Serializer):
         return value
 
 
-
-
-
 class LoginSerializer(serializers.Serializer):
     username_or_email = serializers.CharField()
     password = serializers.CharField()
@@ -349,7 +340,7 @@ class LoginSerializer(serializers.Serializer):
     def validate_username_or_email(self, value):
         """Validate that the field contains either username or email"""
         if not value:
-            ErrorCode.INVALID_DATA.raise_error()
+            ErrorCode.MISSING_REQUIRED_FIELD.raise_error()
         return value
 
 
@@ -361,6 +352,23 @@ class AdminPermissionSerializer(serializers.ModelSerializer):
     class Meta:
         model = AdminPermission
         fields = '__all__'
+
+
+class FCMTokenSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserFCMToken
+        fields = ['token', 'device_type']
+    
+    def validate_token(self, value):
+        if not value or len(value) < 10:
+            ErrorCode.INVALID_DATA.raise_error()
+        return value
+    
+    def validate_device_type(self, value):
+        valid_types = ['web', 'android', 'ios']
+        if value not in valid_types:
+            ErrorCode.INVALID_DATA.raise_error()
+        return value
 
 
 class ToggleVerificationSerializer(serializers.Serializer):

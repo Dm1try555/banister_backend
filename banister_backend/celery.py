@@ -52,7 +52,7 @@ app.conf.beat_schedule = {
     },
     'cleanup-old-notifications': {
         'task': 'core.backup.tasks.cleanup_notifications_task',
-        'schedule': crontab(hour=0, minute=0, day_of_week=0),
+        'schedule': crontab(hour=0, minute=0, day_of_week=1),  # Every Monday at midnight
     },
 }
 

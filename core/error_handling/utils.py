@@ -39,6 +39,36 @@ def create_error_response(error_code: ErrorCode = None, detail=None, status_code
 def get_status_code_from_error_code(error_code: ErrorCode) -> int:
     """Determines HTTP status code based on ErrorCode"""
     code = error_code.code
+    
+    # Specific error codes that need custom status codes
+    if code == 1002:  # USER_NOT_FOUND
+        return status.HTTP_404_NOT_FOUND
+    if code == 2001:  # BOOKING_NOT_FOUND
+        return status.HTTP_404_NOT_FOUND
+    if code == 2101:  # INTERVIEW_NOT_FOUND
+        return status.HTTP_404_NOT_FOUND
+    if code == 3001:  # SERVICE_NOT_FOUND
+        return status.HTTP_404_NOT_FOUND
+    if code == 3101:  # SCHEDULE_NOT_FOUND
+        return status.HTTP_404_NOT_FOUND
+    if code == 4003:  # PAYMENT_NOT_FOUND
+        return status.HTTP_404_NOT_FOUND
+    if code == 4501:  # DOCUMENT_NOT_FOUND
+        return status.HTTP_404_NOT_FOUND
+    if code == 5001:  # WITHDRAWAL_NOT_FOUND
+        return status.HTTP_404_NOT_FOUND
+    if code == 5006:  # STRIPE_ACCOUNT_NOT_FOUND
+        return status.HTTP_404_NOT_FOUND
+    if code == 6001:  # NOTIFICATION_NOT_FOUND
+        return status.HTTP_404_NOT_FOUND
+    if code == 7001:  # CHAT_ROOM_NOT_FOUND
+        return status.HTTP_404_NOT_FOUND
+    if code == 7002:  # MESSAGE_NOT_FOUND
+        return status.HTTP_404_NOT_FOUND
+    if code == 8001:  # DASHBOARD_NOT_FOUND
+        return status.HTTP_404_NOT_FOUND
+    
+    # General ranges
     if 1000 <= code < 2000: return status.HTTP_401_UNAUTHORIZED
     if 2000 <= code < 3000: return status.HTTP_409_CONFLICT
     if 3000 <= code < 4000: return status.HTTP_404_NOT_FOUND
@@ -54,7 +84,7 @@ def get_error_code_by_status(status_code: int) -> ErrorCode:
         401: ErrorCode.AUTHENTICATION_REQUIRED,
         402: ErrorCode.PAYMENT_FAILED,
         403: ErrorCode.PERMISSION_DENIED,
-        404: ErrorCode.INVALID_DATA,
+        404: ErrorCode.USER_NOT_FOUND,
         409: ErrorCode.BOOKING_CONFLICT,
         422: ErrorCode.VALIDATION_ERROR,
         500: ErrorCode.INTERNAL_SERVER_ERROR

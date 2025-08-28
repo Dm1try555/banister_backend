@@ -9,9 +9,9 @@ from .permissions import ServicePermissions, SchedulePermissions
 
 class ServiceListCreateView(SwaggerMixin, ListCreateAPIView, RoleBasedQuerysetMixin, ServicePermissions):
     permission_classes = [AllowAny]  # All can view, but only authorized can create
-    queryset = Service.objects.all()
+    queryset = Service.objects.select_related('provider').order_by('-created_at')
     filter_backends = [SearchFilter, OrderingFilter]
-    search_fields = ['title', 'description', 'category']
+    search_fields = ['title', 'description']
     ordering_fields = ['title', 'price', 'created_at']
     ordering = ['-created_at']
 
@@ -27,7 +27,7 @@ class ServiceListCreateView(SwaggerMixin, ListCreateAPIView, RoleBasedQuerysetMi
 
 class ServiceDetailView(SwaggerMixin, RetrieveUpdateDestroyAPIView, RoleBasedQuerysetMixin, ServicePermissions):
     permission_classes = [AllowAny]  # All can view
-    queryset = Service.objects.all()
+    queryset = Service.objects.select_related('provider').order_by('-created_at')
 
     def get_serializer_class(self):
         if self.request.method in ['PUT', 'PATCH']:
@@ -54,7 +54,7 @@ class ServiceDetailView(SwaggerMixin, RetrieveUpdateDestroyAPIView, RoleBasedQue
 
 class ScheduleListCreateView(SwaggerMixin, ListCreateAPIView, RoleBasedQuerysetMixin, SchedulePermissions):
     permission_classes = [AllowAny]  # All can view
-    queryset = Schedule.objects.all()
+    queryset = Schedule.objects.select_related('provider', 'service', 'service__provider').order_by('-created_at')
 
     def get_serializer_class(self):
         return ScheduleCreateSerializer if self.request.method == 'POST' else ScheduleSerializer
@@ -68,7 +68,7 @@ class ScheduleListCreateView(SwaggerMixin, ListCreateAPIView, RoleBasedQuerysetM
 
 class ScheduleDetailView(SwaggerMixin, RetrieveUpdateDestroyAPIView, RoleBasedQuerysetMixin, SchedulePermissions):
     permission_classes = [AllowAny]  # All can view
-    queryset = Schedule.objects.all()
+    queryset = Schedule.objects.select_related('provider', 'service', 'service__provider').order_by('-created_at')
 
     def get_serializer_class(self):
         if self.request.method in ['PUT', 'PATCH']:

@@ -104,3 +104,28 @@ class AdminPermission(models.Model):
     
     def __str__(self):
         return f"{self.admin.username} - {self.permission_name}: {self.can_access}"
+
+
+class UserFCMToken(models.Model):
+    """Model to store user's Firebase Cloud Messaging tokens"""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='fcm_tokens')
+    token = models.CharField(max_length=255, unique=True)
+    device_type = models.CharField(max_length=50, choices=[
+        ('web', 'Web'),
+        ('android', 'Android'),
+        ('ios', 'iOS'),
+    ], default='web')
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = 'FCM Token'
+        verbose_name_plural = 'FCM Tokens'
+        indexes = [
+            models.Index(fields=['user', 'is_active']),
+            models.Index(fields=['token']),
+        ]
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.device_type} ({'active' if self.is_active else 'inactive'})"

@@ -1,11 +1,23 @@
 from celery import shared_task
 from .local_service import local_backup_service
+from core.google_drive.service import google_drive_service
 
 @shared_task(bind=True, max_retries=3)
 def database_backup_task(self):
     try:
+        # Create local backup
         backup_file = local_backup_service.backup_database()
-        return f"Database backup completed: {backup_file}"
+        
+        # Upload to Google Drive
+        drive_file_id = google_drive_service.upload_file(backup_file, "Banister Database Backups")
+        
+        result = f"Database backup completed: {backup_file}"
+        if drive_file_id:
+            result += f" (Uploaded to Google Drive: {drive_file_id})"
+        else:
+            result += " (Google Drive upload failed)"
+        
+        return result
     except Exception as e:
         if self.request.retries < self.max_retries:
             raise self.retry(countdown=60, exc=e)
@@ -14,8 +26,19 @@ def database_backup_task(self):
 @shared_task(bind=True, max_retries=3)
 def minio_backup_task(self):
     try:
+        # Create local backup
         backup_file = local_backup_service.backup_minio()
-        return f"MinIO backup completed: {backup_file}"
+        
+        # Upload to Google Drive
+        drive_file_id = google_drive_service.upload_file(backup_file, "Banister MinIO Backups")
+        
+        result = f"MinIO backup completed: {backup_file}"
+        if drive_file_id:
+            result += f" (Uploaded to Google Drive: {drive_file_id})"
+        else:
+            result += " (Google Drive upload failed)"
+        
+        return result
     except Exception as e:
         if self.request.retries < self.max_retries:
             raise self.retry(countdown=60, exc=e)

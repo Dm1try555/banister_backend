@@ -1,9 +1,7 @@
 from core.base.common_imports import *
 from ..models import User, VerificationCode
 from ..serializers import PasswordResetRequestSerializer, PasswordResetConfirmSerializer
-from django.template.loader import render_to_string
-from django.core.mail import send_mail
-from django.conf import settings
+from core.mail.service import email_service
 import logging
 
 logger = logging.getLogger(__name__)
@@ -41,30 +39,15 @@ class PasswordResetRequestView(APIView):
                 expiry_minutes=10
             )
             
-            # Send password reset email
-            html_message = render_to_string('emails/password_reset_email.html', {
-                'username': user.username,
-                'reset_code': reset_code.code,
-                'reset_url': f"{settings.FRONTEND_URL}/reset-password" if hasattr(settings, 'FRONTEND_URL') else '/reset-password',
-                'support_url': f"{settings.FRONTEND_URL}/support" if hasattr(settings, 'FRONTEND_URL') else '/support'
-            })
-            
-            send_mail(
-                subject='Reset Your Password - Banister',
-                message=f'Your password reset code is: {reset_code.code}',
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[email],
-                html_message=html_message,
-                fail_silently=False,
-            )
+            # Send password reset email using centralized service
+            email_service.send_password_reset_email(user, reset_code)
             
             return Response({
                 'message': 'Password reset email sent successfully. Code expires in 10 minutes.'
             })
             
-        except Exception as e:
-            logger.error(f"Failed to send password reset email to {email}: {e}")
-            ErrorCode.EMAIL_SEND_FAILED.raise_error()
+        except User.DoesNotExist:
+            raise CustomValidationError(ErrorCode.USER_NOT_FOUND)
 
 
 class PasswordResetConfirmView(APIView):

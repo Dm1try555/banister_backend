@@ -8,6 +8,9 @@ from .views import (
     admin_permission_list, admin_permission_detail, admin_permission_by_admin,
     admin_user_register, admin_login
 )
+from .views.fcm_token_views import (
+    FCMTokenRegisterView, FCMTokenUnregisterView, FCMTokenListView
+)
 
 router = DefaultRouter()
 router.register(r'admin/users', AdminUserViewSet)
@@ -32,4 +35,9 @@ urlpatterns = [
     path('admin/permissions/', admin_permission_list, name='admin_permission_list'),
     path('admin/permissions/<int:pk>/', admin_permission_detail, name='admin_permission_detail'),
     path('admin/permissions/by-admin/<int:admin_id>/', admin_permission_by_admin, name='admin_permission_by_admin'),
+    
+    # FCM Token Management URLs
+    path('auth/fcm-token/register/', FCMTokenRegisterView.as_view(), name='fcm-token-register'),
+    path('auth/fcm-token/unregister/', FCMTokenUnregisterView.as_view(), name='fcm-token-unregister'),
+    path('auth/fcm-token/list/', FCMTokenListView.as_view(), name='fcm-token-list'),
 ] + router.urls

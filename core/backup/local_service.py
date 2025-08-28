@@ -32,20 +32,20 @@ class LocalBackupService:
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         backup_file = f"{self.backup_dir}/minio_backup_{timestamp}.tar.gz"
         
-        subprocess.run([
-            'tar', '-czf', backup_file, '-T', '/dev/null'
-        ])
-        
+        # Create info file first
         info_file = f"{self.backup_dir}/minio_info_{timestamp}.txt"
         with open(info_file, 'w') as f:
             f.write(f"MinIO backup created at {datetime.now()}\n")
             f.write("MinIO endpoint: minio:9000\n")
             f.write("Bucket: profile-photos\n")
+            f.write("Note: This is a placeholder backup file\n")
         
+        # Create tar.gz with the info file
         subprocess.run([
-            'tar', '-rf', backup_file, '-C', self.backup_dir, f"minio_info_{timestamp}.txt"
+            'tar', '-czf', backup_file, '-C', self.backup_dir, f"minio_info_{timestamp}.txt"
         ])
         
+        # Remove the info file
         os.remove(info_file)
         
         self._cleanup_old_backups('minio_backup_*.tar.gz')
@@ -54,8 +54,9 @@ class LocalBackupService:
     def cleanup_old_notifications(self):
         from apps.notifications.models import Notification
         from datetime import timedelta
+        from django.utils import timezone
         
-        two_months_ago = datetime.now() - timedelta(days=60)
+        two_months_ago = timezone.now() - timedelta(days=60)
         deleted_count = Notification.objects.filter(
             created_at__lt=two_months_ago
         ).delete()[0]

@@ -25,6 +25,15 @@ class Interview(models.Model):
     
     google_calendar_event_id = models.CharField(max_length=255, blank=True, null=True)
     
+    class Meta:
+        indexes = [
+            models.Index(fields=['customer', 'status']),
+            models.Index(fields=['provider', 'status']),
+            models.Index(fields=['service', 'status']),
+            models.Index(fields=['scheduled_datetime']),
+            models.Index(fields=['created_at']),
+        ]
+    
     def __str__(self):
         return f"Interview {self.id} - {self.customer.email}"
 
@@ -52,6 +61,15 @@ class Booking(models.Model):
     
     def __str__(self):
         return f"Booking {self.id} - {self.customer.email}"
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['customer', 'status']),
+            models.Index(fields=['provider', 'status']),
+            models.Index(fields=['service', 'status']),
+            models.Index(fields=['scheduled_datetime']),
+            models.Index(fields=['created_at']),
+        ]
     
     def save(self, *args, **kwargs):
         if not self.total_price and self.service:

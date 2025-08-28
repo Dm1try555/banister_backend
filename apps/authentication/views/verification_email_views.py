@@ -1,9 +1,7 @@
 from core.base.common_imports import *
 from ..models import User, VerificationCode
 from ..serializers import SendVerificationEmailSerializer, VerifyEmailSerializer
-from django.template.loader import render_to_string
-from django.core.mail import send_mail
-from django.conf import settings
+from core.mail.service import email_service
 import logging
 
 logger = logging.getLogger(__name__)
@@ -26,14 +24,6 @@ class SendVerificationEmailView(APIView):
         }
     )
     def post(self, request):
-        # Check email format before serializer validation
-        email = request.data.get('email', '')
-        if email:
-            import re
-            email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-            if not re.match(email_pattern, email):
-                raise CustomValidationError(ErrorCode.INVALID_EMAIL_FORMAT)
-        
         serializer = SendVerificationEmailSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
@@ -49,22 +39,8 @@ class SendVerificationEmailView(APIView):
                 expiry_minutes=10
             )
             
-            # Send verification email
-            html_message = render_to_string('emails/verification_email.html', {
-                'username': user.username,
-                'verification_code': verification_code.code,
-                'verification_url': f"{settings.FRONTEND_URL}/verify-email" if hasattr(settings, 'FRONTEND_URL') else '/verify-email',
-                'support_url': f"{settings.FRONTEND_URL}/support" if hasattr(settings, 'FRONTEND_URL') else '/support'
-            })
-            
-            send_mail(
-                subject='Verify Your Email - Banister',
-                message=f'Your verification code is: {verification_code.code}',
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[email],
-                html_message=html_message,
-                fail_silently=False,
-            )
+            # Send verification email using centralized service
+            email_service.send_verification_email(user, verification_code)
             
             return Response({
                 'message': 'Verification email sent successfully. Code expires in 10 minutes.'
@@ -72,9 +48,6 @@ class SendVerificationEmailView(APIView):
             
         except User.DoesNotExist:
             raise CustomValidationError(ErrorCode.USER_NOT_FOUND)
-        except Exception as e:
-            logger.error(f"Failed to send verification email to {email}: {e}")
-            raise CustomValidationError(ErrorCode.EMAIL_SEND_FAILED)
 
 
 class VerifyEmailView(APIView):

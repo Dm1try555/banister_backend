@@ -11,6 +11,11 @@ class Service(models.Model):
     class Meta:
         verbose_name = 'Service'
         verbose_name_plural = 'Services'
+        indexes = [
+            models.Index(fields=['provider', 'created_at']),
+            models.Index(fields=['price']),
+            models.Index(fields=['created_at']),
+        ]
     
     def __str__(self):
         return self.title
@@ -39,6 +44,12 @@ class Schedule(models.Model):
         ordering = ['day_of_week', 'start_time']
         verbose_name = 'Schedule'
         verbose_name_plural = 'Schedules'
+        indexes = [
+            models.Index(fields=['provider', 'day_of_week']),
+            models.Index(fields=['service', 'day_of_week']),
+            models.Index(fields=['is_available']),
+            models.Index(fields=['created_at']),
+        ]
     
     def __str__(self):
         return f"{self.provider.username} - {self.service.title} - {self.get_day_of_week_display()}"

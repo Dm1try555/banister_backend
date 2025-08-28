@@ -9,7 +9,7 @@ from .permissions import DocumentPermissions
 
 class DocumentListCreateView(SwaggerMixin, ListCreateAPIView, RoleBasedQuerysetMixin, DocumentPermissions):
     permission_classes = [IsAuthenticated]
-    queryset = Document.objects.all()
+    queryset = Document.objects.all().order_by('-created_at')
 
     def get_serializer_class(self):
         return DocumentCreateSerializer if self.request.method == 'POST' else DocumentSerializer
@@ -29,7 +29,7 @@ class DocumentListCreateView(SwaggerMixin, ListCreateAPIView, RoleBasedQuerysetM
 
 class DocumentDetailView(SwaggerMixin, RetrieveUpdateDestroyAPIView, RoleBasedQuerysetMixin, DocumentPermissions):
     permission_classes = [IsAuthenticated]
-    queryset = Document.objects.all()
+    queryset = Document.objects.all().order_by('-created_at')
 
     def get_serializer_class(self):
         if self.request.method in ['PUT', 'PATCH']:

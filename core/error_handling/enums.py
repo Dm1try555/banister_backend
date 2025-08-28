@@ -81,6 +81,7 @@ class ErrorCode(Enum):
     WITHDRAWAL_AMOUNT_TOO_SMALL = (5004, "Withdrawal amount too small", "Withdrawal amount is below minimum threshold")
     WITHDRAWAL_LIMIT_EXCEEDED = (5005, "Withdrawal limit exceeded", "Withdrawal amount exceeds daily/monthly limit")
     STRIPE_ACCOUNT_NOT_FOUND = (5006, "Stripe account not found", "User does not have a connected Stripe account")
+    INVALID_WITHDRAWAL_STATUS = (5007, "Invalid withdrawal status", "Cannot perform action with current withdrawal status")
 
     # Notification errors (6000-6099)
     NOTIFICATION_NOT_FOUND = (6001, "Notification not found", "Notification with specified ID does not exist")

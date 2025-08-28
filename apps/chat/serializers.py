@@ -13,7 +13,7 @@ class MessageSerializer(serializers.ModelSerializer):
 class MessageCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Message
-        fields = ['content', 'room']
+        fields = ['id', 'content', 'room', 'created_at', 'updated_at']
 
     def validate_content(self, value):
         if not value or len(value.strip()) == 0:
@@ -60,7 +60,7 @@ class ChatRoomSerializer(serializers.ModelSerializer):
 class ChatRoomCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = ChatRoom
-        fields = ['name', 'is_private']
+        fields = ['id', 'name', 'is_private', 'created_at']
 
     def validate_name(self, value):
         if not value or len(value.strip()) == 0:

@@ -1,7 +1,7 @@
 from core.base.common_imports import *
 from ..models import User
 from ..serializers import UserCreateSerializer, LoginSerializer, RefreshSerializer, UserSerializer
-from django.template.loader import render_to_string
+from core.mail.service import email_service
 
 
 class RegisterView(CreateAPIView):
@@ -39,19 +39,7 @@ class RegisterView(CreateAPIView):
     def _send_welcome_email(self, user):
         """Send welcome email to new user"""
         try:
-            html_message = render_to_string('emails/welcome_email.html', {
-                'username': user.username,
-                'login_url': f"{settings.FRONTEND_URL}/login" if hasattr(settings, 'FRONTEND_URL') else '/login'
-            })
-            
-            send_mail(
-                subject='Welcome to Banister! 🎉',
-                message=f'Welcome {user.username}! Thank you for joining Banister.',
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[user.email],
-                html_message=html_message,
-                fail_silently=False,
-            )
+            email_service.send_welcome_email(user)
         except Exception as e:
             logger.error(f"Failed to send welcome email to {user.email}: {e}")
 

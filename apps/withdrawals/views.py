@@ -10,7 +10,7 @@ from .permissions import WithdrawalPermissions
 
 class WithdrawalListCreateView(SwaggerMixin, ListCreateAPIView, RoleBasedQuerysetMixin, WithdrawalPermissions):
     permission_classes = [IsAuthenticated]
-    queryset = Withdrawal.objects.all()
+    queryset = Withdrawal.objects.all().order_by('-created_at')
 
     def get_serializer_class(self):
         return WithdrawalCreateSerializer if self.request.method == 'POST' else WithdrawalSerializer
@@ -30,7 +30,7 @@ class WithdrawalListCreateView(SwaggerMixin, ListCreateAPIView, RoleBasedQueryse
 
 class WithdrawalDetailView(SwaggerMixin, RetrieveUpdateDestroyAPIView, RoleBasedQuerysetMixin, WithdrawalPermissions):
     permission_classes = [IsAuthenticated]
-    queryset = Withdrawal.objects.all()
+    queryset = Withdrawal.objects.all().order_by('-created_at')
 
     def get_serializer_class(self):
         if self.request.method in ['PUT', 'PATCH']:
@@ -43,7 +43,7 @@ class WithdrawalDetailView(SwaggerMixin, RetrieveUpdateDestroyAPIView, RoleBased
 class WithdrawalApproveView(SwaggerMixin, UpdateAPIView, RoleBasedQuerysetMixin, WithdrawalPermissions):
     permission_classes = [IsAuthenticated]
     serializer_class = WithdrawalApproveSerializer
-    queryset = Withdrawal.objects.all()
+    queryset = Withdrawal.objects.all().order_by('-created_at')
 
     def get_queryset(self):
         if not self.request.user.is_authenticated:
@@ -79,7 +79,7 @@ class WithdrawalApproveView(SwaggerMixin, UpdateAPIView, RoleBasedQuerysetMixin,
         withdrawal = self.get_object()
         
         if withdrawal.status != 'pending':
-            ErrorCode.INVALID_DATA.raise_error()
+            ErrorCode.INVALID_WITHDRAWAL_STATUS.raise_error()
         
         withdrawal.status = 'approved'
         withdrawal.completed_at = timezone.now()
@@ -95,7 +95,7 @@ class WithdrawalApproveView(SwaggerMixin, UpdateAPIView, RoleBasedQuerysetMixin,
 class WithdrawalRejectView(SwaggerMixin, UpdateAPIView, RoleBasedQuerysetMixin, WithdrawalPermissions):
     permission_classes = [IsAuthenticated]
     serializer_class = WithdrawalRejectSerializer
-    queryset = Withdrawal.objects.all()
+    queryset = Withdrawal.objects.all().order_by('-created_at')
 
     def get_queryset(self):
         if not self.request.user.is_authenticated:
@@ -133,7 +133,7 @@ class WithdrawalRejectView(SwaggerMixin, UpdateAPIView, RoleBasedQuerysetMixin, 
         serializer.is_valid(raise_exception=True)
         
         if withdrawal.status != 'pending':
-            ErrorCode.INVALID_DATA.raise_error()
+            ErrorCode.INVALID_WITHDRAWAL_STATUS.raise_error()
         
         withdrawal.status = 'rejected'
         withdrawal.save()

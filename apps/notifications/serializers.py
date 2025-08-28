@@ -16,10 +16,11 @@ class NotificationSerializer(serializers.ModelSerializer):
 class NotificationCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Notification
-        fields = ['notification_type', 'data']
+        fields = ['id', 'notification_type', 'data', 'is_read', 'created_at']
 
     def validate_notification_type(self, value):
-        valid_types = ['booking_confirmed', 'booking_cancelled', 'payment_received', 'payment_failed', 'reminder']
+        from core.notifications.service import NotificationService
+        valid_types = list(NotificationService.NOTIFICATION_TYPES.values())
         if value not in valid_types:
             ErrorCode.INVALID_DATA.raise_error()
         return value

@@ -76,3 +76,110 @@ class MessageDetailView(SwaggerMixin, RetrieveUpdateDestroyAPIView, RoleBasedQue
             return MessageUpdateSerializer
         return MessageSerializer
 
+    def get_queryset(self):
+        return super().get_queryset().filter(is_deleted=False)
+
+    @swagger_auto_schema(
+        operation_description="Update message",
+        request_body=MessageUpdateSerializer,
+        responses={
+            200: openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'id': openapi.Schema(type=openapi.TYPE_INTEGER),
+                    'content': openapi.Schema(type=openapi.TYPE_STRING),
+                    'sender': openapi.Schema(type=openapi.TYPE_STRING),
+                    'created_at': openapi.Schema(type=openapi.TYPE_STRING),
+                    'updated_at': openapi.Schema(type=openapi.TYPE_STRING)
+                }
+            ),
+            404: ERROR_404_SCHEMA
+        }
+    )
+    @transaction.atomic
+    def patch(self, request, *args, **kwargs):
+        message = self.get_object()
+        # Check if user is the sender
+        if message.sender != request.user:
+            raise CustomValidationError(ErrorCode.PERMISSION_DENIED)
+        return super().patch(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        operation_description="Delete message (soft delete)",
+        responses={
+            204: openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'message': openapi.Schema(type=openapi.TYPE_STRING)
+                }
+            ),
+            404: ERROR_404_SCHEMA
+        }
+    )
+    @transaction.atomic
+    def delete(self, request, *args, **kwargs):
+        message = self.get_object()
+        # Check if user is the sender
+        if message.sender != request.user:
+            raise CustomValidationError(ErrorCode.PERMISSION_DENIED)
+        
+        # Soft delete
+        message.is_deleted = True
+        message.save()
+        
+        return Response({
+            'message': 'Message deleted successfully'
+        }, status=status.HTTP_204_NO_CONTENT)
+
+
+class MessageListByRoomView(SwaggerMixin, ListAPIView, RoleBasedQuerysetMixin, ChatPermissions):
+    """Get messages for a specific room with pagination"""
+    permission_classes = [IsAuthenticated]
+    serializer_class = MessageSerializer
+
+    def get_queryset(self):
+        room_id = self.kwargs.get('room_id')
+        return Message.objects.filter(
+            room_id=room_id,
+            is_deleted=False
+        ).select_related('sender').order_by('-created_at')
+
+    @swagger_auto_schema(
+        operation_description="Get messages for a specific room",
+        responses={
+            200: openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'count': openapi.Schema(type=openapi.TYPE_INTEGER),
+                    'next': openapi.Schema(type=openapi.TYPE_STRING),
+                    'previous': openapi.Schema(type=openapi.TYPE_STRING),
+                    'results': openapi.Schema(
+                        type=openapi.TYPE_ARRAY,
+                        items=openapi.Schema(
+                            type=openapi.TYPE_OBJECT,
+                            properties={
+                                'id': openapi.Schema(type=openapi.TYPE_INTEGER),
+                                'content': openapi.Schema(type=openapi.TYPE_STRING),
+                                'sender': openapi.Schema(type=openapi.TYPE_STRING),
+                                'created_at': openapi.Schema(type=openapi.TYPE_STRING),
+                                'updated_at': openapi.Schema(type=openapi.TYPE_STRING)
+                            }
+                        )
+                    )
+                }
+            ),
+            404: ERROR_404_SCHEMA
+        }
+    )
+    def get(self, request, *args, **kwargs):
+        # Check if user has access to the room
+        room_id = self.kwargs.get('room_id')
+        try:
+            room = ChatRoom.objects.get(id=room_id)
+            if not room.participants.filter(id=request.user.id).exists():
+                raise CustomValidationError(ErrorCode.PERMISSION_DENIED)
+        except ChatRoom.DoesNotExist:
+            raise CustomValidationError(ErrorCode.USER_NOT_FOUND)
+        
+        return super().get(request, *args, **kwargs)
+

@@ -1,0 +1,1 @@
+# Core notifications package

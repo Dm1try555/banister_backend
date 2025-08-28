@@ -8,8 +8,8 @@ from .permissions import BookingPermissions, InterviewPermissions
 
 
 class BookingListCreateView(SwaggerMixin, ListCreateAPIView, RoleBasedQuerysetMixin, BookingPermissions):
-    permission_classes = [IsAuthenticated]  # Только зарегистрированные могут просматривать
-    queryset = Booking.objects.all()
+    permission_classes = [IsAuthenticated]
+    queryset = Booking.objects.select_related('customer', 'service', 'provider').order_by('-id')
 
     def get_serializer_class(self):
         return BookingCreateSerializer if self.request.method == 'POST' else BookingSerializer
@@ -22,7 +22,7 @@ class BookingListCreateView(SwaggerMixin, ListCreateAPIView, RoleBasedQuerysetMi
 
 class BookingDetailView(SwaggerMixin, RetrieveUpdateDestroyAPIView, RoleBasedQuerysetMixin, BookingPermissions):
     permission_classes = [IsAuthenticated]
-    queryset = Booking.objects.all()
+    queryset = Booking.objects.select_related('customer', 'service', 'provider').order_by('-id')
 
     def get_serializer_class(self):
         if self.request.method in ['PUT', 'PATCH']:
@@ -49,7 +49,7 @@ class BookingDetailView(SwaggerMixin, RetrieveUpdateDestroyAPIView, RoleBasedQue
 
 class InterviewListCreateView(SwaggerMixin, ListCreateAPIView, RoleBasedQuerysetMixin, InterviewPermissions):
     permission_classes = [IsAuthenticated]
-    queryset = Interview.objects.all()
+    queryset = Interview.objects.select_related('customer', 'provider', 'service').order_by('-created_at')
 
     def get_serializer_class(self):
         return InterviewCreateSerializer if self.request.method == 'POST' else InterviewSerializer
@@ -63,7 +63,7 @@ class InterviewListCreateView(SwaggerMixin, ListCreateAPIView, RoleBasedQueryset
 
 class InterviewDetailView(SwaggerMixin, RetrieveUpdateDestroyAPIView, RoleBasedQuerysetMixin, InterviewPermissions):
     permission_classes = [IsAuthenticated]
-    queryset = Interview.objects.all()
+    queryset = Interview.objects.select_related('customer', 'provider', 'service').order_by('-created_at')
 
     def get_serializer_class(self):
         if self.request.method in ['PUT', 'PATCH']:

@@ -43,6 +43,12 @@ from drf_yasg import openapi
 # Local imports
 from .swagger_mixin import SwaggerMixin
 from .permissions import BasePermissionsMixin, RoleBasedQuerysetMixin
+from .optimized_views import OptimizedCRUDMixin, OptimizedListMixin, OptimizedDetailMixin
+from .optimized_base_views import (
+    OptimizedListCreateView, OptimizedRetrieveUpdateDestroyView, 
+    OptimizedRetrieveUpdateView, OptimizedCreateView, OptimizedModelViewSet
+)
+from .validation_mixins import EmailValidationMixin, PhoneValidationMixin, PasswordValidationMixin, CommonValidationMixin
 
 # Error handling
 from core.error_handling.enums import ErrorCode
