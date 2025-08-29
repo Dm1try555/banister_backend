@@ -7,8 +7,7 @@ from .serializers import (
 from .permissions import DocumentPermissions
 
 
-class DocumentListCreateView(SwaggerMixin, ListCreateAPIView, RoleBasedQuerysetMixin, DocumentPermissions):
-    permission_classes = [IsAuthenticated]
+class DocumentListCreateView(OptimizedListCreateView, DocumentPermissions):
     queryset = Document.objects.all().order_by('-created_at')
 
     def get_serializer_class(self):
@@ -27,8 +26,7 @@ class DocumentListCreateView(SwaggerMixin, ListCreateAPIView, RoleBasedQuerysetM
         serializer.save(uploaded_by=self.request.user)
 
 
-class DocumentDetailView(SwaggerMixin, RetrieveUpdateDestroyAPIView, RoleBasedQuerysetMixin, DocumentPermissions):
-    permission_classes = [IsAuthenticated]
+class DocumentDetailView(OptimizedRetrieveUpdateDestroyView, DocumentPermissions):
     queryset = Document.objects.all().order_by('-created_at')
 
     def get_serializer_class(self):

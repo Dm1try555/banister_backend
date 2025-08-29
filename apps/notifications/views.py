@@ -7,8 +7,7 @@ from .permissions import NotificationPermissions
 from core.notifications.service import notification_service
 
 
-class NotificationListCreateView(SwaggerMixin, ListCreateAPIView, RoleBasedQuerysetMixin, NotificationPermissions):
-    permission_classes = [IsAuthenticated]
+class NotificationListCreateView(OptimizedListCreateView, NotificationPermissions):
     queryset = Notification.objects.all().order_by('-created_at')
 
     def get_serializer_class(self):
@@ -19,7 +18,6 @@ class NotificationListCreateView(SwaggerMixin, ListCreateAPIView, RoleBasedQuery
         response_schema=NOTIFICATION_RESPONSE_SCHEMA,
         tags=["Notifications"]
     )
-    @transaction.atomic
     def create(self, request, *args, **kwargs):
         return super().create(request, *args, **kwargs)
 
@@ -27,8 +25,7 @@ class NotificationListCreateView(SwaggerMixin, ListCreateAPIView, RoleBasedQuery
         serializer.save(user=self.request.user)
 
 
-class NotificationDetailView(SwaggerMixin, RetrieveUpdateDestroyAPIView, RoleBasedQuerysetMixin, NotificationPermissions):
-    permission_classes = [IsAuthenticated]
+class NotificationDetailView(OptimizedRetrieveUpdateDestroyView, NotificationPermissions):
     queryset = Notification.objects.all().order_by('-created_at')
 
     def get_serializer_class(self):
@@ -37,9 +34,8 @@ class NotificationDetailView(SwaggerMixin, RetrieveUpdateDestroyAPIView, RoleBas
         return NotificationSerializer
 
 
-class NotificationMarkAsReadView(APIView):
+class NotificationMarkAsReadView(BaseAPIView):
     """Mark notification as read"""
-    permission_classes = [IsAuthenticated]
     
     @swagger_auto_schema(
         operation_description="Mark notification as read",
@@ -63,16 +59,13 @@ class NotificationMarkAsReadView(APIView):
             notification.is_read = True
             notification.save()
             
-            return Response({
-                'message': 'Notification marked as read'
-            })
+            return self.get_success_response(message='Notification marked as read')
         except Notification.DoesNotExist:
             raise CustomValidationError(ErrorCode.USER_NOT_FOUND)
 
 
-class NotificationDeleteAllView(APIView):
+class NotificationDeleteAllView(BaseAPIView):
     """Delete all notifications for current user"""
-    permission_classes = [IsAuthenticated]
     
     @swagger_auto_schema(
         operation_description="Delete all notifications for current user",
@@ -92,15 +85,14 @@ class NotificationDeleteAllView(APIView):
             user=request.user
         ).delete()
         
-        return Response({
-            'message': 'All notifications deleted',
-            'deleted_count': deleted_count
-        })
+        return self.get_success_response(
+            data={'deleted_count': deleted_count},
+            message='All notifications deleted'
+        )
 
 
-class NotificationMarkAllAsReadView(APIView):
+class NotificationMarkAllAsReadView(BaseAPIView):
     """Mark all notifications as read for current user"""
-    permission_classes = [IsAuthenticated]
     
     @swagger_auto_schema(
         operation_description="Mark all notifications as read for current user",
@@ -121,15 +113,14 @@ class NotificationMarkAllAsReadView(APIView):
             is_read=False
         ).update(is_read=True)
         
-        return Response({
-            'message': 'All notifications marked as read',
-            'updated_count': updated_count
-        })
+        return self.get_success_response(
+            data={'updated_count': updated_count},
+            message='All notifications marked as read'
+        )
 
 
-class NotificationUnreadCountView(APIView):
+class NotificationUnreadCountView(BaseAPIView):
     """Get unread notifications count for current user"""
-    permission_classes = [IsAuthenticated]
     
     @swagger_auto_schema(
         operation_description="Get unread notifications count",
@@ -148,7 +139,5 @@ class NotificationUnreadCountView(APIView):
             is_read=False
         ).count()
         
-        return Response({
-            'unread_count': unread_count
-        })
+        return self.get_success_response(data={'unread_count': unread_count})
 

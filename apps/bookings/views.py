@@ -6,8 +6,7 @@ from .serializers import (
 from .permissions import BookingPermissions
 
 
-class BookingListCreateView(SwaggerMixin, ListCreateAPIView, RoleBasedQuerysetMixin, BookingPermissions):
-    permission_classes = [IsAuthenticated]
+class BookingListCreateView(OptimizedListCreateView, BookingPermissions):
     queryset = Booking.objects.select_related('customer', 'service', 'provider').order_by('-id')
 
     def get_serializer_class(self):
@@ -19,8 +18,7 @@ class BookingListCreateView(SwaggerMixin, ListCreateAPIView, RoleBasedQuerysetMi
         serializer.save(customer=self.request.user)
 
 
-class BookingDetailView(SwaggerMixin, RetrieveUpdateDestroyAPIView, RoleBasedQuerysetMixin, BookingPermissions):
-    permission_classes = [IsAuthenticated]
+class BookingDetailView(OptimizedRetrieveUpdateDestroyView, BookingPermissions):
     queryset = Booking.objects.select_related('customer', 'service', 'provider').order_by('-id')
 
     def get_serializer_class(self):

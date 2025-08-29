@@ -4,7 +4,7 @@ from core.error_handling import ErrorCode
 from .models import Document
 
 
-class DocumentSerializer(serializers.ModelSerializer):
+class DocumentSerializer(OptimizedModelSerializer):
     file_path = serializers.ReadOnlyField()
     file_type = serializers.ReadOnlyField()
     file_size = serializers.ReadOnlyField()
@@ -19,7 +19,7 @@ class DocumentSerializer(serializers.ModelSerializer):
         read_only_fields = ['uploaded_by', 'created_at']
 
 
-class DocumentCreateSerializer(serializers.ModelSerializer):
+class DocumentCreateSerializer(OptimizedModelSerializer):
     class Meta:
         model = Document
         fields = ['title', 'description', 'file']
@@ -38,7 +38,7 @@ class DocumentCreateSerializer(serializers.ModelSerializer):
         return value
 
 
-class DocumentUpdateSerializer(serializers.ModelSerializer):
+class DocumentUpdateSerializer(OptimizedModelSerializer):
     class Meta:
         model = Document
         fields = ['title', 'description']

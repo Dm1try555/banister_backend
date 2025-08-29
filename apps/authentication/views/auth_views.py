@@ -4,7 +4,7 @@ from ..serializers import UserCreateSerializer, LoginSerializer, RefreshSerializ
 from core.mail.service import email_service
 
 
-class RegisterView(CreateAPIView):
+class RegisterView(OptimizedCreateView):
     serializer_class = UserCreateSerializer
     permission_classes = [AllowAny]
     
@@ -44,7 +44,7 @@ class RegisterView(CreateAPIView):
             logger.error(f"Failed to send welcome email to {user.email}: {e}")
 
 
-class LoginView(APIView):
+class LoginView(BaseAPIView):
     permission_classes = [AllowAny]
     
     @swagger_auto_schema(
@@ -85,7 +85,7 @@ class LoginView(APIView):
         })
 
 
-class RefreshTokenView(APIView):
+class RefreshTokenView(BaseAPIView):
     permission_classes = [AllowAny]
     
     @swagger_auto_schema(

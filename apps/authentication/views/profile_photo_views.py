@@ -4,7 +4,7 @@ from ..serializers import ProfilePhotoUploadSerializer
 from core.minio.client import minio_client
 
 
-class ProfilePhotoUploadView(APIView):
+class ProfilePhotoUploadView(BaseAPIView):
     permission_classes = [IsAuthenticated]
     
     @swagger_auto_schema(

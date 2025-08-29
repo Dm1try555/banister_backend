@@ -4,7 +4,7 @@ from core.error_handling import ErrorCode
 from .models import Service, Schedule
 
 
-class ServiceSerializer(serializers.ModelSerializer):
+class ServiceSerializer(OptimizedModelSerializer):
     provider = serializers.SerializerMethodField()
     provider_name = serializers.SerializerMethodField()
     
@@ -20,7 +20,7 @@ class ServiceSerializer(serializers.ModelSerializer):
         return obj.provider.username if obj.provider else None
 
 
-class ServiceCreateSerializer(serializers.ModelSerializer):
+class ServiceCreateSerializer(OptimizedModelSerializer):
     class Meta:
         model = Service
         fields = ['title', 'description', 'price']
@@ -31,7 +31,7 @@ class ServiceCreateSerializer(serializers.ModelSerializer):
         return value
 
 
-class ServiceUpdateSerializer(serializers.ModelSerializer):
+class ServiceUpdateSerializer(OptimizedModelSerializer):
     class Meta:
         model = Service
         fields = ['title', 'description', 'price']
@@ -42,7 +42,7 @@ class ServiceUpdateSerializer(serializers.ModelSerializer):
         return value
 
 
-class ScheduleSerializer(serializers.ModelSerializer):
+class ScheduleSerializer(OptimizedModelSerializer):
     provider = serializers.SerializerMethodField()
     provider_name = serializers.SerializerMethodField()
     service_title = serializers.SerializerMethodField()
@@ -77,7 +77,7 @@ class ScheduleSerializer(serializers.ModelSerializer):
         return obj.get_day_of_week_display() if hasattr(obj, 'get_day_of_week_display') else None
 
 
-class ScheduleCreateSerializer(serializers.ModelSerializer):
+class ScheduleCreateSerializer(OptimizedModelSerializer):
     class Meta:
         model = Schedule
         fields = ['service', 'day_of_week', 'start_time', 'end_time', 'is_available']
@@ -96,7 +96,7 @@ class ScheduleCreateSerializer(serializers.ModelSerializer):
         return attrs
 
 
-class ScheduleUpdateSerializer(serializers.ModelSerializer):
+class ScheduleUpdateSerializer(OptimizedModelSerializer):
     class Meta:
         model = Schedule
         fields = ['day_of_week', 'start_time', 'end_time', 'is_available']

@@ -5,7 +5,7 @@ from core.base.validation_mixins import EmailValidationMixin, PhoneValidationMix
 from .models import User, AdminPermission, UserFCMToken
 
 
-class UserBaseSerializer(serializers.ModelSerializer):
+class UserBaseSerializer(OptimizedModelSerializer):
     """Base serializer for User model with common fields"""
     class Meta:
         model = User

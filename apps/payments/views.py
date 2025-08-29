@@ -11,7 +11,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-class PaymentListCreateView(SwaggerMixin, ListCreateAPIView, RoleBasedQuerysetMixin, PaymentPermissions):
+class PaymentListCreateView(OptimizedListCreateView, PaymentPermissions):
     permission_classes = [IsAuthenticated]
     queryset = Payment.objects.select_related('customer', 'provider', 'booking', 'booking__service').order_by('-created_at')
 
@@ -54,7 +54,7 @@ class PaymentListCreateView(SwaggerMixin, ListCreateAPIView, RoleBasedQuerysetMi
         payment.save()
 
 
-class PaymentDetailView(SwaggerMixin, RetrieveUpdateAPIView, RoleBasedQuerysetMixin, PaymentPermissions):
+class PaymentDetailView(OptimizedRetrieveUpdateView, PaymentPermissions):
     permission_classes = [IsAuthenticated]
     queryset = Payment.objects.select_related('customer', 'provider', 'booking', 'booking__service').order_by('-created_at')
 
@@ -72,7 +72,7 @@ class PaymentDetailView(SwaggerMixin, RetrieveUpdateAPIView, RoleBasedQuerysetMi
         return super().get(request, *args, **kwargs)
 
 
-class PaymentConfirmView(APIView):
+class PaymentConfirmView(BaseAPIView):
     permission_classes = [IsAuthenticated]
 
     @swagger_auto_schema_simple(
@@ -132,7 +132,7 @@ class PaymentConfirmView(APIView):
             ErrorCode.USER_NOT_FOUND.raise_error()
 
 
-class PaymentTransferView(APIView):
+class PaymentTransferView(BaseAPIView):
     permission_classes = [IsAuthenticated]
 
     @swagger_auto_schema_simple(
@@ -192,7 +192,7 @@ class PaymentTransferView(APIView):
             ErrorCode.USER_NOT_FOUND.raise_error()
 
 
-class PaymentClientSecretView(APIView):
+class PaymentClientSecretView(BaseAPIView):
     permission_classes = [IsAuthenticated]
 
     @swagger_auto_schema_simple(
@@ -247,7 +247,7 @@ class PaymentClientSecretView(APIView):
             ErrorCode.USER_NOT_FOUND.raise_error()
 
 
-class StripeAccountCreateView(APIView):
+class StripeAccountCreateView(BaseAPIView):
     permission_classes = [IsAuthenticated]
 
     @swagger_auto_schema_simple(

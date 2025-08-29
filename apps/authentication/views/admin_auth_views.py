@@ -4,7 +4,7 @@ from ..serializers import AdminUserCreateSerializer, UserSerializer, LoginSerial
 from django.template.loader import render_to_string
 
 
-class AdminUserRegisterView(CreateAPIView):
+class AdminUserRegisterView(OptimizedCreateView):
     """Register new admin users (only for super_admin)"""
     serializer_class = AdminUserCreateSerializer
     permission_classes = [IsAuthenticated]
@@ -69,7 +69,7 @@ class AdminUserRegisterView(CreateAPIView):
             logger.error(f"Failed to send welcome email: {e}")
 
 
-class AdminLoginView(APIView):
+class AdminLoginView(BaseAPIView):
     """Login for admin users (super_admin, admin, hr, supervisor)"""
     permission_classes = [AllowAny]
     

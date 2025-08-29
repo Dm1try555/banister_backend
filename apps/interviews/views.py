@@ -13,7 +13,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-class InterviewListCreateView(SwaggerMixin, ListCreateAPIView, RoleBasedQuerysetMixin, InterviewPermissions):
+class InterviewListCreateView(OptimizedListCreateView, InterviewPermissions):
     permission_classes = [IsAuthenticated]
     queryset = Interview.objects.all()
 
@@ -64,7 +64,7 @@ class InterviewListCreateView(SwaggerMixin, ListCreateAPIView, RoleBasedQueryset
             return queryset.filter(provider=self.request.user).select_related('provider', 'service')
 
 
-class InterviewDetailView(SwaggerMixin, RetrieveUpdateDestroyAPIView, RoleBasedQuerysetMixin, InterviewPermissions):
+class InterviewDetailView(OptimizedRetrieveUpdateDestroyView, InterviewPermissions):
     permission_classes = [IsAuthenticated]
     queryset = Interview.objects.all()
 
@@ -198,7 +198,7 @@ class InterviewDetailView(SwaggerMixin, RetrieveUpdateDestroyAPIView, RoleBasedQ
             logger.error(f"Error sending completion notification: {e}")
 
 
-class InterviewRequestListCreateView(SwaggerMixin, ListCreateAPIView, RoleBasedQuerysetMixin, InterviewPermissions):
+class InterviewRequestListCreateView(OptimizedListCreateView, InterviewPermissions):
     permission_classes = [IsAuthenticated]
     queryset = InterviewRequest.objects.all()
 
@@ -251,7 +251,7 @@ class InterviewRequestListCreateView(SwaggerMixin, ListCreateAPIView, RoleBasedQ
             return queryset.filter(provider=self.request.user).select_related('provider', 'service')
 
 
-class InterviewRequestDetailView(SwaggerMixin, RetrieveUpdateDestroyAPIView, RoleBasedQuerysetMixin, InterviewPermissions):
+class InterviewRequestDetailView(OptimizedRetrieveUpdateDestroyView, InterviewPermissions):
     permission_classes = [IsAuthenticated]
     queryset = InterviewRequest.objects.all()
 
@@ -336,7 +336,7 @@ class InterviewRequestDetailView(SwaggerMixin, RetrieveUpdateDestroyAPIView, Rol
             logger.error(f"Error sending rejection notification: {e}")
 
 
-class TestGoogleMeetView(APIView):
+class TestGoogleMeetView(BaseAPIView):
     """Test endpoint for Google Meet integration"""
     permission_classes = [IsAuthenticated]
 

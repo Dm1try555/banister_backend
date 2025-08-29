@@ -8,8 +8,7 @@ from core.stripe.service import stripe_service
 from .permissions import WithdrawalPermissions
 
 
-class WithdrawalListCreateView(SwaggerMixin, ListCreateAPIView, RoleBasedQuerysetMixin, WithdrawalPermissions):
-    permission_classes = [IsAuthenticated]
+class WithdrawalListCreateView(OptimizedListCreateView, WithdrawalPermissions):
     queryset = Withdrawal.objects.all().order_by('-created_at')
 
     def get_serializer_class(self):
@@ -28,8 +27,7 @@ class WithdrawalListCreateView(SwaggerMixin, ListCreateAPIView, RoleBasedQueryse
         serializer.save(user=self.request.user)
 
 
-class WithdrawalDetailView(SwaggerMixin, RetrieveUpdateDestroyAPIView, RoleBasedQuerysetMixin, WithdrawalPermissions):
-    permission_classes = [IsAuthenticated]
+class WithdrawalDetailView(OptimizedRetrieveUpdateDestroyView, WithdrawalPermissions):
     queryset = Withdrawal.objects.all().order_by('-created_at')
 
     def get_serializer_class(self):
@@ -40,23 +38,11 @@ class WithdrawalDetailView(SwaggerMixin, RetrieveUpdateDestroyAPIView, RoleBased
 
 
 
-class WithdrawalApproveView(SwaggerMixin, UpdateAPIView, RoleBasedQuerysetMixin, WithdrawalPermissions):
-    permission_classes = [IsAuthenticated]
+class WithdrawalApproveView(BaseAPIView, WithdrawalPermissions):
     serializer_class = WithdrawalApproveSerializer
     queryset = Withdrawal.objects.all().order_by('-created_at')
 
-    def get_queryset(self):
-        if not self.request.user.is_authenticated:
-            return Withdrawal.objects.none()
-            
-        user = self.request.user
-        if user.role == 'customer':
-            return self._get_customer_queryset(Withdrawal, user)
-        elif user.role == 'service_provider':
-            return self._get_service_provider_queryset(Withdrawal, user)
-        return self._get_admin_queryset(Withdrawal, user)
-
-    @swagger_auto_schema_simple(
+    @swagger_auto_schema(
         operation_description="Approve withdrawal request",
         responses={
             200: openapi.Schema(
@@ -85,30 +71,18 @@ class WithdrawalApproveView(SwaggerMixin, UpdateAPIView, RoleBasedQuerysetMixin,
         withdrawal.completed_at = timezone.now()
         withdrawal.save()
         
-        return Response({
+        return self.get_success_response({
             'status': 'success',
             'message': 'Withdrawal approved successfully',
             'withdrawal_id': withdrawal.id
         })
 
 
-class WithdrawalRejectView(SwaggerMixin, UpdateAPIView, RoleBasedQuerysetMixin, WithdrawalPermissions):
-    permission_classes = [IsAuthenticated]
+class WithdrawalRejectView(BaseAPIView, WithdrawalPermissions):
     serializer_class = WithdrawalRejectSerializer
     queryset = Withdrawal.objects.all().order_by('-created_at')
 
-    def get_queryset(self):
-        if not self.request.user.is_authenticated:
-            return Withdrawal.objects.none()
-            
-        user = self.request.user
-        if user.role == 'customer':
-            return self._get_customer_queryset(Withdrawal, user)
-        elif user.role == 'service_provider':
-            return self._get_service_provider_queryset(Withdrawal, user)
-        return self._get_admin_queryset(Withdrawal, user)
-
-    @swagger_auto_schema_simple(
+    @swagger_auto_schema(
         operation_description="Reject withdrawal request",
         responses={
             200: openapi.Schema(
@@ -138,7 +112,7 @@ class WithdrawalRejectView(SwaggerMixin, UpdateAPIView, RoleBasedQuerysetMixin, 
         withdrawal.status = 'rejected'
         withdrawal.save()
         
-        return Response({
+        return self.get_success_response({
             'status': 'success',
             'message': 'Withdrawal rejected successfully',
             'withdrawal_id': withdrawal.id

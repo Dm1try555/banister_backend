@@ -7,7 +7,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-class SendVerificationEmailView(APIView):
+class SendVerificationEmailView(BaseAPIView):
     permission_classes = [AllowAny]
     
     @swagger_auto_schema(
@@ -50,7 +50,7 @@ class SendVerificationEmailView(APIView):
             raise CustomValidationError(ErrorCode.USER_NOT_FOUND)
 
 
-class VerifyEmailView(APIView):
+class VerifyEmailView(BaseAPIView):
     permission_classes = [AllowAny]
     
     @swagger_auto_schema(

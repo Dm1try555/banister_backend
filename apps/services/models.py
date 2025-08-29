@@ -1,8 +1,7 @@
-from django.db import models
+from core.base.common_imports import *
 from apps.authentication.models import User
 
-class Service(models.Model):
-    created_at = models.DateTimeField(auto_now_add=True)
+class Service(OptimizedModel):
     provider = models.ForeignKey(User, on_delete=models.CASCADE, related_name='services')
     title = models.CharField(max_length=100)
     description = models.TextField()
@@ -20,7 +19,7 @@ class Service(models.Model):
     def __str__(self):
         return self.title
 
-class Schedule(models.Model):
+class Schedule(OptimizedModel):
     DAYS_OF_WEEK = (
         (0, 'Monday'),
         (1, 'Tuesday'),
@@ -37,7 +36,6 @@ class Schedule(models.Model):
     start_time = models.TimeField()
     end_time = models.TimeField()
     is_available = models.BooleanField(default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
     
     class Meta:
         unique_together = ['provider', 'service', 'day_of_week']

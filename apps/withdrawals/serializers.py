@@ -4,7 +4,7 @@ from core.error_handling import ErrorCode
 from .models import Withdrawal
 
 
-class WithdrawalSerializer(serializers.ModelSerializer):
+class WithdrawalSerializer(OptimizedModelSerializer):
     class Meta:
         model = Withdrawal
         fields = [
@@ -13,7 +13,7 @@ class WithdrawalSerializer(serializers.ModelSerializer):
         ]
 
 
-class WithdrawalCreateSerializer(serializers.ModelSerializer):
+class WithdrawalCreateSerializer(OptimizedModelSerializer):
     class Meta:
         model = Withdrawal
         fields = ['amount', 'currency']
@@ -31,19 +31,19 @@ class WithdrawalCreateSerializer(serializers.ModelSerializer):
         return value
 
 
-class WithdrawalUpdateSerializer(serializers.ModelSerializer):
+class WithdrawalUpdateSerializer(OptimizedModelSerializer):
     class Meta:
         model = Withdrawal
         fields = ['status', 'stripe_transfer_id', 'completed_at', 'reason']
 
 
-class WithdrawalApproveSerializer(serializers.ModelSerializer):
+class WithdrawalApproveSerializer(OptimizedModelSerializer):
     class Meta:
         model = Withdrawal
         fields = []
 
 
-class WithdrawalRejectSerializer(serializers.ModelSerializer):
+class WithdrawalRejectSerializer(OptimizedModelSerializer):
     class Meta:
         model = Withdrawal
         fields = ['reason']

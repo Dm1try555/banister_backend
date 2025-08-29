@@ -2,7 +2,26 @@ from core.base.common_imports import *
 from core.error_handling import ErrorCode
 from .models import ChatRoom, Message
 
-class MessageSerializer(serializers.ModelSerializer):
+
+class BaseMessageSerializer(OptimizedModelSerializer):
+    """Базовый serializer для сообщений"""
+    
+    class Meta:
+        model = Message
+        abstract = True
+    
+    def validate_content(self, value):
+        """Валидация содержимого сообщения"""
+        if not value or len(value.strip()) == 0:
+            ErrorCode.MISSING_REQUIRED_FIELD.raise_error()
+        
+        if len(value) > 1000:  # Maximum message length
+            ErrorCode.FIELD_TOO_LONG.raise_error()
+        
+        return value
+
+
+class MessageSerializer(BaseMessageSerializer):
     sender_username = serializers.CharField(source='sender.username', read_only=True)
     
     class Meta:
@@ -10,33 +29,17 @@ class MessageSerializer(serializers.ModelSerializer):
         fields = ['id', 'content', 'sender_username', 'created_at', 'updated_at', 'is_deleted']
         read_only_fields = ['id', 'sender_username', 'created_at', 'updated_at']
 
-class MessageCreateSerializer(serializers.ModelSerializer):
+
+class MessageCreateSerializer(BaseMessageSerializer):
     class Meta:
         model = Message
         fields = ['id', 'content', 'room', 'created_at', 'updated_at']
 
-    def validate_content(self, value):
-        if not value or len(value.strip()) == 0:
-            ErrorCode.MISSING_REQUIRED_FIELD.raise_error()
-        
-        if len(value) > 1000:  # Maximum message length
-            ErrorCode.FIELD_TOO_LONG.raise_error()
-        
-        return value
 
-class MessageUpdateSerializer(serializers.ModelSerializer):
+class MessageUpdateSerializer(BaseMessageSerializer):
     class Meta:
         model = Message
         fields = ['content']
-
-    def validate_content(self, value):
-        if not value or len(value.strip()) == 0:
-            ErrorCode.MISSING_REQUIRED_FIELD.raise_error()
-        
-        if len(value) > 1000:  # Maximum message length
-            ErrorCode.FIELD_TOO_LONG.raise_error()
-        
-        return value
 
 class ChatRoomSerializer(serializers.ModelSerializer):
     participants_count = serializers.IntegerField(source='participants.count', read_only=True)

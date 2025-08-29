@@ -3,9 +3,8 @@ from ..models import User
 from ..serializers import UserSerializer, UserUpdateSerializer
 
 
-class ProfileView(RetrieveUpdateAPIView):
+class ProfileView(OptimizedRetrieveUpdateView):
     serializer_class = UserSerializer
-    permission_classes = [IsAuthenticated]
     
     def get_object(self):
         return self.request.user
@@ -29,8 +28,7 @@ class ProfileView(RetrieveUpdateAPIView):
         return super().get(request, *args, **kwargs)
 
 
-class DeleteProfileView(APIView):
-    permission_classes = [IsAuthenticated]
+class DeleteProfileView(BaseAPIView):
     
     @swagger_auto_schema(
         operation_description="Delete user profile (only own profile)",
@@ -48,10 +46,5 @@ class DeleteProfileView(APIView):
     @transaction.atomic
     def delete(self, request):
         user = request.user
-        
-        # Delete user profile
         user.delete()
-        
-        return Response({
-            'message': 'Profile deleted successfully'
-        }, status=status.HTTP_200_OK)
+        return self.get_success_response(message='Profile deleted successfully')

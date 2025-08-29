@@ -7,8 +7,7 @@ from .serializers import (
 from .permissions import ChatPermissions
 
 
-class ChatRoomListCreateView(SwaggerMixin, ListCreateAPIView, RoleBasedQuerysetMixin, ChatPermissions):
-    permission_classes = [IsAuthenticated]
+class ChatRoomListCreateView(OptimizedListCreateView, ChatPermissions):
     queryset = ChatRoom.objects.all()
 
     def get_serializer_class(self):
@@ -19,7 +18,6 @@ class ChatRoomListCreateView(SwaggerMixin, ListCreateAPIView, RoleBasedQuerysetM
         response_schema=CHAT_ROOM_RESPONSE_SCHEMA,
         tags=["Chat"]
     )
-    @transaction.atomic
     def create(self, request, *args, **kwargs):
         return super().create(request, *args, **kwargs)
 
@@ -28,8 +26,7 @@ class ChatRoomListCreateView(SwaggerMixin, ListCreateAPIView, RoleBasedQuerysetM
         chat_room.participants.add(self.request.user)
 
 
-class ChatRoomDetailView(SwaggerMixin, RetrieveUpdateDestroyAPIView, RoleBasedQuerysetMixin, ChatPermissions):
-    permission_classes = [IsAuthenticated]
+class ChatRoomDetailView(OptimizedRetrieveUpdateDestroyView, ChatPermissions):
     queryset = ChatRoom.objects.all()
 
     def get_serializer_class(self):
@@ -40,8 +37,7 @@ class ChatRoomDetailView(SwaggerMixin, RetrieveUpdateDestroyAPIView, RoleBasedQu
 
 
 
-class MessageListCreateView(SwaggerMixin, ListCreateAPIView, RoleBasedQuerysetMixin, ChatPermissions):
-    permission_classes = [IsAuthenticated]
+class MessageListCreateView(OptimizedListCreateView, ChatPermissions):
     queryset = Message.objects.all()
 
     def get_serializer_class(self):
@@ -52,7 +48,6 @@ class MessageListCreateView(SwaggerMixin, ListCreateAPIView, RoleBasedQuerysetMi
         response_schema=MESSAGE_RESPONSE_SCHEMA,
         tags=["Chat Messages"]
     )
-    @transaction.atomic
     def create(self, request, *args, **kwargs):
         return super().create(request, *args, **kwargs)
 
@@ -67,8 +62,7 @@ class MessageListCreateView(SwaggerMixin, ListCreateAPIView, RoleBasedQuerysetMi
         return queryset.filter(is_deleted=False).order_by('-created_at')
 
 
-class MessageDetailView(SwaggerMixin, RetrieveUpdateDestroyAPIView, RoleBasedQuerysetMixin, ChatPermissions):
-    permission_classes = [IsAuthenticated]
+class MessageDetailView(OptimizedRetrieveUpdateDestroyView, ChatPermissions):
     queryset = Message.objects.all()
 
     def get_serializer_class(self):
@@ -96,7 +90,6 @@ class MessageDetailView(SwaggerMixin, RetrieveUpdateDestroyAPIView, RoleBasedQue
             404: ERROR_404_SCHEMA
         }
     )
-    @transaction.atomic
     def patch(self, request, *args, **kwargs):
         message = self.get_object()
         # Check if user is the sender
@@ -116,7 +109,6 @@ class MessageDetailView(SwaggerMixin, RetrieveUpdateDestroyAPIView, RoleBasedQue
             404: ERROR_404_SCHEMA
         }
     )
-    @transaction.atomic
     def delete(self, request, *args, **kwargs):
         message = self.get_object()
         # Check if user is the sender
@@ -134,7 +126,6 @@ class MessageDetailView(SwaggerMixin, RetrieveUpdateDestroyAPIView, RoleBasedQue
 
 class MessageListByRoomView(SwaggerMixin, ListAPIView, RoleBasedQuerysetMixin, ChatPermissions):
     """Get messages for a specific room with pagination"""
-    permission_classes = [IsAuthenticated]
     serializer_class = MessageSerializer
 
     def get_queryset(self):

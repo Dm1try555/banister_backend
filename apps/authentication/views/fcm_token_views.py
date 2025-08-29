@@ -7,7 +7,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-class FCMTokenRegisterView(APIView):
+class FCMTokenRegisterView(BaseAPIView):
     """Register or update user's FCM token"""
     permission_classes = [IsAuthenticated]
     
@@ -48,7 +48,7 @@ class FCMTokenRegisterView(APIView):
             raise CustomValidationError(ErrorCode.INTERNAL_SERVER_ERROR)
 
 
-class FCMTokenUnregisterView(APIView):
+class FCMTokenUnregisterView(BaseAPIView):
     """Unregister user's FCM token"""
     permission_classes = [IsAuthenticated]
     
@@ -89,7 +89,7 @@ class FCMTokenUnregisterView(APIView):
             raise CustomValidationError(ErrorCode.INTERNAL_SERVER_ERROR)
 
 
-class FCMTokenListView(APIView):
+class FCMTokenListView(BaseAPIView):
     """Get user's FCM tokens"""
     permission_classes = [IsAuthenticated]
     

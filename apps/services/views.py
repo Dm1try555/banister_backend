@@ -7,7 +7,7 @@ from .serializers import (
 from .permissions import ServicePermissions, SchedulePermissions
 
 
-class ServiceListCreateView(SwaggerMixin, ListCreateAPIView, RoleBasedQuerysetMixin, ServicePermissions):
+class ServiceListCreateView(OptimizedListCreateView, ServicePermissions):
     permission_classes = [AllowAny]  # All can view, but only authorized can create
     queryset = Service.objects.select_related('provider').order_by('-created_at')
     filter_backends = [SearchFilter, OrderingFilter]
@@ -25,7 +25,7 @@ class ServiceListCreateView(SwaggerMixin, ListCreateAPIView, RoleBasedQuerysetMi
         serializer.save(provider=self.request.user)
 
 
-class ServiceDetailView(SwaggerMixin, RetrieveUpdateDestroyAPIView, RoleBasedQuerysetMixin, ServicePermissions):
+class ServiceDetailView(OptimizedRetrieveUpdateDestroyView, ServicePermissions):
     permission_classes = [AllowAny]  # All can view
     queryset = Service.objects.select_related('provider').order_by('-created_at')
 
@@ -52,7 +52,7 @@ class ServiceDetailView(SwaggerMixin, RetrieveUpdateDestroyAPIView, RoleBasedQue
         return super().delete(request, *args, **kwargs)
 
 
-class ScheduleListCreateView(SwaggerMixin, ListCreateAPIView, RoleBasedQuerysetMixin, SchedulePermissions):
+class ScheduleListCreateView(OptimizedListCreateView, SchedulePermissions):
     permission_classes = [AllowAny]  # All can view
     queryset = Schedule.objects.select_related('provider', 'service', 'service__provider').order_by('-created_at')
 
@@ -66,7 +66,7 @@ class ScheduleListCreateView(SwaggerMixin, ListCreateAPIView, RoleBasedQuerysetM
         serializer.save(provider=self.request.user)
 
 
-class ScheduleDetailView(SwaggerMixin, RetrieveUpdateDestroyAPIView, RoleBasedQuerysetMixin, SchedulePermissions):
+class ScheduleDetailView(OptimizedRetrieveUpdateDestroyView, SchedulePermissions):
     permission_classes = [AllowAny]  # All can view
     queryset = Schedule.objects.select_related('provider', 'service', 'service__provider').order_by('-created_at')
 

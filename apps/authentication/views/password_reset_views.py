@@ -7,7 +7,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-class PasswordResetRequestView(APIView):
+class PasswordResetRequestView(BaseAPIView):
     permission_classes = [AllowAny]
     
     @swagger_auto_schema(
@@ -50,7 +50,7 @@ class PasswordResetRequestView(APIView):
             raise CustomValidationError(ErrorCode.USER_NOT_FOUND)
 
 
-class PasswordResetConfirmView(APIView):
+class PasswordResetConfirmView(BaseAPIView):
     permission_classes = [AllowAny]
     
     @swagger_auto_schema(

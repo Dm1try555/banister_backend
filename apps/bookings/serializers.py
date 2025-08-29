@@ -4,7 +4,7 @@ from core.error_handling import ErrorCode
 from .models import Booking
 
 
-class BookingSerializer(serializers.ModelSerializer):
+class BookingSerializer(OptimizedModelSerializer):
     class Meta:
         model = Booking
         fields = [
@@ -14,7 +14,7 @@ class BookingSerializer(serializers.ModelSerializer):
         ]
 
 
-class BookingCreateSerializer(serializers.ModelSerializer):
+class BookingCreateSerializer(OptimizedModelSerializer):
     class Meta:
         model = Booking
         fields = ['service', 'preferred_date', 'preferred_time', 'notes']
@@ -32,7 +32,7 @@ class BookingCreateSerializer(serializers.ModelSerializer):
         return value
 
 
-class BookingUpdateSerializer(serializers.ModelSerializer):
+class BookingUpdateSerializer(OptimizedModelSerializer):
     class Meta:
         model = Booking
         fields = ['status', 'scheduled_datetime', 'notes', 'total_price']

@@ -3,7 +3,7 @@ from ..models import User, AdminPermission
 from ..serializers import AdminPermissionSerializer, AdminPermissionManageSerializer
 
 
-class AdminPermissionListView(SwaggerMixin, ListCreateAPIView):
+class AdminPermissionListView(OptimizedListCreateView):
     """List and create admin permissions"""
     permission_classes = [IsAuthenticated]
     serializer_class = AdminPermissionSerializer
@@ -88,7 +88,7 @@ class AdminPermissionListView(SwaggerMixin, ListCreateAPIView):
         return Response(AdminPermissionSerializer(permission).data, status=status.HTTP_201_CREATED)
 
 
-class AdminPermissionDetailView(SwaggerMixin, RetrieveUpdateDestroyAPIView):
+class AdminPermissionDetailView(OptimizedRetrieveUpdateDestroyView):
     """Retrieve, update or delete admin permission"""
     permission_classes = [IsAuthenticated]
     serializer_class = AdminPermissionSerializer
@@ -214,7 +214,7 @@ class AdminPermissionDetailView(SwaggerMixin, RetrieveUpdateDestroyAPIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-class AdminPermissionByAdminView(SwaggerMixin, ListAPIView):
+class AdminPermissionByAdminView(OptimizedListCreateView):
     """Get all permissions for a specific admin"""
     permission_classes = [IsAuthenticated]
     serializer_class = AdminPermissionSerializer

@@ -3,22 +3,22 @@ from core.error_handling import ErrorCode
 
 from .models import CustomerDashboard, ProviderDashboard, ManagementDashboard, Issue
 
-class CustomerDashboardSerializer(serializers.ModelSerializer):
+class CustomerDashboardSerializer(OptimizedModelSerializer):
     class Meta:
         model = CustomerDashboard
         fields = '__all__'
 
-class CustomerDashboardUpdateSerializer(serializers.ModelSerializer):
+class CustomerDashboardUpdateSerializer(OptimizedModelSerializer):
     class Meta:
         model = CustomerDashboard
         fields = '__all__'
 
-class ProviderDashboardSerializer(serializers.ModelSerializer):
+class ProviderDashboardSerializer(OptimizedModelSerializer):
     class Meta:
         model = ProviderDashboard
         fields = '__all__'
 
-class ProviderDashboardUpdateSerializer(serializers.ModelSerializer):
+class ProviderDashboardUpdateSerializer(OptimizedModelSerializer):
     class Meta:
         model = ProviderDashboard
         fields = ['calendar_view_type', 'working_hours_start', 'working_hours_end', 'commission_rate', 'email_notifications', 'sms_notifications', 'vacation_mode', 'vacation_start', 'vacation_end']
@@ -42,12 +42,12 @@ class ProviderDashboardUpdateSerializer(serializers.ModelSerializer):
                 ErrorCode.INVALID_SCHEDULE_TIME.raise_error()
         return value
 
-class ManagementDashboardSerializer(serializers.ModelSerializer):
+class ManagementDashboardSerializer(OptimizedModelSerializer):
     class Meta:
         model = ManagementDashboard
         fields = '__all__'
 
-class ManagementDashboardUpdateSerializer(serializers.ModelSerializer):
+class ManagementDashboardUpdateSerializer(OptimizedModelSerializer):
     class Meta:
         model = ManagementDashboard
         fields = ['total_customers_managed', 'total_issues_resolved', 'total_issues_pending']
@@ -67,7 +67,7 @@ class ManagementDashboardUpdateSerializer(serializers.ModelSerializer):
             ErrorCode.INVALID_DATA.raise_error()
         return value
 
-class IssueSerializer(serializers.ModelSerializer):
+class IssueSerializer(OptimizedModelSerializer):
     class Meta:
         model = Issue
         fields = '__all__'
