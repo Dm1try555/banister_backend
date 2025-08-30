@@ -9,6 +9,9 @@ class AdminPermissionListView(OptimizedListCreateView):
     serializer_class = AdminPermissionSerializer
     
     def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False):
+            return AdminPermission.objects.none()
+        
         # Only super_admin can manage permissions
         if not self.request.user.role == 'super_admin':
             return AdminPermission.objects.none()
@@ -94,6 +97,9 @@ class AdminPermissionDetailView(OptimizedRetrieveUpdateDestroyView):
     serializer_class = AdminPermissionSerializer
     
     def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False):
+            return AdminPermission.objects.none()
+        
         # Only super_admin can manage permissions
         if not self.request.user.role == 'super_admin':
             return AdminPermission.objects.none()
@@ -220,6 +226,9 @@ class AdminPermissionByAdminView(OptimizedListCreateView):
     serializer_class = AdminPermissionSerializer
     
     def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False):
+            return AdminPermission.objects.none()
+        
         # Only super_admin can view permissions
         if not self.request.user.role == 'super_admin':
             return AdminPermission.objects.none()

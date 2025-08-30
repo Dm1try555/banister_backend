@@ -57,6 +57,9 @@ class InterviewListCreateView(OptimizedListCreateView, InterviewPermissions):
             logger.error(f"Failed to send interview notification: {e}")
 
     def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False):
+            return self.queryset.model.objects.none()
+        
         queryset = super().get_queryset()
         if self.request.user.role in ['super_admin', 'admin']:
             return queryset.select_related('provider', 'service')
@@ -74,6 +77,9 @@ class InterviewDetailView(OptimizedRetrieveUpdateDestroyView, InterviewPermissio
         return InterviewSerializer
 
     def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False):
+            return self.queryset.model.objects.none()
+        
         queryset = super().get_queryset()
         if self.request.user.role in ['super_admin', 'admin']:
             return queryset.select_related('provider', 'service')
@@ -244,6 +250,9 @@ class InterviewRequestListCreateView(OptimizedListCreateView, InterviewPermissio
             logger.error(f"Failed to send interview request notification: {e}")
 
     def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False):
+            return self.queryset.model.objects.none()
+        
         queryset = super().get_queryset()
         if self.request.user.role in ['super_admin', 'admin']:
             return queryset.select_related('provider', 'service')
@@ -261,6 +270,9 @@ class InterviewRequestDetailView(OptimizedRetrieveUpdateDestroyView, InterviewPe
         return InterviewRequestSerializer
 
     def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False):
+            return self.queryset.model.objects.none()
+        
         queryset = super().get_queryset()
         if self.request.user.role in ['super_admin', 'admin']:
             return queryset.select_related('provider', 'service')
